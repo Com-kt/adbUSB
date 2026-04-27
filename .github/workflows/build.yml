@@ -9,19 +9,24 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      # 关键：让所有 v4 的 Action 强制在 Node 24 上运行，从而消除警告
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true 
+
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v4 # 目前 v4 即为最新
 
       - name: Set up JDK 21
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5 # 已升级到 v5
         with:
           java-version: '21'
           distribution: 'temurin'
+          cache: 'gradle' # 推荐开启内置缓存
 
-      # 启用 Gradle 缓存，极大加速后续构建
+      # 如果你保留了下面的 Cache 步骤，setup-java 里的 cache 也可以不写
       - name: Cache Gradle packages
-        uses: actions/cache@v4
+        uses: actions/cache@v4 # 目前 v4 即为最新
         with:
           path: |
             ~/.gradle/caches
@@ -37,7 +42,7 @@ jobs:
         run: ./gradlew assembleDebug
 
       - name: Upload Debug APK
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v4 # 目前 v4 即为最新
         with:
           name: app-debug
           path: app/build/outputs/apk/debug/app-debug.apk
