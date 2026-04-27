@@ -53,7 +53,7 @@ android {
         release {
             isMinifyEnabled = false
             isShrinkResources = false
-            signingConfig = signingConfigs.getByName("adb")
+          //  signingConfig = signingConfigs.getByName("adb")
         }
         debug {
             isMinifyEnabled = false
