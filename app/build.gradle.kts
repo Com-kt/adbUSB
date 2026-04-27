@@ -30,17 +30,17 @@ android {
     }
     
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_21
-        targetCompatibility = JavaVersion.VERSION_21
+        sourceCompatibility = JavaVersion.VERSION_25
+        targetCompatibility = JavaVersion.VERSION_25
     }
     
     signingConfigs {
         create("adb") {
         // keystore file，.bks & .jks
-            storeFile = file("keystore/adb.jks")
-            storePassword = findProperty("ADB_KEY_PASSWORD") as String
-            keyAlias = findProperty("ADB_KEY_ALIAS") as String
-            keyPassword = findProperty("ADB_KEY_KEYPASSWORD") as String
+            storeFile = file("${project.rootDir}/release.jks")
+            storePassword = System.getenv("RELEASE_STORE_PASSWORD")
+            keyAlias = System.getenv("RELEASE_KEY_ALIAS")
+            keyPassword = System.getenv("RELEASE_KEY_PASSWORD")
             
             enableV1Signing = false
             enableV2Signing = true
@@ -53,12 +53,12 @@ android {
         release {
             isMinifyEnabled = false
             isShrinkResources = false
-          //  signingConfig = signingConfigs.getByName("adb")
+            signingConfig = signingConfigs.getByName("adb")
         }
         debug {
             isMinifyEnabled = false
             isDebuggable = true
-         //   signingConfig = signingConfigs.getByName("adb")
+            signingConfig = signingConfigs.getByName("adb")
         }
     }
 
@@ -76,7 +76,7 @@ tasks
         compilerOptions
             .jvmTarget
             .set(
-                org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_21
+                org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_25
             )
     }
 
