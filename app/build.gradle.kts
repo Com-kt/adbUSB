@@ -58,7 +58,7 @@ android {
         debug {
             isMinifyEnabled = false
             isDebuggable = true
-            signingConfig = signingConfigs.getByName("adb")
+         //   signingConfig = signingConfigs.getByName("adb")
         }
     }
 
