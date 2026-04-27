@@ -11,17 +11,24 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        # Updated to v4 (latest ensures Node.js 24 compatibility)
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 24
+        # Explicitly setting Node.js 24 on the runner for consistency
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
 
       - name: Set up JDK 21
+        # Updated to v5 to natively support Node.js 24 runtime
         uses: actions/setup-java@v5
         with:
           java-version: '21'
           distribution: 'temurin'
-          cache: 'gradle' # 推荐开启内置缓存
 
-      # 如果你保留了下面的 Cache 步骤，setup-java 里的 cache 也可以不写
       - name: Cache Gradle packages
+        # Updated to v5 to utilize the Node.js 24 environment
         uses: actions/cache@v5
         with:
           path: |
@@ -34,11 +41,15 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
-      - name: Build Debug APK
-        run: ./gradlew assembleDebug
+      - name: Build Debug APK with Logs
+        run: |
+          ./gradlew assembleDebug --info --stacktrace 2>&1 | tee build.log
 
-      - name: Upload Debug APK
+      - name: Upload Debug APK and Logs
+        # Updated to v5
         uses: actions/upload-artifact@v5
         with:
-          name: app-debug
-          path: app/build/outputs/apk/debug/app-debug.apk
+          name: build-outputs
+          path: |
+            app/build/outputs/apk/debug/app-debug.apk
+            build.log
