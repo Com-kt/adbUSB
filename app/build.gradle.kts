@@ -1,10 +1,9 @@
 plugins {
-    alias(libs.plugins.android.application)
-    alias(libs.plugins.kotlin.android)
+    id("com.android.application")
+    id("kotlin-android")
 }
 
 android {
-    enableKotlin = false
     namespace = "com.adb.kitty"
     compileSdk = 36
     buildToolsVersion = "36.1.0"
@@ -23,7 +22,7 @@ android {
         minSdk = 24
         targetSdk = 36
         versionCode = 6
-        versionName = "0.6-20260428"
+        versionName = "0.6-20260429"
         
         vectorDrawables { 
             useSupportLibrary = true
@@ -82,12 +81,13 @@ tasks
     }
 
 dependencies {
-    implementation(libs.kotlinx.coroutines.core)
-    implementation(libs.kotlinx.coroutines.android)
-    implementation(libs.androidx.constraintlayout)
-    implementation(libs.androidx.appcompat)
-    implementation(libs.material)
-    implementation(libs.androidx.annotation)
-    implementation(libs.androidx.core.ktx)
-    implementation(libs.androidx.activity.ktx)
+    val kotlinx_version = "1.10.2"
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:$kotlinx_version")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:$kotlinx_version")
+    implementation("androidx.constraintlayout:constraintlayout:2.2.1")
+    implementation("androidx.appcompat:appcompat:1.7.1")
+    implementation("com.google.android.material:material:1.13.0")
+    implementation("androidx.annotation:annotation:1.9.1")
+    implementation("androidx.core:core-ktx:1.17.0")
+    implementation("androidx.activity:activity-ktx:1.13.0")
 }
