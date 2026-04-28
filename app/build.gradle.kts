@@ -1,6 +1,6 @@
 plugins {
-    id("com.android.application")
-    id("kotlin-android")
+    alias(libs.plugins.android.application)
+    alias(libs.plugins.kotlin.android)
 }
 
 android {
@@ -81,13 +81,12 @@ tasks
     }
 
 dependencies {
-    val kotlinx_version = "1.10.2"
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:$kotlinx_version")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:$kotlinx_version")
-    implementation("androidx.constraintlayout:constraintlayout:2.2.1")
-    implementation("androidx.appcompat:appcompat:1.7.1")
-    implementation("com.google.android.material:material:1.13.0")
-    implementation("androidx.annotation:annotation:1.9.1")
-    implementation("androidx.core:core-ktx:1.17.0")
-    implementation("androidx.activity:activity-ktx:1.13.0")
+    implementation(libs.kotlinx.coroutines.core)
+    implementation(libs.kotlinx.coroutines.android)
+    implementation(libs.androidx.constraintlayout)
+    implementation(libs.androidx.appcompat)
+    implementation(libs.material)
+    implementation(libs.androidx.annotation)
+    implementation(libs.androidx.core.ktx)
+    implementation(libs.androidx.activity.ktx)
 }
