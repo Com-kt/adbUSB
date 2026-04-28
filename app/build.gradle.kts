@@ -4,6 +4,7 @@ plugins {
 }
 
 android {
+    enableKotlin = false
     namespace = "com.adb.kitty"
     compileSdk = 36
     buildToolsVersion = "36.1.0"
