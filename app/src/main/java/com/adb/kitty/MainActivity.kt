@@ -55,6 +55,8 @@ import java.security.KeyPair
 import java.security.Signature
 import javax.crypto.Cipher
 import java.text.SimpleDateFormat
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
 import java.util.Date
 import java.util.Locale
 import java.util.zip.CRC32
@@ -673,9 +675,11 @@ private suspend fun executeChunkedFlash(fullCommand: String, file: File, totalSi
     }
 
     private fun appendLog(msg: String) {
-        val time = SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date())
+        val current = LocalDateTime.now()
+        val formatter = DateTimeFormatter.ofPattern("yyyy.MM.dd HH:mm:ss")
+        val time = current.format(formatter)
         runOnUiThread {
-            binding.appMainActivity.tvLog.append(time + msg + "\n")
+            binding.appMainActivity.tvLog.append(time + "\u0020" + msg + "\n")
             binding.appMainActivity.scrollView.post {
             // fullScroll 会直接滑动到最底部，确保你能看到最新的 [流结束] 或命令输出
             binding.appMainActivity.scrollView.fullScroll(android.view.View.FOCUS_DOWN)

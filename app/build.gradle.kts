@@ -82,8 +82,8 @@ tasks
 
 dependencies {
     val kotlinx_version = "1.10.2"
-    runtimeOnly("org.jetbrains.kotlinx:kotlinx-coroutines-core:$kotlinx_version")
-    runtimeOnly("org.jetbrains.kotlinx:kotlinx-coroutines-android:$kotlinx_version")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:$kotlinx_version")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:$kotlinx_version")
     implementation("androidx.constraintlayout:constraintlayout:2.2.1")
     implementation("androidx.appcompat:appcompat:1.7.1")
     implementation("com.google.android.material:material:1.13.0")
