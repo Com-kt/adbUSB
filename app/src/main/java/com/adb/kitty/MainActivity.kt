@@ -179,7 +179,13 @@ class MainActivity : AppCompatActivity() {
             binding.appMainActivity.etCommand.setText("")
 
             if (isFastbootMode) {
-                executeCommandSync(cmd)
+                lifecycleScope.launch(Dispatchers.IO) {
+                    try {
+                        executeCommandSync(cmd)
+                    } catch (e: Exception) {
+                        withContext(Dispatchers.Main) { appendLog("[错误] ${e.message}") }
+                    }
+                }
             } else if (isAdbAuthorized) {
                 sendAdbShell(cmd)
             } else {
@@ -481,7 +487,7 @@ class MainActivity : AppCompatActivity() {
 
                 // 2. 循环发送当前段的数据块
                 var bytesSentInChunk = 0L
-                while (bytesSentInChunk < currentChunkSize && coroutineContext.isActive) {
+                while (bytesSentInChunk < currentChunkSize && isActive) {
                     val bytesToRead = Math.min(buffer.size.toLong(), currentChunkSize - bytesSentInChunk).toInt()
                     val read = input.read(buffer, 0, bytesToRead)
                     if (read <= 0) break
@@ -513,7 +519,7 @@ class MainActivity : AppCompatActivity() {
 
         val buffer = ByteArray(256 * 1024)
         file.inputStream().use { input ->
-            while (coroutineContext.isActive) {
+            while (isActive) {
                 val read = input.read(buffer)
                 if (read <= 0) break
                 usbConn?.bulkTransfer(epOut, buffer, read, 30000)
