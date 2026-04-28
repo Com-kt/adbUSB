@@ -1,10 +1,12 @@
 plugins {
     alias(libs.plugins.android.application)
+    alias(libs.plugins.kotlin.android)
 }
 
 android {
     namespace = "com.adb.kitty"
-    compileSdk = 37
+    compileSdk = 36
+    buildToolsVersion = "36.1.0"
     
     packaging {
         jniLibs {
@@ -18,7 +20,7 @@ android {
     defaultConfig {
         applicationId = "com.adb.kitty"
         minSdk = 24
-        targetSdk = 37
+        targetSdk = 36
         versionCode = 6
         versionName = "0.6-20260428"
         
