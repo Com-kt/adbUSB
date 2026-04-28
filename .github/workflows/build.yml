@@ -7,12 +7,11 @@ on:
     branches: [ "main" ]
 
 permissions:
-  contents: read
-  pages: write
-  id-token: write
+  contents: write
   
 jobs:
   build:
+    concurrency: ci-${{ github.ref }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -59,17 +58,7 @@ jobs:
           path: app/build/outputs/apk/release/*.apk
           archive: true
       
-      - name: Setup Pages
-        uses: actions/configure-pages@v5
-
-      - name: Upload Pages Artifact
-        if: always()
-        uses: actions/upload-pages-artifact@v4
+      - name: Deploy 🚀
+        uses: JamesIves/github-pages-deploy-action@v4
         with:
-          path: 'build/reports/problems/'
-
-      - name: Deploy to GitHub Pages
-        if: always()
-        id: deployment
-        uses: actions/deploy-pages@v4
-        
+          folder: build
