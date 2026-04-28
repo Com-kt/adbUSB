@@ -1,6 +1,6 @@
 // Top-level build file where you can add configuration options common to all sub-projects/modules.
 plugins {
-    val gradle_version = "9.0.1"
+    val gradle_version = "8.13.0"
     val kotlin_version = "2.3.21"
     id("com.android.application") version "$gradle_version" apply false
     id("com.android.library") version "$gradle_version" apply false
