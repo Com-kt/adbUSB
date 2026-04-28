@@ -31,6 +31,7 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.SystemBarStyle
+import androidx.activity.viewModels
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.updatePadding
@@ -42,6 +43,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.channels.Channel
 import kotlin.ExperimentalUnsignedTypes
 import java.io.File
 import java.nio.ByteBuffer
@@ -59,6 +61,7 @@ data class AdbCommand(val description: String, val command: String)
 class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
+    private val viewModel: MainViewModel by viewModels()
     private lateinit var usbManager: UsbManager
     private lateinit var keyManager: AdbKeyManager
     private val ACTION_USB_PERMISSION = "com.adb.kitty.USB_PERMISSION"
@@ -75,6 +78,8 @@ class MainActivity : AppCompatActivity() {
     private var isFastbootMode = false 
     private var authFailureCount = 0
     
+    private val responseChannel = Channel<String>(Channel.CONFLATED)
+    
     private val flashFolder by lazy { File(getExternalFilesDir(null), "flash") }
     
     private fun ensureFlashDirExists() {
@@ -82,43 +87,6 @@ class MainActivity : AppCompatActivity() {
             flashFolder.mkdirs()
         }
     }
-    
-// 这是一个 256 字节的 RSA-2048 填充块
-@OptIn(ExperimentalUnsignedTypes::class)
-private val SIGNATURE_PADDING = byteArrayOf(
-    0x00, 0x01, 
-    // 接下来是 202 个 0xFF
-    0xff.toByte(), 0xff.toByte(), 0xff.toByte(), 0xff.toByte(), 0xff.toByte(), 0xff.toByte(), 0xff.toByte(), 0xff.toByte(),
-    0xff.toByte(), 0xff.toByte(), 0xff.toByte(), 0xff.toByte(), 0xff.toByte(), 0xff.toByte(), 0xff.toByte(), 0xff.toByte(),
-    0xff.toByte(), 0xff.toByte(), 0xff.toByte(), 0xff.toByte(), 0xff.toByte(), 0xff.toByte(), 0xff.toByte(), 0xff.toByte(),
-    0xff.toByte(), 0xff.toByte(), 0xff.toByte(), 0xff.toByte(), 0xff.toByte(), 0xff.toByte(), 0xff.toByte(), 0xff.toByte(),
-    0xff.toByte(), 0xff.toByte(), 0xff.toByte(), 0xff.toByte(), 0xff.toByte(), 0xff.toByte(), 0xff.toByte(), 0xff.toByte(),
-    0xff.toByte(), 0xff.toByte(), 0xff.toByte(), 0xff.toByte(), 0xff.toByte(), 0xff.toByte(), 0xff.toByte(), 0xff.toByte(),
-    0xff.toByte(), 0xff.toByte(), 0xff.toByte(), 0xff.toByte(), 0xff.toByte(), 0xff.toByte(), 0xff.toByte(), 0xff.toByte(),
-    0xff.toByte(), 0xff.toByte(), 0xff.toByte(), 0xff.toByte(), 0xff.toByte(), 0xff.toByte(), 0xff.toByte(), 0xff.toByte(),
-    0xff.toByte(), 0xff.toByte(), 0xff.toByte(), 0xff.toByte(), 0xff.toByte(), 0xff.toByte(), 0xff.toByte(), 0xff.toByte(),
-    0xff.toByte(), 0xff.toByte(), 0xff.toByte(), 0xff.toByte(), 0xff.toByte(), 0xff.toByte(), 0xff.toByte(), 0xff.toByte(),
-    0xff.toByte(), 0xff.toByte(), 0xff.toByte(), 0xff.toByte(), 0xff.toByte(), 0xff.toByte(), 0xff.toByte(), 0xff.toByte(),
-    0xff.toByte(), 0xff.toByte(), 0xff.toByte(), 0xff.toByte(), 0xff.toByte(), 0xff.toByte(), 0xff.toByte(), 0xff.toByte(),
-    0xff.toByte(), 0xff.toByte(), 0xff.toByte(), 0xff.toByte(), 0xff.toByte(), 0xff.toByte(), 0xff.toByte(), 0xff.toByte(),
-    0xff.toByte(), 0xff.toByte(), 0xff.toByte(), 0xff.toByte(), 0xff.toByte(), 0xff.toByte(), 0xff.toByte(), 0xff.toByte(),
-    0xff.toByte(), 0xff.toByte(), 0xff.toByte(), 0xff.toByte(), 0xff.toByte(), 0xff.toByte(), 0xff.toByte(), 0xff.toByte(),
-    0xff.toByte(), 0xff.toByte(), 0xff.toByte(), 0xff.toByte(), 0xff.toByte(), 0xff.toByte(), 0xff.toByte(), 0xff.toByte(),
-    0xff.toByte(), 0xff.toByte(), 0xff.toByte(), 0xff.toByte(), 0xff.toByte(), 0xff.toByte(), 0xff.toByte(), 0xff.toByte(),
-    0xff.toByte(), 0xff.toByte(), 0xff.toByte(), 0xff.toByte(), 0xff.toByte(), 0xff.toByte(), 0xff.toByte(), 0xff.toByte(),
-    0xff.toByte(), 0xff.toByte(), 0xff.toByte(), 0xff.toByte(), 0xff.toByte(), 0xff.toByte(), 0xff.toByte(), 0xff.toByte(),
-    0xff.toByte(), 0xff.toByte(), 0xff.toByte(), 0xff.toByte(), 0xff.toByte(), 0xff.toByte(), 0xff.toByte(), 0xff.toByte(),
-    0xff.toByte(), 0xff.toByte(), 0xff.toByte(), 0xff.toByte(), 0xff.toByte(), 0xff.toByte(), 0xff.toByte(), 0xff.toByte(),
-    0xff.toByte(), 0xff.toByte(), 0xff.toByte(), 0xff.toByte(), 0xff.toByte(), 0xff.toByte(), 0xff.toByte(), 0xff.toByte(),
-    0xff.toByte(), 0xff.toByte(), 0xff.toByte(), 0xff.toByte(), 0xff.toByte(), 0xff.toByte(), 0xff.toByte(), 0xff.toByte(),
-    0xff.toByte(), 0xff.toByte(), 0xff.toByte(), 0xff.toByte(), 0xff.toByte(), 0xff.toByte(), 0xff.toByte(), 0xff.toByte(),
-    0xff.toByte(), 0xff.toByte(), 0xff.toByte(), 0xff.toByte(), 0xff.toByte(), 0xff.toByte(), 0xff.toByte(), 0xff.toByte(),
-    0xff.toByte(), 0xff.toByte(), 
-    // 填充结束
-    0x00, 
-    // SHA-1 OID 标识
-    0x30, 0x21, 0x30, 0x09, 0x06, 0x05, 0x2b, 0x0e, 0x03, 0x02, 0x1a, 0x05, 0x00, 0x04, 0x14
-)
 
     private val usbPermissionReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
@@ -164,8 +132,6 @@ private val SIGNATURE_PADDING = byteArrayOf(
     
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge(
-           // 如果背景很亮，强制状态栏图标显示为深色
-           // statusBarStyle = SystemBarStyle.light(Color.TRANSPARENT, Color.TRANSPARENT)
            // 状态栏：透明背景，图标颜色随系统主题自适应
             statusBarStyle = SystemBarStyle.auto(Color.TRANSPARENT, Color.TRANSPARENT),
             // 导航栏：透明背景，手势线/图标颜色随系统主题自适应
@@ -282,36 +248,10 @@ private val SIGNATURE_PADDING = byteArrayOf(
         
     }
     
-    private val adbCommands = listOf(
-        AdbCommand("查看 adbd 用户组", "id"),
-        AdbCommand("查看SeLinux状态", "getenforce"),
-        AdbCommand("重启", "reboot"),
-        AdbCommand("重启到系统", "reboot system"),
-        AdbCommand("重启到 Recovery", "reboot recovery"),
-        AdbCommand("重启到 Bootloader", "reboot bootloader"),
-        AdbCommand("重启到 FastbootD", "reboot fastboot"),
-        AdbCommand("纯净系统无任何用户激活 Dhizuku (需要安装Dhizuku)", "dpm set-device-owner com.rosan.dhizuku/.server.DhizukuDAReceiver"),
-        AdbCommand("激活 Sence (需要安装Sence)", "sh /storage/emulated/0/Android/data/com.omarea.vtools/up.sh"),
-        AdbCommand("激活 AppManager (需要安装AppManager)", "sh /storage/emulated/0/Android/data/io.github.muntashirakon.AppManager/cache/run_server.sh 60001 wasp-lurk-ripen"),
-        AdbCommand("查询系统信息", "uname -a"),
-        AdbCommand("查看内核版本", "cat /proc/version"),
-        AdbCommand("查看su版本", "su -v"),
-        AdbCommand("查看基带版本", "getprop gsm.version.baseband"),
-        AdbCommand("查看安卓系统版本", "getprop ro.build.version.release"),
-        AdbCommand("查看设备编译版本", "getprop ro.build.display.id"),
-        AdbCommand("查看安全补丁级别", "getprop ro.build.version.security_patch"),
-        AdbCommand("查看主板型号", "getprop ro.product.board"),
-        AdbCommand("查看屏幕分辨率 (随设置而变化)", "getprop persist.sys.miui_resolution"),
-        AdbCommand("卸载系统更新", "pm uninstall --user 0 com.android.updater"),
-        AdbCommand("恢复系统更新", "pm install-existing --user 0 com.android.updater"),
-        AdbCommand("强行启用小米堆叠桌面 (已支持勿用)", "settings put global task_stack_view_layout_style 2 "),
-        AdbCommand("强行停止小米系统桌面", "am force-stop com.miui.home")
-    )
-    
     private fun showAdbCommandDialog() {
         val builder = AlertDialog.Builder(this)
         builder.setTitle("快捷发送 ADB 命令")
-        // 使用系统自带双行布局：text1 为描述，text2 为具体命令
+        val adbCommands = viewModel.adbCommands
         val adapter = object : ArrayAdapter<AdbCommand>(this, android.R.layout.simple_list_item_2, android.R.id.text1, adbCommands) {
             override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
                 val view = super.getView(position, convertView, parent)
@@ -440,7 +380,7 @@ private val SIGNATURE_PADDING = byteArrayOf(
             }
         }
     }
-
+    
     private fun startFastbootReader() {
         readerJob?.cancel()
         readerJob = lifecycleScope.launch(Dispatchers.IO) {
@@ -448,87 +388,145 @@ private val SIGNATURE_PADDING = byteArrayOf(
             while (isActive) {
                 val read = usbConn?.bulkTransfer(epIn, buffer, buffer.size, 1000) ?: -1
                 if (read > 0) {
-                    val response = String(buffer, 0, read)
+                    val response = String(buffer, 0, read).trim()
                     withContext(Dispatchers.Main) { appendLog("FB >> $response") }
+                    responseChannel.trySend(response)
                 }
             }
         }
     }
 
-    private fun sendFastbootCommand(command: String) {
-        lifecycleScope.launch(Dispatchers.IO) {
-            val cleanCmd = command.removePrefix("fastboot ").trim()
-            val parts = cleanCmd.split(Regex("\\s+"))
+    private suspend fun waitResponse(timeout: Long = 30000): String {
+        return withTimeoutOrNull(timeout) {
+            responseChannel.receive()
+        } ?: "TIMEOUT"
+    }
+    
+    private suspend fun executeCommandSync(command: String) {
+        val cleanCmd = command.removePrefix("fastboot ").trim()
+        val parts = cleanCmd.split(Regex("\\s+"))
 
-            if (parts.size >= 2 && (parts[0] == "flash" || parts[0] == "boot")) {
-                val fileName = parts.last()
-                val imgFile = File(flashFolder, fileName)
+        // 判断是否是刷写本地文件
+        if (parts.size >= 2 && (parts[0] == "flash" || parts[0] == "boot")) {
+            val nonParamParts = parts.filter { !it.startsWith("-") }
+            val fileName = nonParamParts.last()
+            val imgFile = File(flashFolder, fileName)
 
-                if (imgFile.exists()) {
-                    withContext(Dispatchers.Main) { 
-                        appendLog("[匹配] 发现本地镜像: $fileName (${imgFile.length() / 1024 / 1024} MB)") 
-                    }
-                    performAtomicFlash(cleanCmd, imgFile)
-                    return@launch
-                } else {
-                    withContext(Dispatchers.Main) { 
-                        appendLog("[提醒] 动作 '${parts[0]}' 缺少本地镜像 $fileName") 
-                    }
-                }
+            if (imgFile.exists()) {
+                performAtomicFlash(cleanCmd, imgFile)
+                return
             }
-            withContext(Dispatchers.Main) { appendLog("FB << $cleanCmd") }
-            sendFastbootCommandDirect(cleanCmd)
+        }
+
+        // 普通指令发送并等待 OKAY
+        sendFastbootCommandDirect(cleanCmd)
+        val resp = waitResponse(5000)
+        if (resp.startsWith("FAIL")) throw Exception("设备拒绝指令: $resp")
+    }
+    
+    private fun parseHexLimit(resp: String): Long? {
+        return try {
+            if (resp.startsWith("OKAY")) {
+                val hex = resp.substring(4).removePrefix("0x")
+                hex.toLong(16)
+            } else null
+        } catch (e: Exception) {
+            null
+        }
+    }
+    
+    private suspend fun performAtomicFlash(fullCommand: String, file: File) {
+        val fileSize = file.length()
+    
+        // 1. 获取设备支持的最大单次下载大小
+        sendFastbootCommandDirect("getvar:max-download-size")
+        val maxDownloadSizeResp = waitResponse(2000)
+    
+        // 解析结果，例如 "OKAY0x20000000" -> 512MB。如果获取失败，默认给一个保守值 64MB
+        val maxLimit = parseHexLimit(maxDownloadSizeResp) ?: (64 * 1024 * 1024L)
+    
+        emitLog("[检查] 镜像大小: ${fileSize / 1024 / 1024}MB, 设备限制: ${maxLimit / 1024 / 1024}MB")
+
+        if (fileSize <= maxLimit) {
+            // --- 小镜像逻辑：直接刷写 ---
+            executeSingleFlash(fullCommand, file, fileSize)
+        } else {
+            // --- 大镜像逻辑：自动切片 (此逻辑通常配合 Sparse 镜像或 Bootloader 分段) ---
+            // 注意：标准 Fastboot 协议在大文件时建议使用 Sparse 格式
+            // 这里提供一个基础的分块传输逻辑示意
+            emitLog("[警告] 镜像超过限制，尝试分段刷写...")
+            executeChunkedFlash(fullCommand, file, fileSize, maxLimit)
         }
     }
 
-    private fun runFastbootScript() {
-        val scriptFile = File(flashFolder, "fastboot_flash.txt")
-        if (!scriptFile.exists()) {
-            appendLog("[错误] 目录下未找到 fastboot_flash.txt")
-            return
-        }
-        lifecycleScope.launch(Dispatchers.IO) {
-            try {
-                scriptFile.readLines().forEach { line ->
-                    val rawLine = line.trim()
-                    if (rawLine.isNotEmpty() && !rawLine.startsWith("#")) {
-                        sendFastbootCommand(rawLine)
-                        delay(600) 
-                    }
-                }
-                withContext(Dispatchers.Main) { appendLog("[完成] 所有脚本指令处理完毕") }
-            } catch (e: Exception) {
-                withContext(Dispatchers.Main) { appendLog("[异常] $e") }
-            }
-        }
-    }
-
-    private suspend fun performAtomicFlash(command: String, file: File) {
-        val size = file.length()
-        val parts = command.split(" ")
-        withContext(Dispatchers.Main) { appendLog("[刷写] 准备写入 ${if(parts[0]=="boot") "内存引导" else parts[1]} ...") }
-
+/**
+ * 基础刷写单元（Download -> Data -> OKAY -> Flash -> OKAY）
+ */
+    private suspend fun executeSingleFlash(fullCommand: String, file: File, size: Long) {
         sendFastbootCommandDirect("download:${String.format("%08x", size)}")
-        delay(100)
+        if (!waitResponse(5000).startsWith("DATA")) throw Exception("设备拒绝传输")
 
-        val buffer = ByteArray(64 * 1024)
+        val buffer = ByteArray(256 * 1024)
         file.inputStream().use { input ->
-            while (true) {
+            while (viewModelScope.isActive) {
                 val read = input.read(buffer)
                 if (read <= 0) break
                 usbConn?.bulkTransfer(epOut, buffer, read, 30000)
             }
         }
-        withContext(Dispatchers.Main) { appendLog("[传输] 数据发送完毕 (100%)") }
-        delay(150)
 
-        val finalAction = if (parts[0] == "boot") "boot" else "flash:${parts[1]}"
+        // 关键：等待写入 Flash 的 OKAY，大镜像需长达 2-3 分钟
+        if (!waitResponse(180000).startsWith("OKAY")) throw Exception("数据校验失败")
+
+        val finalAction = buildFinalAction(fullCommand, file.name)
         sendFastbootCommandDirect(finalAction)
+    
+        if (!waitResponse(180000).startsWith("OKAY")) throw Exception("刷写分区失败")
     }
-
+    
+    private fun buildFinalAction(command: String, fileName: String): String {
+        if (command.startsWith("boot")) return "boot"
+        val parts = command.split(" ").filter { it != "fastboot" && it != fileName }
+        val action = parts[0] // flash
+        val others = parts.drop(1)
+        val partition = others.lastOrNull() ?: ""
+        val params = others.filter { it != partition }.joinToString(":")
+        
+        return if (params.isEmpty()) "$action:$partition" else "$action:$partition:$params"
+    }
+    
     private fun sendFastbootCommandDirect(command: String) {
         val data = command.toByteArray()
         usbConn?.bulkTransfer(epOut, data, data.size, 1000)
+    }
+    
+    private fun handleManualSend() {
+        val cmd = binding.appMainActivity.etCommand.text.toString().trim()
+        if (cmd.isEmpty()) return
+        binding.appMainActivity.etCommand.setText("")
+        lifecycleScope.launch(Dispatchers.IO) {
+            try { executeCommandSync(cmd) } catch (e: Exception) { withContext(Dispatchers.Main) { appendLog("[出错] $e") } }
+        }
+    }
+
+    fun runFastbootScript() {
+        val scriptFile = File(flashFolder, "fastboot_flash.txt")
+        if (!scriptFile.exists()) { appendLog("[错误] 找不到脚本文件"); return }
+        lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                scriptFile.readLines().forEach { line ->
+                    val raw = line.trim()
+                    if (raw.isNotEmpty() && !raw.startsWith("#")) {
+                        withContext(Dispatchers.Main) { appendLog("[脚本执行] $raw") }
+                        executeCommandSync(raw)
+                        delay(200) // 每一行执行完后的微小缓冲
+                    }
+                }
+                withContext(Dispatchers.Main) { appendLog("[完成] 脚本执行完毕") }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) { appendLog("[异常] 脚本中断: ${e.message}") }
+            }
+        }
     }
     
     private fun startAdbReader() {
@@ -545,41 +543,6 @@ private val SIGNATURE_PADDING = byteArrayOf(
                 
                 withContext(Dispatchers.Main) {
                     when (cmd) {
-                      /*  0x48545541 -> {
-                            if (!stepAuthSent) {
-                             //   rsaKeyPair?.let { sendPacket(0x48545541, 2, 0, sign(payload!!)); stepAuthSent = true }
-                                rsaKeyPair?.let { sendPacket(0x48545541, 2, 0, signAdbToken(payload!!)); stepAuthSent = true; android.util.Log.d("ADB_DEBUG", "首次握手：已发送签名并置位 true") }
-                            } else {
-                                android.util.Log.e("ADB_DEBUG", "握手异常：设备拒绝了签名，正在强制发送公钥")
-                                val pub = "${keyManager.getPublicKeyBase64()} adb@client\u0000".toByteArray()
-                                sendPacket(0x48545541, 3, 0, pub)
-                            }
-                        }
-                        0x48545541 -> { // AUTH
-                            val authType = arg0
-                          when (authType) {
-                             1 -> { 
-                             if (!stepAuthSent || authFailureCount < MAX_FAILURE_THRESHOLD) {
-                                 // 尝试签名
-                                 appendLog("[Auth] 尝试签名，计数: $authFailureCount")
-                                 val signature = signAdbToken(payload!!)
-                                 sendPacket(0x48545541, 2, 0, signature)
-                                 stepAuthSent = true
-                                 authFailureCount++ // 记录失败次数
-                            } else {
-                                 // 达到阈值，强制发送公钥，不再无限重连
-                                 appendLog("[Critical] 签名多次失败，切换至公钥认证模式")
-                                 val pub = "${keyManager.getPublicKeyBase64()} adb@kitty\u0000".toByteArray()
-                                 sendPacket(0x48545541, 3, 0, pub)
-                                 authFailureCount = 0 // 重置计数
-                               }
-                            }
-                            3 -> { // 请求公钥 (处理设备主动索要的情况)
-                                 val pub = "${keyManager.getPublicKeyBase64()} adb@kitty\u0000".toByteArray()
-                                  sendPacket(0x48545541, 3, 0, pub)
-                                }
-                            }
-                        }  */
                         0x48545541 -> { // "AUTH"
                             if (arg0 == 1) { // Token from device
                                 if (authFailureCount < 1) {
@@ -587,7 +550,7 @@ private val SIGNATURE_PADDING = byteArrayOf(
                                     sendPacket(0x48545541, 2, 0, signAdbToken(payload!!))
                                     authFailureCount++
                                 } else {
-                                    appendLog("[Auth] 发送二进制公钥申请授权...")
+                                    appendLog("[Auth] 发送公钥申请授权...")
                                     val pub = "${keyManager.getPublicKeyBase64()} adb@kitty\u0000".toByteArray()
                                   sendPacket(0x48545541, 3, 0, pub)
                                 }
@@ -636,28 +599,11 @@ private val SIGNATURE_PADDING = byteArrayOf(
         }
     }
     
-/*
-    private fun sendPacket(cmd: Int, arg0: Int, arg1: Int, payload: ByteArray?) {
-        val len = payload?.size ?: 0
-        val buffer = ByteBuffer.allocate(24).order(ByteOrder.LITTLE_ENDIAN)
-        buffer.putInt(cmd).putInt(arg0).putInt(arg1).putInt(len)
-        var sum = 0; payload?.forEach { sum += (it.toInt() and 0xFF) }
-        buffer.putInt(sum).putInt(cmd xor -1)
-        usbConn?.bulkTransfer(epOut, buffer.array(), 24, 1000)
-        payload?.let { usbConn?.bulkTransfer(epOut, it, it.size, 1000) }
-    }
-
-    private fun sign(token: ByteArray): ByteArray {
-        val signer = Signature.getInstance("SHA256withRSA")
-        signer.initSign(rsaKeyPair!!.private); signer.update(token)
-        return signer.sign()
-    }
-    */
     private fun signAdbToken(token: ByteArray): ByteArray {
         val cipher = Cipher.getInstance("RSA/ECB/NoPadding")
         cipher.init(Cipher.ENCRYPT_MODE, rsaKeyPair!!.private)
         val data = ByteArray(256)
-        System.arraycopy(SIGNATURE_PADDING, 0, data, 0, SIGNATURE_PADDING.size)
+        System.arraycopy(viewModel.SIGNATURE_PADDING, 0, data, 0, viewModel.SIGNATURE_PADDING.size)
         System.arraycopy(token, 0, data, 256 - 20, 20)
         return cipher.doFinal(data)
     }
@@ -682,8 +628,9 @@ private val SIGNATURE_PADDING = byteArrayOf(
     }
 
     private fun appendLog(msg: String) {
+        val time = SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date())
         runOnUiThread {
-            binding.appMainActivity.tvLog.append(msg + "\n")
+            binding.appMainActivity.tvLog.append(time + msg + "\n")
             binding.appMainActivity.scrollView.post {
             // fullScroll 会直接滑动到最底部，确保你能看到最新的 [流结束] 或命令输出
             binding.appMainActivity.scrollView.fullScroll(android.view.View.FOCUS_DOWN)
@@ -692,9 +639,11 @@ private val SIGNATURE_PADDING = byteArrayOf(
             if (offset > binding.appMainActivity.tvLog.height) binding.appMainActivity.tvLog.scrollTo(0, offset - binding.appMainActivity.tvLog.height)
         }
     }
-
+    
     override fun onDestroy() {
         super.onDestroy()
+        readerJob?.cancel()
+        usbConn?.close()
         unregisterReceiver(usbPermissionReceiver)
         unregisterReceiver(usbStateReceiver)
     }

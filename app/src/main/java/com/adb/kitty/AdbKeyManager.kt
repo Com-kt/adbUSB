@@ -22,7 +22,7 @@ class AdbKeyManager(private val context: Context) {
     private val privFileName = "adbkey"
     private val pubFileName = "adbkey.pub"
     private val versionFileName = "version.json"
-    private val CURRENT_VERSION = 1
+    private val CURRENT_VERSION = 2
     
     fun getKeys(): KeyPair {
         val privFile = File(context.filesDir, privFileName)
