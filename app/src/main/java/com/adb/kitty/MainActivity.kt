@@ -41,10 +41,12 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.coroutines.currentCoroutineContext
 import kotlin.ExperimentalUnsignedTypes
 import java.io.File
 import java.nio.ByteBuffer
@@ -474,15 +476,16 @@ private suspend fun executeChunkedFlash(fullCommand: String, file: File, totalSi
     val buffer = ByteArray(256 * 1024)
 
     inputStream.use { input ->
-        // 这里直接使用 isActive，它会自动引用 suspend 函数的 coroutineContext
-        while (offset < totalSize && isActive) { 
+        // 修改点 1: 使用 currentCoroutineContext().isActive
+        while (offset < totalSize && currentCoroutineContext().isActive) { 
             val currentChunkSize = Math.min(limit, totalSize - offset)
             
             sendFastbootCommandDirect("download:${String.format("%08x", currentChunkSize)}")
             if (!waitResponse(5000).startsWith("DATA")) throw Exception("分段下载失败")
 
             var bytesSentInChunk = 0L
-            while (bytesSentInChunk < currentChunkSize && isActive) {
+            // 修改点 2: 使用 currentCoroutineContext().isActive
+            while (bytesSentInChunk < currentChunkSize && currentCoroutineContext().isActive) {
                 val bytesToRead = Math.min(buffer.size.toLong(), currentChunkSize - bytesSentInChunk).toInt()
                 val read = input.read(buffer, 0, bytesToRead)
                 if (read <= 0) break
@@ -510,7 +513,7 @@ private suspend fun executeChunkedFlash(fullCommand: String, file: File, totalSi
 
         val buffer = ByteArray(256 * 1024)
         file.inputStream().use { input ->
-            while (isActive) {
+            while (currentCoroutineContext().isActive) {
                 val read = input.read(buffer)
                 if (read <= 0) break
                 usbConn?.bulkTransfer(epOut, buffer, read, 30000)
