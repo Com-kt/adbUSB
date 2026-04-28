@@ -44,6 +44,7 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.ExperimentalUnsignedTypes
 import java.io.File
 import java.nio.ByteBuffer
@@ -178,7 +179,7 @@ class MainActivity : AppCompatActivity() {
             binding.appMainActivity.etCommand.setText("")
 
             if (isFastbootMode) {
-                sendFastbootCommand(cmd)
+                executeCommandSync(cmd)
             } else if (isAdbAuthorized) {
                 sendAdbShell(cmd)
             } else {
@@ -445,7 +446,7 @@ class MainActivity : AppCompatActivity() {
         // 解析结果，例如 "OKAY0x20000000" -> 512MB。如果获取失败，默认给一个保守值 64MB
         val maxLimit = parseHexLimit(maxDownloadSizeResp) ?: (64 * 1024 * 1024L)
     
-        emitLog("[检查] 镜像大小: ${fileSize / 1024 / 1024}MB, 设备限制: ${maxLimit / 1024 / 1024}MB")
+        appendLog("[检查] 镜像大小: ${fileSize / 1024 / 1024}MB, 设备限制: ${maxLimit / 1024 / 1024}MB")
 
         if (fileSize <= maxLimit) {
             // --- 小镜像逻辑：直接刷写 ---
@@ -454,9 +455,53 @@ class MainActivity : AppCompatActivity() {
             // --- 大镜像逻辑：自动切片 (此逻辑通常配合 Sparse 镜像或 Bootloader 分段) ---
             // 注意：标准 Fastboot 协议在大文件时建议使用 Sparse 格式
             // 这里提供一个基础的分块传输逻辑示意
-            emitLog("[警告] 镜像超过限制，尝试分段刷写...")
+            appendLog("[警告] 镜像超过限制，尝试分段刷写...")
             executeChunkedFlash(fullCommand, file, fileSize, maxLimit)
         }
+    }
+    
+    private suspend fun executeChunkedFlash(fullCommand: String, file: File, totalSize: Long, limit: Long) {
+        val partitionName = buildFinalAction(fullCommand, file.name).removePrefix("flash:")
+        val inputStream = file.inputStream()
+        var offset = 0L
+        val buffer = ByteArray(256 * 1024) // 256KB 传输缓冲区
+
+        inputStream.use { input ->
+            while (offset < totalSize) {
+                // 计算当前分段的大小
+                val currentChunkSize = Math.min(limit, totalSize - offset)
+            
+                withContext(Dispatchers.Main) {
+                    appendLog("[分段] 正在发送分段: ${offset / 1024 / 1024}MB / ${totalSize / 1024 / 1024}MB")
+                }
+
+                // 1. 发送当前段的下载指令
+                sendFastbootCommandDirect("download:${String.format("%08x", currentChunkSize)}")
+                if (!waitResponse(5000).startsWith("DATA")) throw Exception("分段下载被设备拒绝")
+
+                // 2. 循环发送当前段的数据块
+                var bytesSentInChunk = 0L
+                while (bytesSentInChunk < currentChunkSize && coroutineContext.isActive) {
+                    val bytesToRead = Math.min(buffer.size.toLong(), currentChunkSize - bytesSentInChunk).toInt()
+                    val read = input.read(buffer, 0, bytesToRead)
+                    if (read <= 0) break
+                
+                    usbConn?.bulkTransfer(epOut, buffer, read, 30000)
+                    bytesSentInChunk += read
+                }
+
+                // 3. 等待段传输确认
+                if (!waitResponse(180000).startsWith("OKAY")) throw Exception("分段数据校验失败")
+
+                // 4. 执行写入指令 (注意：大镜像分段刷写通常使用 flash:partition)
+                // 某些设备在分段时需要特定的指令，这里使用标准的 flash 指令
+                sendFastbootCommandDirect("flash:$partitionName")
+                if (!waitResponse(180000).startsWith("OKAY")) throw Exception("分段刷写分区失败")
+
+                offset += currentChunkSize
+            }
+        }
+        withContext(Dispatchers.Main) { appendLog("[成功] 大镜像分段刷写完成") }
     }
 
 /**
@@ -468,7 +513,7 @@ class MainActivity : AppCompatActivity() {
 
         val buffer = ByteArray(256 * 1024)
         file.inputStream().use { input ->
-            while (viewModelScope.isActive) {
+            while (coroutineContext.isActive) {
                 val read = input.read(buffer)
                 if (read <= 0) break
                 usbConn?.bulkTransfer(epOut, buffer, read, 30000)

@@ -24,15 +24,16 @@ import java.util.Locale
 import java.util.zip.CRC32
 
 class MainViewModel : ViewModel() {
-    // 移除 private，使其对 Activity 可见
+
     @OptIn(ExperimentalUnsignedTypes::class)
-    val SIGNATURE_PADDING = byteArrayOf(
-        0x00, 0x01,
-        // 填充部分 (0xFF)，数量需根据 RSA 模长计算，通常保持 190~202 个
-        *(ByteArray(202) { 0xff.toByte() }.toTypedArray()), 
-        0x00,
-        // SHA-256 OID 标识: 2.16.840.1.101.3.4.2.1
-        0x30, 0x31, 0x30, 0x0d, 0x06, 0x09, 0x60, 0x86, 0x48, 0x01, 0x65, 0x03, 0x04, 0x02, 0x01, 0x05, 0x00, 0x04, 0x20
+    val SIGNATURE_PADDING: ByteArray = byteArrayOf(0x00.toByte(), 0x01.toByte()) + 
+        ByteArray(202) { 0xff.toByte() } + 
+        byteArrayOf(
+            0x00.toByte(), 0x30.toByte(), 0x31.toByte(), 0x30.toByte(), 
+            0x0d.toByte(), 0x06.toByte(), 0x09.toByte(), 0x60.toByte(), 
+            0x86.toByte(), 0x48.toByte(), 0x01.toByte(), 0x65.toByte(), 
+            0x03.toByte(), 0x04.toByte(), 0x02.toByte(), 0x01.toByte(), 
+            0x05.toByte(), 0x00.toByte(), 0x04.toByte(), 0x20.toByte()
     )
     
     private val _adbCommands = listOf(
