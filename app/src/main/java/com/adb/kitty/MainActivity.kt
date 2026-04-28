@@ -466,49 +466,40 @@ class MainActivity : AppCompatActivity() {
         }
     }
     
-    private suspend fun executeChunkedFlash(fullCommand: String, file: File, totalSize: Long, limit: Long) {
-        val partitionName = buildFinalAction(fullCommand, file.name).removePrefix("flash:")
-        val inputStream = file.inputStream()
-        var offset = 0L
-        val buffer = ByteArray(256 * 1024) // 256KB 传输缓冲区
+    // 确保方法前有 suspend
+private suspend fun executeChunkedFlash(fullCommand: String, file: File, totalSize: Long, limit: Long) {
+    val partitionName = buildFinalAction(fullCommand, file.name).removePrefix("flash:")
+    val inputStream = file.inputStream()
+    var offset = 0L
+    val buffer = ByteArray(256 * 1024)
 
-        inputStream.use { input ->
-            while (offset < totalSize) {
-                // 计算当前分段的大小
-                val currentChunkSize = Math.min(limit, totalSize - offset)
+    inputStream.use { input ->
+        // 这里直接使用 isActive，它会自动引用 suspend 函数的 coroutineContext
+        while (offset < totalSize && isActive) { 
+            val currentChunkSize = Math.min(limit, totalSize - offset)
             
-                withContext(Dispatchers.Main) {
-                    appendLog("[分段] 正在发送分段: ${offset / 1024 / 1024}MB / ${totalSize / 1024 / 1024}MB")
-                }
+            sendFastbootCommandDirect("download:${String.format("%08x", currentChunkSize)}")
+            if (!waitResponse(5000).startsWith("DATA")) throw Exception("分段下载失败")
 
-                // 1. 发送当前段的下载指令
-                sendFastbootCommandDirect("download:${String.format("%08x", currentChunkSize)}")
-                if (!waitResponse(5000).startsWith("DATA")) throw Exception("分段下载被设备拒绝")
-
-                // 2. 循环发送当前段的数据块
-                var bytesSentInChunk = 0L
-                while (bytesSentInChunk < currentChunkSize && isActive) {
-                    val bytesToRead = Math.min(buffer.size.toLong(), currentChunkSize - bytesSentInChunk).toInt()
-                    val read = input.read(buffer, 0, bytesToRead)
-                    if (read <= 0) break
+            var bytesSentInChunk = 0L
+            while (bytesSentInChunk < currentChunkSize && isActive) {
+                val bytesToRead = Math.min(buffer.size.toLong(), currentChunkSize - bytesSentInChunk).toInt()
+                val read = input.read(buffer, 0, bytesToRead)
+                if (read <= 0) break
                 
-                    usbConn?.bulkTransfer(epOut, buffer, read, 30000)
-                    bytesSentInChunk += read
-                }
-
-                // 3. 等待段传输确认
-                if (!waitResponse(180000).startsWith("OKAY")) throw Exception("分段数据校验失败")
-
-                // 4. 执行写入指令 (注意：大镜像分段刷写通常使用 flash:partition)
-                // 某些设备在分段时需要特定的指令，这里使用标准的 flash 指令
-                sendFastbootCommandDirect("flash:$partitionName")
-                if (!waitResponse(180000).startsWith("OKAY")) throw Exception("分段刷写分区失败")
-
-                offset += currentChunkSize
+                usbConn?.bulkTransfer(epOut, buffer, read, 30000)
+                bytesSentInChunk += read
             }
+
+            if (!waitResponse(180000).startsWith("OKAY")) throw Exception("数据校验失败")
+
+            sendFastbootCommandDirect("flash:$partitionName")
+            if (!waitResponse(180000).startsWith("OKAY")) throw Exception("分段写入失败")
+
+            offset += currentChunkSize
         }
-        withContext(Dispatchers.Main) { appendLog("[成功] 大镜像分段刷写完成") }
     }
+}
 
 /**
  * 基础刷写单元（Download -> Data -> OKAY -> Flash -> OKAY）
