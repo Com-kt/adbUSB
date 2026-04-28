@@ -2,7 +2,7 @@
 # https://docs.gradle.org/current/userguide/version_catalogs.html#sec::toml-dependencies-format
 [versions]
 # 定义版本变量
-androidGradlePlugin = "8.13.0"
+androidGradlePlugin = "9.0.0"
 kotlin = "2.3.21"
 kotlinxCoroutines = "1.10.2"
 constraintlayout = "2.2.1"
