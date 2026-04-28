@@ -32,6 +32,14 @@ jobs:
           RELEASE_STORE_PASSWORD: ${{ secrets.KEY_STORE_PASSWORD }}
           RELEASE_KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           RELEASE_KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          
+      - name: Upload Problems Report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: gradle-problems-report
+          path: build/reports/problems/problems-report.html
+          archive: false
 
       - name: Upload Build Log
         uses: actions/upload-artifact@v7
