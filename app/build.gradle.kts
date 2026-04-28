@@ -69,7 +69,7 @@ android {
     }
     
 }
-
+/*
 tasks
     .withType<org.jetbrains.kotlin.gradle.tasks.KotlinJvmCompile>()
     .configureEach {
@@ -79,7 +79,7 @@ tasks
                 org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_25
             )
     }
-
+*/
 dependencies {
     val kotlinx_version = "1.10.2"
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:$kotlinx_version")
