@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">usb接口(小米版)</string>
+    <string name="app_name">usb接口</string>
     <string name="action_main_1">快捷adb</string>
     <string name="action_main_2">快捷fastboot</string>
     <string name="action_main_3">使用 fastboot_flash.txt 线刷文件</string>
