@@ -31,12 +31,12 @@ class AutoDismissDialogFragment : DialogFragment() {
         super.onViewCreated(view, savedInstanceState)
 
         // 现在可以直接通过 binding 访问控件
-        // 例如：binding.dialogText.text = "正在执行..."
+        binding.dialogText.text = "来个女的让我奸"
 
         isCancelable = false
 
         viewLifecycleOwner.lifecycleScope.launch {
-            delay(2000)
+            delay(3000)
             if (dialog?.isShowing == true) {
                 dismiss()
             }

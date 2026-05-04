@@ -12,6 +12,5 @@
         android:id="@+id/dialogText"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="苏幼晴\n我喜欢你, 么么哒, mua~"
         android:textSize="16sp" />
 </LinearLayout>
