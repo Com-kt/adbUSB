@@ -598,7 +598,8 @@ private suspend fun executeChunkedFlash(fullCommand: String, file: File, totalSi
                                     authFailureCount++
                                 } else {
                                     appendLog("[Auth] 发送公钥申请授权...")
-                                    val pub = "${keyManager.getPublicKeyBase64()} adb@kitty\u0000".toByteArray()
+                                 //   val pub = "${keyManager.getPublicKeyBase64()} adb@kitty\u0000".toByteArray()
+                                    val pub = (keyManager.getPublicKeyBase64() + "\u0000").toByteArray()
                                   sendPacket(0x48545541, 3, 0, pub)
                                 }
                             }
