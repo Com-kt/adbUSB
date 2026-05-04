@@ -55,8 +55,6 @@ import java.security.KeyPair
 import java.security.Signature
 import javax.crypto.Cipher
 import java.text.SimpleDateFormat
-import java.time.LocalDateTime
-import java.time.format.DateTimeFormatter
 import java.util.Date
 import java.util.Locale
 import java.util.zip.CRC32
@@ -328,7 +326,7 @@ class MainActivity : AppCompatActivity() {
                     
                     val modeName = if (isFastbootMode) "Fastboot" else "ADB"
                     // 匹配要求：同行显示 VID/PID 十进制
-                    appendLog("\n--- 检测到 $modeName 兼容设备 ---")
+                    appendLog("--- 检测到 $modeName 兼容设备 ---")
                     appendLog("--- 需要开启USB调试 (安全设置) ---")
                 //    appendLog("设备: ${device.productName ?: "未知"}")
                 //    appendLog("VID: ${device.vendorId} | PID: ${device.productId}")
@@ -384,10 +382,12 @@ class MainActivity : AppCompatActivity() {
             startFastbootReader()
             appendLog("[系统] Fastboot 链路已就绪")
         } else {
+            authFailureCount = 0
+            isAdbAuthorized = false
             startAdbReader()
             lifecycleScope.launch(Dispatchers.IO) {
-                val banner = "host::features=shell_v2,cmd,stat_v2,ls_v2,fixed_push_mkdir,abb,abb_exec,remount_shell,track_app,sendrecv_v2,sendrecv_v2_brotli,openscreen_mdns,compression_zstd\u0000".toByteArray()
-                sendPacket(0x4e584e43, 0x01000000, 1048576, banner)
+                val banner = "host::features=shell_v2,cmd,stat_v2,ls_v2,fixed_push_mkdir,abb,abb_exec,remount_shell,track_app,sendrecv_v2,sendrecv_v2_brotli,openscreen_mdns,compression_zstd\u0000".toByteArray(Charsets.UTF_8)
+                sendPacket(0x4e584e43, 0x01000000, 262144, banner)
             }
         }
     }
@@ -587,20 +587,21 @@ private suspend fun executeChunkedFlash(fullCommand: String, file: File, totalSi
                 val bb = ByteBuffer.wrap(header).order(ByteOrder.LITTLE_ENDIAN)
                 val cmd = bb.int; val arg0 = bb.int; val arg1 = bb.int; val len = bb.int
                 val payload = if (len > 0) ByteArray(len).also { usbConn?.bulkTransfer(epIn, it, len, 2000) } else null
+                val keyPair = keyManager.getKeys()
                 
                 withContext(Dispatchers.Main) {
                     when (cmd) {
-                        0x48545541 -> { // "AUTH"
-                            if (arg0 == 1) { // Token from device
+                        0x48545541 -> {
+                            if (arg0 == 1) {
                                 if (authFailureCount < 1) {
                                     appendLog("[Auth] 尝试私钥签名响应...")
-                                    sendPacket(0x48545541, 2, 0, signAdbToken(payload!!))
+                                    val signature = keyManager.signAdbToken(payload!!, keyPair.private)
+                                    sendPacket(0x48545541, 2, 0, signature)
                                     authFailureCount++
                                 } else {
                                     appendLog("[Auth] 发送公钥申请授权...")
-                                 //   val pub = "${keyManager.getPublicKeyBase64()} adb@kitty\u0000".toByteArray()
-                                    val pub = (keyManager.getPublicKeyBase64() + "\u0000").toByteArray()
-                                  sendPacket(0x48545541, 3, 0, pub)
+                                    val pubPayload = keyManager.getAdbAuthPayload()
+                                    sendPacket(0x48545541, 3, 0, pubPayload)
                                 }
                             }
                         }
@@ -646,15 +647,6 @@ private suspend fun executeChunkedFlash(fullCommand: String, file: File, totalSi
             payload?.let { usbConn?.bulkTransfer(epOut, it, it.size, 1000) }
         }
     }
-    
-    private fun signAdbToken(token: ByteArray): ByteArray {
-        val cipher = Cipher.getInstance("RSA/ECB/NoPadding")
-        cipher.init(Cipher.ENCRYPT_MODE, rsaKeyPair!!.private)
-        val data = ByteArray(256)
-        System.arraycopy(viewModel.SIGNATURE_PADDING, 0, data, 0, viewModel.SIGNATURE_PADDING.size)
-        System.arraycopy(token, 0, data, 256 - 20, 20)
-        return cipher.doFinal(data)
-    }
 
     private fun refreshUiText() {
         runOnUiThread {
@@ -676,11 +668,8 @@ private suspend fun executeChunkedFlash(fullCommand: String, file: File, totalSi
     }
 
     private fun appendLog(msg: String) {
-        val current = LocalDateTime.now()
-        val formatter = DateTimeFormatter.ofPattern("yyyy.MM.dd HH:mm:ss")
-        val time = current.format(formatter)
         runOnUiThread {
-            binding.appMainActivity.tvLog.append(time + "\u0020" + msg + "\n")
+            binding.appMainActivity.tvLog.append(msg + "\n")
             binding.appMainActivity.scrollView.post {
             // fullScroll 会直接滑动到最底部，确保你能看到最新的 [流结束] 或命令输出
             binding.appMainActivity.scrollView.fullScroll(android.view.View.FOCUS_DOWN)

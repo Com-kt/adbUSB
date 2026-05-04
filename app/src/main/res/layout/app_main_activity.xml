@@ -84,7 +84,7 @@
         android:id="@+id/bakck"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="USB线刷工具-小米版本"
+        android:text="USB线刷工具-自测"
         android:textStyle="bold"
         android:gravity="center"
         android:layout_marginBottom="3dp"

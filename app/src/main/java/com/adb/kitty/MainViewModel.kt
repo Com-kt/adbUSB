@@ -24,17 +24,6 @@ import java.util.Locale
 import java.util.zip.CRC32
 
 class MainViewModel : ViewModel() {
-
-    @OptIn(ExperimentalUnsignedTypes::class)
-    val SIGNATURE_PADDING: ByteArray = byteArrayOf(0x00.toByte(), 0x01.toByte()) + 
-        ByteArray(202) { 0xff.toByte() } + 
-        byteArrayOf(
-            0x00.toByte(), 0x30.toByte(), 0x31.toByte(), 0x30.toByte(), 
-            0x0d.toByte(), 0x06.toByte(), 0x09.toByte(), 0x60.toByte(), 
-            0x86.toByte(), 0x48.toByte(), 0x01.toByte(), 0x65.toByte(), 
-            0x03.toByte(), 0x04.toByte(), 0x02.toByte(), 0x01.toByte(), 
-            0x05.toByte(), 0x00.toByte(), 0x04.toByte(), 0x20.toByte()
-    )
     
     private val _adbCommands = listOf(
         AdbCommand("查看 adbd 用户组", "id"),
