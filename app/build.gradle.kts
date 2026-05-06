@@ -24,7 +24,7 @@ android {
         minSdk = 26
         targetSdk = 37
         versionCode = 7
-        versionName = "0.7-20260505-xiaomi-version"
+        versionName = "0.7-20260506-xiaomi-version"
         
         vectorDrawables { 
             useSupportLibrary = true
@@ -68,6 +68,10 @@ android {
         viewBinding = true
         aidl = true
         buildConfig = true
+    }
+    
+    lint {
+        textReport = true
     }
     
 }
