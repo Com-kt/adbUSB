@@ -280,17 +280,15 @@ class MainActivity : AppCompatActivity() {
         
         builder.setAdapter(adapter) { _, which ->
             if (isFastbootMode) {
-                val fcmds = fbCommands[which].command
+                val fcmd = fbCommands[which].command
                 // 推荐使用 Kotlinx 协程的方法去执行
                 lifecycleScope.launch(Dispatchers.IO) {
                     try {
-                    for (fcmd in fcmds) {
                         // 1. 先把要发的命令打印出来
                         withContext(Dispatchers.Main) {
                            appendLog("[发送] FB >> $fcmd") 
                         }
-                           executeCommandSync(fcmd)
-                        }
+                        executeCommandSync(fcmd)
                     } catch (e: Exception) {
                         withContext(Dispatchers.Main) { appendLog("[错误] ${e.message}") }
                     }
