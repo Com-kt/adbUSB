@@ -707,7 +707,7 @@ private suspend fun executeChunkedFlash(fullCommand: String, file: File, totalSi
         val formatter = DateTimeFormatter.ofPattern("yyyy.MM.dd HH:mm:ss")
         val time = current.format(formatter)
         runOnUiThread {
-            binding.appMainActivity.tvLog.append(time + "\u0200" + msg + "\n")
+            binding.appMainActivity.tvLog.append(time + "\u0020" + msg + "\n")
             binding.appMainActivity.scrollView.post {
             // fullScroll 会直接滑动到最底部，确保你能看到最新的 [流结束] 或命令输出
             binding.appMainActivity.scrollView.fullScroll(android.view.View.FOCUS_DOWN)
