@@ -655,7 +655,7 @@ private suspend fun executeChunkedFlash(fullCommand: String, file: File, totalSi
                             sendPacket(0x59414b4f, arg1, arg0, null) 
                         }
                         0x45534c43 -> { // CLSE: 提醒流结束
-                            appendLog("\n[流结束]")
+                            appendLog("[流结束]")
                             sendPacket(0x45534c43, arg1, arg0, null)
                         }
                     }
