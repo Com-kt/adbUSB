@@ -58,6 +58,8 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import java.util.zip.CRC32
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
 
 data class AdbCommand(val description: String, val command: String)
 
@@ -212,7 +214,7 @@ class MainActivity : AppCompatActivity() {
                      appendLog("[发送] FB << $cmd") 
                    }
             
-                 // 2. 发送原始指令
+                 // 2. 发送原始指令 (调用临时执行方法)
                   sendFastbootCommandDirect(cmd)
                   
                  // 3. 等待设备响应（如果有）
@@ -237,7 +239,7 @@ class MainActivity : AppCompatActivity() {
                true
            }
               R.id.action_main_2 -> {
-              Toast.makeText(this, "菜单项1", Toast.LENGTH_SHORT).show()
+              showFbCommandDialog()
                 true
            }
               R.id.action_main_3 -> {
@@ -255,6 +257,41 @@ class MainActivity : AppCompatActivity() {
              else -> super.onOptionsItemSelected(item)
         }
         
+    }
+    
+    private fun showFbCommandDialog() {
+        val builder = AlertDialog.Builder(this)
+        builder.setTitle("快捷发送 Fastboot 命令")
+        val fbCommands = viewModel.fbCommands
+        val adapter = object : ArrayAdapter<FbCommand>(this, android.R.layout.simple_list_item_2, android.R.id.text1, fbCommands) {
+            override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
+                val view = super.getView(position, convertView, parent)
+                val text1 = view.findViewById<TextView>(android.R.id.text1)
+                val text2 = view.findViewById<TextView>(android.R.id.text2)
+            
+                val item = getItem(position)
+                text1.text = item?.description
+                text2.text = item?.command
+                return view
+            }
+        }
+        
+        builder.setAdapter(adapter) { _, which ->
+            if (isFastbootMode) {
+                val fcmd = fbCommands[which].command
+                // 推荐使用 Kotlinx 协程的方法去执行
+                lifecycleScope.launch(Dispatchers.IO) {
+                    try {
+                        executeCommandSync(fcmd)
+                    } catch (e: Exception) {
+                        withContext(Dispatchers.Main) { appendLog("[错误] ${e.message}") }
+                    }
+                }
+            } else {
+                Toast.makeText(this, "Fastboot 未授权", Toast.LENGTH_SHORT).show()
+            }
+        }
+        builder.show()
     }
     
     private fun showAdbCommandDialog() {
@@ -277,10 +314,9 @@ class MainActivity : AppCompatActivity() {
         builder.setAdapter(adapter) { _, which ->
             if (isAdbAuthorized) {
                 val selectedCommand = adbCommands[which].command
-                // 只有在授权状态下才调用你的方法
                 sendAdbShell(selectedCommand)
             } else {
-                Toast.makeText(this, "ADB未授权", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "ADB 未授权", Toast.LENGTH_SHORT).show()
             }
         }
         builder.show()
@@ -470,7 +506,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
     
-    // 确保方法前有 suspend
 private suspend fun executeChunkedFlash(fullCommand: String, file: File, totalSize: Long, limit: Long) {
     val partitionName = buildFinalAction(fullCommand, file.name).removePrefix("flash:")
     val inputStream = file.inputStream()
@@ -478,7 +513,6 @@ private suspend fun executeChunkedFlash(fullCommand: String, file: File, totalSi
     val buffer = ByteArray(256 * 1024)
 
     inputStream.use { input ->
-        // 修改点 1: 使用 currentCoroutineContext().isActive
         while (offset < totalSize && currentCoroutineContext().isActive) { 
             val currentChunkSize = Math.min(limit, totalSize - offset)
             
@@ -486,7 +520,6 @@ private suspend fun executeChunkedFlash(fullCommand: String, file: File, totalSi
             if (!waitResponse(5000).startsWith("DATA")) throw Exception("分段下载失败")
 
             var bytesSentInChunk = 0L
-            // 修改点 2: 使用 currentCoroutineContext().isActive
             while (bytesSentInChunk < currentChunkSize && currentCoroutineContext().isActive) {
                 val bytesToRead = Math.min(buffer.size.toLong(), currentChunkSize - bytesSentInChunk).toInt()
                 val read = input.read(buffer, 0, bytesToRead)
@@ -668,8 +701,11 @@ private suspend fun executeChunkedFlash(fullCommand: String, file: File, totalSi
     }
 
     private fun appendLog(msg: String) {
+        val current = LocalDateTime.now()
+        val formatter = DateTimeFormatter.ofPattern("yyyy.MM.dd HH:mm:ss")
+        val time = current.format(formatter)
         runOnUiThread {
-            binding.appMainActivity.tvLog.append(msg + "\n")
+            binding.appMainActivity.tvLog.append(time + "\u0200" + msg + "\n")
             binding.appMainActivity.scrollView.post {
             // fullScroll 会直接滑动到最底部，确保你能看到最新的 [流结束] 或命令输出
             binding.appMainActivity.scrollView.fullScroll(android.view.View.FOCUS_DOWN)

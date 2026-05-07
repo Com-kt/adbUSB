@@ -30,8 +30,8 @@ class AutoDismissDialogFragment : DialogFragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        // 直接通过 binding 访问控件
-        binding.dialogText.text = "给我扫点，不然没钱流落街头，或者来个人收留我"
+        // 现在可以直接通过 binding 访问控件
+        binding.dialogText.text = "独属于我的生命仿佛就要走到了尽头"
 
         isCancelable = false
 
