@@ -107,7 +107,7 @@ class MainActivity : AppCompatActivity() {
 
                 if (intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false)) {
                     device?.let {
-                        appendLog("[权限] USB权限获取成功")
+                        appendLog("[系统] USB权限获取成功")
                         connectToInterface(it)
                     }
                 } else {
@@ -131,7 +131,7 @@ class MainActivity : AppCompatActivity() {
                     readerJob?.cancel()
                     usbConn?.close()
                     refreshUiText()
-                    appendLog("\n[系统] USB 设备已断开")
+                    appendLog("[系统] USB 设备已断开")
                 }
             }
         }
@@ -213,7 +213,7 @@ class MainActivity : AppCompatActivity() {
                 for (cmd in cmds) {
                    // 1. 先把要发的命令打印出来
                    withContext(Dispatchers.Main) { 
-                     appendLog("[发送] FB << $cmd") 
+                     appendLog("[发送] FB >> $cmd") 
                    }
             
                  // 2. 发送原始指令 (调用临时执行方法)
@@ -280,11 +280,17 @@ class MainActivity : AppCompatActivity() {
         
         builder.setAdapter(adapter) { _, which ->
             if (isFastbootMode) {
-                val fcmd = fbCommands[which].command
+                val fcmds = fbCommands[which].command
                 // 推荐使用 Kotlinx 协程的方法去执行
                 lifecycleScope.launch(Dispatchers.IO) {
                     try {
-                        executeCommandSync(fcmd)
+                    for (fcmd in fcmds) {
+                        // 1. 先把要发的命令打印出来
+                        withContext(Dispatchers.Main) {
+                           appendLog("[发送] FB >> $fcmd") 
+                        }
+                           executeCommandSync(fcmd)
+                        }
                     } catch (e: Exception) {
                         withContext(Dispatchers.Main) { appendLog("[错误] ${e.message}") }
                     }
@@ -357,7 +363,7 @@ class MainActivity : AppCompatActivity() {
                     appendLog("端点 $j: 地址=${ep.address} (方向: $direction, 编号: $epNumber), 最大包大小=${ep.maxPacketSize}")
                 }
                 
-                appendLog("----- 通过USB连接输出 -----")
+                appendLog("--- 通过USB连接输出 ---")
                 if (intf.interfaceClass == 255 && intf.interfaceSubclass == 66) {
                     isFastbootMode = (intf.interfaceProtocol == 3)
                     isUsbAttached = true
@@ -644,7 +650,7 @@ private suspend fun executeChunkedFlash(fullCommand: String, file: File, totalSi
                             isAdbAuthorized = true
                             authFailureCount = 0
                             refreshUiText()
-                            appendLog("\n>>> ADB 授权成功，链路就绪 <<<")
+                            appendLog(">>> ADB 授权成功，链路就绪 <<<")
                         }
                         0x45545257 -> { 
                             appendLog(String(payload ?: byteArrayOf()))
