@@ -1,0 +1,5 @@
+<resources>
+    <dimen name="activity_xml_layout_marginStart">13dp</dimen>
+    <dimen name="activity_xml_layout_marginEnd">13dp</dimen>
+    <dimen name="dialog_simple_xml_layout_margin">8dp</dimen>
+</resources>
