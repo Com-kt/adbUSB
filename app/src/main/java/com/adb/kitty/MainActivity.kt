@@ -63,6 +63,8 @@ import java.time.format.DateTimeFormatter
 
 data class AdbCommand(val description: String, val command: String)
 
+data class FbCommand(val description: String, val command: String)
+
 class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
