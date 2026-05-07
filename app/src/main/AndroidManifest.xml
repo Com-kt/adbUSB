@@ -12,7 +12,8 @@
     <!-- 防止手机休眠 -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <!-- 以高采样率访问传感器数据 -->
-    <uses-permission android:name="android.permission.HIGH_SAMPLING_RATE_SENSORS" />
+    <uses-permission android:name="android.permission.HIGH_SAMPLING_RATE_SENSORS"
+          tools:ignore="HighSamplingRate" />
     <!-- 开机启动 -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <!-- 强制更新所有权 -->
