@@ -62,7 +62,7 @@
         android:layout_margin="8dp"
         android:layout_marginEnd="@dimen/activity_xml_layout_marginEnd"
         android:layout_marginStart="@dimen/activity_xml_layout_marginStart"
-        android:background="#F0F0F0"
+        android:background="@color/log_background"
         android:padding="8dp"
         android:id="@+id/scrollView"
         app:layout_constraintTop_toBottomOf="@+id/fbSelinux"
