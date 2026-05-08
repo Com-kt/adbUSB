@@ -23,6 +23,11 @@ Android USB Host mode Support
     - [x] 255/66/1
     - [ ] 6/1/1
 
+> [!WARNING]
+> 
+> FASTBOOT 通信链路写错了
+> 不写了，跑路了
+
 # USB 授权
 - 默认情况下：Android 系统会自动识别USB设备并弹出授权弹窗
 - 非默认情况下：如果 Android系统没有自动识别USB设备，也没有弹出授权弹窗，这种情况下只能点击扫描按钮来主动请求/申请 USB 权限
