@@ -473,8 +473,6 @@ class MainActivity : AppCompatActivity() {
         usbConn?.bulkTransfer(epOut, data, data.size, 1000)
     }
 
-    // --- 3. 业务执行逻辑 ---
-
     suspend fun executeCommandSync(command: String) = withContext(Dispatchers.IO) {
         val cleanCmd = command.removePrefix("fastboot ").trim()
 
@@ -492,6 +490,67 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private suspend fun handleFlashWorkflow(fullCommand: String) {
+        val parts = fullCommand.split(Regex("\\s+"))
+        val fileName = parts.last()
+        val imgFile = File(flashFolder, fileName)
+
+        if (!imgFile.exists()) {
+            withContext(Dispatchers.Main) { appendLog("[错误] 找不到文件: $fileName") }
+            return
+        }
+
+        val fileSize = imgFile.length()
+        val fileSizeMB = fileSize / 1024 / 1024
+    
+        // 1. Download 阶段：发送下载指令
+        sendFastbootCommandDirect("download:${String.format("%08x", fileSize)}")
+        val dataResp = waitForTerminalResponse(10000) // 等待设备准备好接收数据
+        if (dataResp.status != "DATA") throw Exception("设备拒绝接收数据: ${dataResp.payload}")
+
+        // 2. Data 传输：分块发送并更新进度
+        val buffer = ByteArray(512 * 1024) // 512KB 缓冲区
+        FileInputStream(imgFile).use { input ->
+            var totalSent = 0L
+            while (totalSent < fileSize) {
+                val readSize = input.read(buffer)
+                if (readSize <= 0) break
+                // 执行 Bulk 传输
+                val result = usbConn?.bulkTransfer(epOut, buffer, readSize, 60000)
+                if (result == -1) throw Exception("USB 传输失败，请检查线缆")
+                totalSent += readSize
+                // 每传 5MB 更新一次 UI 进度，避免主线程频繁刷新
+                if (totalSent % (5 * 1024 * 1024) == 0L || totalSent == fileSize) {
+                    withContext(Dispatchers.Main) {
+                        appendLog("传输中: $fileSizeMB MB ... ${(totalSent * 100 / fileSize)}%")
+                    }
+                }
+            }
+        }
+        // 3. 确认上传：等设备校验完内存中的数据
+        // 镜像越大，校验越久，这里给一个动态值（每 100MB 给 5 秒，最小 30 秒）
+        val uploadConfirmTimeout = Math.max(30000L, (fileSizeMB / 100) * 5000L)
+        if (waitForTerminalResponse(uploadConfirmTimeout).status != "OKAY") {
+            throw Exception("镜像上传校验失败 (Hash 校验不通过)")
+        }
+        // 4. Flash 写入阶段
+        val partition = parts.drop(1).firstOrNull { it != fileName && !it.startsWith("-") } ?: "boot"
+        sendFastbootCommandDirect("flash:$partition")
+        appendLog("正在写入物理分区 [$partition]，请勿拔线...")
+        // 关键：根据文件大小动态计算写入超时
+        // 假设最差写入速度为 10MB/s，计算公式：(大小 / 10) 秒 + 60秒 缓冲
+        val flashTimeout = (fileSizeMB / 10) * 1000L + 60000L
+        val flashResult = waitForTerminalResponse(flashTimeout)
+    
+        withContext(Dispatchers.Main) {
+            if (flashResult.status == "OKAY") {
+                appendLog("✅ [成功] $partition 分区刷写完成")
+            } else {
+                appendLog("❌ [失败] 写入中断: ${flashResult.payload}")
+            }
+        }
+    }
+/*
     private suspend fun handleFlashWorkflow(fullCommand: String) {
         val parts = fullCommand.split(Regex("\\s+"))
         val fileName = parts.last()
@@ -534,7 +593,7 @@ class MainActivity : AppCompatActivity() {
             else appendLog("[失败] 写入中断: ${flashResult.payload}")
         }
     }
-    
+    */
     private fun startAdbReader() {
         readerJob?.cancel()
         readerJob = lifecycleScope.launch(Dispatchers.IO) {
