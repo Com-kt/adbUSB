@@ -5,7 +5,6 @@
     <string name="action_main_2">快捷fastboot</string>
     <string name="action_main_3">无线调试</string>
     <string name="action_main_4">注意事项</string>
-    <string name="activity_main_xml_tvStatus">状态: 未连接</string>
     <string name="app_main_activity_xml_btnConnect">扫描并申请权限</string>
     <string name="app_main_activity_xml_etCommand">输入 adb 命令 / fastboot 命令</string>
     <string name="app_main_activity_xml_btnSend">发送命令</string>

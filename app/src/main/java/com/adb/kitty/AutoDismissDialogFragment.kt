@@ -31,7 +31,7 @@ class AutoDismissDialogFragment : DialogFragment() {
         super.onViewCreated(view, savedInstanceState)
 
         // 现在可以直接通过 binding 访问控件
-        binding.dialogText.text = "独属于我的生命仿佛就要走到了尽头"
+        binding.dialogText.text = "独属于我的生命仿佛就要走到了尽头 \n如果上天再给我一次选择的机会 \n那我一定是选择不做人 \n我早就该知道不管怎么选择都会死"
 
         isCancelable = false
 

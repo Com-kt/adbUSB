@@ -54,6 +54,7 @@ class MainViewModel : ViewModel() {
     val adbCommands: List<AdbCommand> get() = _adbCommands
     
     private val _fbCommands = listOf(
+        FbCommand("查看当前安全补丁级别", "getvar security-patch-level"),
         FbCommand("查看当前活跃的分区槽位（a 或 b)", "getvar current-slot"),
         FbCommand("查看 Bootloader 解锁状态", "getvar unlocked"),
         FbCommand("获取设备的所有系统变量（如版本号、电池电压、Bootloader 锁状态等)", "getvar all"),

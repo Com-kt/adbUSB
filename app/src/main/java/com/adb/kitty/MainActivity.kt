@@ -566,50 +566,7 @@ class MainActivity : AppCompatActivity() {
             }
         }
     }
-/*
-    private suspend fun handleFlashWorkflow(fullCommand: String) {
-        val parts = fullCommand.split(Regex("\\s+"))
-        val fileName = parts.last()
-        val imgFile = File(flashFolder, fileName)
 
-        if (!imgFile.exists()) {
-            withContext(Dispatchers.Main) { appendLog("[错误] 找不到镜像文件: $fileName") }
-            return
-        }
-
-        val fileSize = imgFile.length()
-        
-        // 1. Download 阶段
-        sendFastbootCommandDirect("download:${String.format("%08x", fileSize)}")
-        val dataResp = waitForTerminalResponse(5000)
-        if (dataResp.status != "DATA") throw Exception("设备拒绝接收数据")
-
-        // 2. Data 传输
-        val buffer = ByteArray(512 * 1024)
-        FileInputStream(imgFile).use { input ->
-            var totalSent = 0L
-            while (totalSent < fileSize) {
-                val read = input.read(buffer)
-                if (read <= 0) break
-                usbConn?.bulkTransfer(epOut, buffer, read, 60000)
-                totalSent += read
-            }
-        }
-
-        // 3. 确认 Download 完成
-        if (waitForTerminalResponse(30000).status != "OKAY") throw Exception("镜像上传校验失败")
-
-        // 4. Flash 写入物理分区阶段
-        val partition = parts.drop(1).firstOrNull { it != fileName } ?: "boot"
-        sendFastbootCommandDirect("flash:$partition")
-        
-        val flashResult = waitForTerminalResponse(180000) // 写入可能很慢
-        withContext(Dispatchers.Main) {
-            if (flashResult.status == "OKAY") appendLog("[成功] $partition 分区刷写完成")
-            else appendLog("[失败] 写入中断: ${flashResult.payload}")
-        }
-    }
-    */
     private fun startAdbReader() {
         readerJob?.cancel()
         readerJob = lifecycleScope.launch(Dispatchers.IO) {
