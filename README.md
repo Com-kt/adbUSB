@@ -25,8 +25,7 @@ Android USB Host mode Support
 
 > [!WARNING]
 > 
-> FASTBOOT 通信链路写错了
-> 不写了，跑路了
+> FASTBOOT COMMUNICATION LINK SELF-TEST
 
 # USB 授权
 - 默认情况下：Android 系统会自动识别USB设备并弹出授权弹窗
