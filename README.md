@@ -35,5 +35,9 @@ Android USB Host mode Support
 # ADB 认证
 - 默认向adbd发送adbkey私钥进行验证，验证失败之后，发送adbkey.pub公钥来触发计算机授权弹窗，授权之后就可以创建 adb shell 通道，目前不知道为什么私钥验证一直不通过，导致要一直发送公钥来触发计算机授权弹窗
 
+> [!WARNING]
+> 
+> ADB COMMUNICATION LINK SELF-TEST
+
 # USB 连接
 - 您的数据线与OTG转接口，或者双typec线，在 Android 设备之间进行连接时，应测试数据线连接的稳定性，这样可以有效防止在刷写的过程中会不会一不小心就断开了USB连接从而导致手机变🧱，建议多次触碰数据线以确认USB连接是否稳定
