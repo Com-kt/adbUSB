@@ -248,16 +248,32 @@ class MainActivity : AppCompatActivity() {
                 true
            }
               R.id.action_main_3 -> {
-              Toast.makeText(this, "菜单项2", Toast.LENGTH_SHORT).show()
+              Toast.makeText(this, "开发者没有实现无线调试功能", Toast.LENGTH_SHORT).show()
                 true
            }
               R.id.action_main_4 -> {
-              Toast.makeText(this, "菜单项3", Toast.LENGTH_SHORT).show()
+              WarngApps()
                 true
            }
              else -> super.onOptionsItemSelected(item)
         }
         
+    }
+    
+    private fun WarngApps() {
+        val warnTitle = "注意事项"
+        val warnMessage = "1.ADB授权之后就直接进入了adb shell，命令里也就不需要加上adb shell \n2.fastboot通信链路如果有问题，请第一时间前往GitHub提交问题 \n3.GitHub地址：https://github.com/Com-kt/adbUSB \n4.应用自身没有签名校验机制，随时都有可能会被寡改 \n5.如果您认为此应用程序Fastboot的实现不能进行线刷，那么您就不要线刷 \n6.免责声明：开发者没有任何义务对所有人进行服务 \n7.线刷文件夹路径：/storage/emulated/0/Android/data/com.adb.kitty/files/flash/"
+    
+        val builder = AlertDialog.Builder(this)
+            .setTitle(warnTitle)
+            .setMessage(warnMessage)
+            .setPositiveButton("ok") { _, _ ->
+                Toast.makeText(this, "好的呢，知道啦！", Toast.LENGTH_SHORT).show()
+            }
+        val dialog = builder.create()
+        dialog.setCancelable(false)
+        dialog.setCanceledOnTouchOutside(false)
+        dialog.show()
     }
     
     private fun showFbCommandDialog() {

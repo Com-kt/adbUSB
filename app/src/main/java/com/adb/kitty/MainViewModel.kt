@@ -54,7 +54,7 @@ class MainViewModel : ViewModel() {
     val adbCommands: List<AdbCommand> get() = _adbCommands
     
     private val _fbCommands = listOf(
-        FbCommand("识别设备是否连接", "devices"),
+        FbCommand("查看当前活跃的分区槽位（a 或 b)", "getvar current-slot"),
         FbCommand("查看 Bootloader 解锁状态", "getvar unlocked"),
         FbCommand("获取设备的所有系统变量（如版本号、电池电压、Bootloader 锁状态等)", "getvar all"),
         FbCommand("尝试设置 SeLinux 为宽容模式", "oem set-gpu-preemption 0 androidboot.selinux=permissive"),
