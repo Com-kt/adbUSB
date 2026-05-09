@@ -72,12 +72,13 @@ class AdbKeyManager(private val context: Context) {
     /**
      * 生成发送给手机的 AUTH 公钥包
      */
+     /*
     fun getAdbAuthPayload(): ByteArray {
         val pubBase64 = File(context.filesDir, pubFileName).readText().trim()
         // 关键：Base64 + 空格 + 标识符 + \0 结束符
         return "$pubBase64 adb@kitty\u0000".toByteArray(Charsets.UTF_8)
     }
-
+*/
     /**
      * 对手机发来的 Token 进行 RSA 签名
      * @param token 手机通过 AUTH 消息发来的随机字节（通常是 20 字节）
