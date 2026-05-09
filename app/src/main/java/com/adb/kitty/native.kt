@@ -28,4 +28,8 @@ object AdbAuth {
         return nativeSignToken(token, der)
             ?: error("adb auth sign failed")
     }
+    
+    fun nativeGetPublicKey(
+        privateKeyDer: ByteArray
+    ): ByteArray
 }

@@ -98,3 +98,58 @@ Java_com_adb_kitty_AdbAuth_nativeSignToken(
 
     return out;
 }
+
+extern "C"
+JNIEXPORT jbyteArray JNICALL
+Java_com_adb_kitty_AdbAuth_nativeGetPublicKey(
+        JNIEnv* env,
+        jobject,
+        jbyteArray privateKeyDer_) {
+
+    const jsize key_len =
+            env->GetArrayLength(privateKeyDer_);
+
+    if (key_len <= 0) {
+        return nullptr;
+    }
+
+    jbyte* key =
+            env->GetByteArrayElements(
+                    privateKeyDer_,
+                    nullptr);
+
+    RSA* rsa = load_private_key_from_der(
+            reinterpret_cast<uint8_t*>(key),
+            key_len);
+
+    env->ReleaseByteArrayElements(
+            privateKeyDer_,
+            key,
+            JNI_ABORT);
+
+    if (!rsa) {
+        return nullptr;
+    }
+
+    std::string pubkey =
+            adb_auth_pubkey(rsa);
+
+    RSA_free(rsa);
+
+    if (pubkey.empty()) {
+        return nullptr;
+    }
+
+    jbyteArray out = env->NewByteArray(pubkey.size());
+    if (out == nullptr) {
+        return nullptr;
+    }
+
+    env->SetByteArrayRegion(
+            out,
+            0,
+            pubkey.size(),
+            reinterpret_cast<const jbyte*>(pubkey.data()));
+
+    return out;
+}
