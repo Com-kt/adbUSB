@@ -29,6 +29,23 @@ android {
         vectorDrawables { 
             useSupportLibrary = true
         }
+        
+        ndk {
+            abiFilters += "arm64-v8a"
+        }
+
+        externalNativeBuild {
+            cmake {
+                cppFlags += "-std=c++20"
+            }
+        }
+    }
+    
+    externalNativeBuild {
+        cmake {
+            path = file("src/main/cpp/CMakeLists.txt")
+            version = "3.22.1"
+        }
     }
     
     compileOptions {

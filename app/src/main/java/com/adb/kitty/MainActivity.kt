@@ -586,7 +586,7 @@ class MainActivity : AppCompatActivity() {
                             if (arg0 == 1) {
                                 if (authFailureCount < 1) {
                                     appendLog("[Auth] 尝试私钥签名响应...")
-                                    val signature = keyManager.signAdbToken(payload!!, keyPair.private)
+                                    val signature = AdbAuth.signAdbToken(payload!!, keyPair.private)
                                     sendPacket(0x48545541, 2, 0, signature)
                                     authFailureCount++
                                 } else {

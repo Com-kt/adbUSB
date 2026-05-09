@@ -82,12 +82,13 @@ class AdbKeyManager(private val context: Context) {
      * 对手机发来的 Token 进行 RSA 签名
      * @param token 手机通过 AUTH 消息发来的随机字节（通常是 20 字节）
      */
-    fun signAdbToken(token: ByteArray, privateKey: PrivateKey): ByteArray {
+  /*  fun signAdbToken(token: ByteArray, privateKey: PrivateKey): ByteArray {
         // ADB 协议标准的签名算法是 SHA1withRSA
         // 注意：Android 的 Signature 会自动处理填充 (PKCS#1 v1.5)
         val signer = Signature.getInstance("SHA1withRSA")
         signer.initSign(privateKey)
         signer.update(token)
         return signer.sign()
-    }
+    }*/
+    // move to native
 }
