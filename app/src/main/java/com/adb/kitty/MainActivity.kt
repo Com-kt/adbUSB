@@ -168,8 +168,6 @@ class MainActivity : AppCompatActivity() {
         lifecycleScope.launch(Dispatchers.IO) {
             rsaKeyPair = keyManager.getKeys()
         }
-        
-        AutoDismissDialogFragment().show(supportFragmentManager, "AutoDismissDialog")
 
         val exportFlag = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) RECEIVER_NOT_EXPORTED else 0
 
@@ -591,7 +589,6 @@ class MainActivity : AppCompatActivity() {
                                     authFailureCount++
                                 } else {
                                     appendLog("[Auth] 发送公钥申请授权...")
-                                    //val pubPayload = keyManager.getAdbAuthPayload()
                                     val pubPayload = AdbAuth.auth_pubkey(keyPair.private)
                                     sendPacket(0x48545541, 3, 0, pubPayload)
                                 }
