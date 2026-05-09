@@ -442,7 +442,7 @@ class MainActivity : AppCompatActivity() {
             startAdbReader()
             lifecycleScope.launch(Dispatchers.IO) {
                 val banner = "host::features=shell_v2,cmd,stat_v2,ls_v2,fixed_push_mkdir,abb,abb_exec,remount_shell,track_app,sendrecv_v2,sendrecv_v2_brotli,openscreen_mdns,compression_zstd\u0000".toByteArray(Charsets.UTF_8)
-                sendPacket(0x4e584e43, 0x01000000, 262144, banner)
+                sendPacket(0x4e584e43, 0x01000001, 262144, banner)
             }
         }
     }
@@ -625,15 +625,16 @@ class MainActivity : AppCompatActivity() {
     
     private fun sendPacket(cmd: Int, arg0: Int, arg1: Int, payload: ByteArray?) {
         val len = payload?.size ?: 0
-        var checksum = 0
-        payload?.forEach { checksum += (it.toInt() and 0xFF) }
-
+        val checksum = 0
+        
         val buffer = ByteBuffer.allocate(24).order(ByteOrder.LITTLE_ENDIAN)
         buffer.putInt(cmd).putInt(arg0).putInt(arg1).putInt(len).putInt(checksum).putInt(cmd xor -1)
 
         lifecycleScope.launch(Dispatchers.IO) {
             usbConn?.bulkTransfer(epOut, buffer.array(), 24, 1000)
-            payload?.let { usbConn?.bulkTransfer(epOut, it, it.size, 1000) }
+            if (len > 0 && payload != null) {
+                usbConn?.bulkTransfer(epOut, payload, len, 1000)
+            }
         }
     }
 
