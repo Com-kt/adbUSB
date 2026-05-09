@@ -16,18 +16,10 @@ class AdbKeyManager(private val context: Context) {
 
     fun getKeys(): KeyPair {
         val privFile = File(context.filesDir, privFileName)
-        if (!privFile.exists() || shouldRebuild()) {
+        if (!privFile.exists()) {
             return generateKeys()
         }
         return loadKeys()
-    }
-
-    private fun shouldRebuild(): Boolean {
-        val verFile = File(context.filesDir, versionFileName)
-        if (!verFile.exists()) return true
-        return try {
-            JSONObject(verFile.readText()).getInt("version") < CURRENT_VERSION
-        } catch (e: Exception) { true }
     }
 
     private fun generateKeys(): KeyPair {
