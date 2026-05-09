@@ -168,8 +168,6 @@ class MainActivity : AppCompatActivity() {
         lifecycleScope.launch(Dispatchers.IO) {
             rsaKeyPair = keyManager.getKeys()
         }
-        
-        AutoDismissDialogFragment().show(supportFragmentManager, "AutoDismissDialog")
 
         val exportFlag = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) RECEIVER_NOT_EXPORTED else 0
 
