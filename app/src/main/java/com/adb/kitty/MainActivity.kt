@@ -592,7 +592,7 @@ class MainActivity : AppCompatActivity() {
                                 } else {
                                     appendLog("[Auth] 发送公钥申请授权...")
                                     //val pubPayload = keyManager.getAdbAuthPayload()
-                                    val pubPayload = AdbAuth.nativeGetPublicKey(keyPair.private)
+                                    val pubPayload = AdbAuth.auth_pubkey(keyPair.private)
                                     sendPacket(0x48545541, 3, 0, pubPayload)
                                 }
                             }

@@ -12,12 +12,15 @@ object AdbAuth {
         token: ByteArray,
         privateKeyDer: ByteArray
     ): ByteArray?
+    
+    private external fun nativeGetPublicKey(
+        privateKeyDer: ByteArray
+    ): ByteArray?
 
     fun signAdbToken(
         token: ByteArray,
         privateKey: PrivateKey
     ): ByteArray {
-
         require(token.size == 20) {
             "ADB token must be 20 bytes"
         }
@@ -26,10 +29,14 @@ object AdbAuth {
             ?: error("PrivateKey has no encoded form")
 
         return nativeSignToken(token, der)
-            ?: error("adb auth sign failed")
+            ?: error("ADB auth sign failed")
     }
-    
-    fun nativeGetPublicKey(
-        privateKeyDer: ByteArray
-    ): ByteArray
+
+    fun auth_pubkey(privateKey: PrivateKey): ByteArray {
+        val der = privateKey.encoded
+            ?: error("PrivateKey has no encoded form")
+            
+        return nativeGetPublicKey(der)
+            ?: error("Failed to get public key from private key")
+    }
 }
