@@ -437,7 +437,6 @@ class MainActivity : AppCompatActivity() {
             startFastbootReader()
             appendLog("[系统] Fastboot 链路已就绪")
         } else {
-            authFailureCount = 0
             isAdbAuthorized = false
             startAdbReader()
             lifecycleScope.launch(Dispatchers.IO) {
@@ -584,9 +583,11 @@ class MainActivity : AppCompatActivity() {
                             if (arg0 == 1) {
                                 if (authFailureCount < 1) {
                                     appendLog("[Auth] 尝试私钥签名响应...")
-                                    val signature = keyManager.signAdbToken(payload!!, keyPair.private)
-                                    sendPacket(0x48545541, 2, 0, signature)
-                                    authFailureCount++
+                                    payload?.let { token ->
+                                        val signature = keyManager.signAdbToken(token, keyPair.private)
+                                        sendPacket(0x48545541, 2, 0, signature)
+                                        authFailureCount++
+                                    } ?: appendLog("[Error] 收到 AUTH TOKEN 但 payload 为空")
                                 } else {
                                     appendLog("[Auth] 发送公钥申请授权...")
                                     val pubPayload = keyManager.getAdbAuthPayload()
