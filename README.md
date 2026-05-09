@@ -1,3 +1,4 @@
+# 加入我们的频道
 [![Telegram](image/telegram_icon.webp)](https://t.me/SkisMode)
 
 # USB Host
@@ -14,8 +15,6 @@ Android USB Host mode Support
     - [ ] pull
     - [ ] push
     - [ ] pair
-    - [ ] daemon mode
-    - [ ] cmd
 
 # Usb interface Support
 - [x] Fastboot
@@ -35,7 +34,7 @@ Android USB Host mode Support
 - 只有授权了 USB 权限，应用程序才能对 USB 设备进行操作，特殊设备可能不需要授权，但我们不会支持这种操作
 
 # ADB 认证
-- 默认向adbd发送adbkey私钥进行验证，验证失败之后，发送adbkey.pub公钥来触发计算机授权弹窗，授权之后就可以创建 adb shell 通道，目前不知道为什么私钥验证一直不通过，导致要一直发送公钥来触发计算机授权弹窗
+- adbd认证逻辑将来会重构，当前使用的只是临时方案而已
 
 > [!WARNING]
 > 
