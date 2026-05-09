@@ -591,7 +591,8 @@ class MainActivity : AppCompatActivity() {
                                     authFailureCount++
                                 } else {
                                     appendLog("[Auth] 发送公钥申请授权...")
-                                    val pubPayload = keyManager.getAdbAuthPayload()
+                                    //val pubPayload = keyManager.getAdbAuthPayload()
+                                    val pubPayload = AdbAuth.nativeGetPublicKey(keyPair.private)
                                     sendPacket(0x48545541, 3, 0, pubPayload)
                                 }
                             }
