@@ -10,16 +10,19 @@
 
 std::string adb_auth_pubkey(RSA* key) {
     if (!key) {
-        LOGW("null rsa key");
+        LOGW("null rsa key\n");
         return std::string();
     }
 
     std::string pubkey;
 
     if (!CalculatePublicKey(&pubkey, key)) {
-        LOGW("failed to calculate pubkey");
+        LOGW("failed to calculate pubkey\n");
         return std::string();
     }
+    
+    LOGV("auth key: %s\n", pubkey.c_str());
+    LOGV("auth key len=%zu", pubkey.size());
 
     return pubkey;
 }
