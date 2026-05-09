@@ -1,18 +1,32 @@
 package com.adb.kitty
 
 import android.content.Context
-import android.util.Base64
+import org.bouncycastle.asn1.pkcs.PrivateKeyInfo
+import org.bouncycastle.asn1.x509.SubjectPublicKeyInfo
+import org.bouncycastle.openssl.PEMParser
+import org.bouncycastle.openssl.jcajce.JcaPEMKeyConverter
+import org.bouncycastle.openssl.jcajce.JcaPEMWriter
 import org.json.JSONObject
 import java.io.File
+import java.io.StringReader
+import java.io.StringWriter
 import java.security.*
-import java.security.spec.PKCS8EncodedKeySpec
-import java.security.spec.X509EncodedKeySpec
+import java.security.spec.RSAKeyGenParameterSpec
+import java.util.*
 
 class AdbKeyManager(private val context: Context) {
     private val privFileName = "adbkey"
     private val pubFileName = "adbkey.pub"
     private val versionFileName = "version.json"
-    private val CURRENT_VERSION = 5
+    private val CURRENT_VERSION = 6
+
+    // 确保在类加载时添加 BouncyCastle 提供者
+    companion object {
+        init {
+            Security.removeProvider("BC") // 移除系统自带的旧版 BC
+            Security.addProvider(org.bouncycastle.jce.provider.BouncyCastleProvider())
+        }
+    }
 
     fun getKeys(): KeyPair {
         val privFile = File(context.filesDir, privFileName)
@@ -31,18 +45,26 @@ class AdbKeyManager(private val context: Context) {
     }
 
     private fun generateKeys(): KeyPair {
-        val kpg = KeyPairGenerator.getInstance("RSA")
-        kpg.initialize(2048)
+        // 使用 BC 生成 2048 位 RSA 密钥对
+        val kpg = KeyPairGenerator.getInstance("RSA", "BC")
+        kpg.initialize(RSAKeyGenParameterSpec(2048, RSAKeyGenParameterSpec.F4))
         val kp = kpg.generateKeyPair()
 
-        // 1. 存储私钥：必须保存为标准的 PEM 格式，否则某些 ADB 库无法加载
-        val privEncoded = Base64.encodeToString(kp.private.encoded, Base64.DEFAULT)
-        val pem = "-----BEGIN PRIVATE KEY-----\n$privEncoded-----END PRIVATE KEY-----"
-        context.openFileOutput(privFileName, Context.MODE_PRIVATE).use { it.write(pem.toByteArray()) }
+        // 1. 使用 BouncyCastle 的 PEMWriter 存储私钥 (PKCS#8 格式)
+        val sw = StringWriter()
+        val pemWriter = JcaPEMWriter(sw)
+        pemWriter.writeObject(kp.private)
+        pemWriter.close()
+        context.openFileOutput(privFileName, Context.MODE_PRIVATE).use { 
+            it.write(sw.toString().toByteArray()) 
+        }
 
-        // 2. 存储公钥：存储为纯 Base64 (X.509 DER)
-        val pubBase64 = Base64.encodeToString(kp.public.encoded, Base64.NO_WRAP)
-        context.openFileOutput(pubFileName, Context.MODE_PRIVATE).use { it.write(pubBase64.toByteArray()) }
+        // 2. 存储公钥：ADB 期望的是 Base64 编码的 DER 格式，不带 PEM 头尾
+        // 使用 SubjectPublicKeyInfo 获取标准编码
+        val pubEncoded = android.util.Base64.encodeToString(kp.public.encoded, android.util.Base64.NO_WRAP)
+        context.openFileOutput(pubFileName, Context.MODE_PRIVATE).use { 
+            it.write(pubEncoded.toByteArray()) 
+        }
 
         // 3. 保存版本
         context.openFileOutput(versionFileName, Context.MODE_PRIVATE).use {
@@ -52,21 +74,21 @@ class AdbKeyManager(private val context: Context) {
     }
 
     private fun loadKeys(): KeyPair {
-        val kf = KeyFactory.getInstance("RSA")
+        // 使用 BC 的 PEMParser 加载私钥，它能自动处理 PEM 标签和换行符
+        val privFile = File(context.filesDir, privFileName)
+        val reader = StringReader(privFile.readText())
+        val pemParser = PEMParser(reader)
         
-        // 读取私钥时需要剔除 PEM 的头尾标签
-        val privContent = File(context.filesDir, privFileName).readText()
-            .replace("-----BEGIN PRIVATE KEY-----", "")
-            .replace("-----END PRIVATE KEY-----", "")
-            .replace("\\s".toRegex(), "") // 移除所有空白符
+        val privateKeyInfo = pemParser.readObject() as PrivateKeyInfo
+        val privateKey = JcaPEMKeyConverter().setProvider("BC").getPrivateKey(privateKeyInfo)
         
-        val privBytes = Base64.decode(privContent, Base64.DEFAULT)
-        val pubBytes = Base64.decode(File(context.filesDir, pubFileName).readText(), Base64.NO_WRAP)
-        
-        return KeyPair(
-            kf.generatePublic(X509EncodedKeySpec(pubBytes)),
-            kf.generatePrivate(PKCS8EncodedKeySpec(privBytes))
-        )
+        // 加载公钥 (从 Base64 恢复)
+        val pubFile = File(context.filesDir, pubFileName)
+        val pubBytes = android.util.Base64.decode(pubFile.readText(), android.util.Base64.NO_WRAP)
+        val kf = KeyFactory.getInstance("RSA", "BC")
+        val publicKey = kf.generatePublic(java.security.spec.X509EncodedKeySpec(pubBytes))
+
+        return KeyPair(publicKey, privateKey)
     }
 
     /**
@@ -74,18 +96,16 @@ class AdbKeyManager(private val context: Context) {
      */
     fun getAdbAuthPayload(): ByteArray {
         val pubBase64 = File(context.filesDir, pubFileName).readText().trim()
-        // 关键：Base64 + 空格 + 标识符 + \0 结束符
+        // ADB 协议要求公钥字符串后跟 " 描述符\0"
         return "$pubBase64 adb@kitty\u0000".toByteArray(Charsets.UTF_8)
     }
 
     /**
      * 对手机发来的 Token 进行 RSA 签名
-     * @param token 手机通过 AUTH 消息发来的随机字节（通常是 20 字节）
      */
     fun signAdbToken(token: ByteArray, privateKey: PrivateKey): ByteArray {
-        // ADB 协议标准的签名算法是 SHA1withRSA
-        // 注意：Android 的 Signature 会自动处理填充 (PKCS#1 v1.5)
-        val signer = Signature.getInstance("SHA1withRSA")
+        // 明确指定使用 BC 提供者进行 SHA1withRSA 签名
+        val signer = Signature.getInstance("SHA1withRSA", "BC")
         signer.initSign(privateKey)
         signer.update(token)
         return signer.sign()

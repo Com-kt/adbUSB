@@ -12,6 +12,8 @@ annotation = "1.10.0"
 coreKtx = "1.18.0"
 activityKtx = "1.13.0"
 
+bouncycastle = "1.78"
+
 [libraries]
 # AndroidX 核心基础库
 androidx-appcompat = { group = "androidx.appcompat", name = "appcompat", version.ref = "appcompat" }
@@ -26,11 +28,18 @@ kotlinx-coroutines-core = { group = "org.jetbrains.kotlinx", name = "kotlinx-cor
 kotlinx-coroutines-core-jvm = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-core-jvm", version.ref = "kotlinxCoroutines" }
 kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "kotlinxCoroutines" }
 
+bcpkix-jdk18on = { group = "org.bouncycastle", name = "bcpkix-jdk18on", version.ref = "bouncycastle" }
+bcprov-jdk18on = { group = "org.bouncycastle", name = "bcprov-jdk18on", version.ref = "bouncycastle" }
+
 [bundles]
 coroutines-runtime = [
     "kotlinx-coroutines-core-jvm",
     "kotlinx-coroutines-core",
     "kotlinx-coroutines-android"
+]
+bouncycastle = [
+    "bcprov-jdk18on", 
+    "bcpkix-jdk18on"
 ]
 
 [plugins]
