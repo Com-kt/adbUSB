@@ -74,6 +74,10 @@ android {
         textReport = true
     }
     
+    dependenciesInfo {
+        includeInApk = false
+        includeInBundle = false
+    }
 }
 
 tasks.withType<KotlinJvmCompile>()

@@ -1,3 +1,5 @@
+[![Telegram](image/telegram_icon.webp)](https://t.me/SkisMode)
+
 # USB Host
 Android USB Host mode Support
 - [x] USB mode
@@ -41,3 +43,15 @@ Android USB Host mode Support
 
 # USB 连接
 - 您的数据线与OTG转接口，或者双typec线，在 Android 设备之间进行连接时，应测试数据线连接的稳定性，这样可以有效防止在刷写的过程中会不会一不小心就断开了USB连接从而导致手机变🧱，建议多次触碰数据线以确认USB连接是否稳定
+
+## 📢 Maintenance & Contributions
+
+Please note that this is a **personal project** maintained solely by the author.
+
+* **No Pull Requests:** I am **NOT** accepting any code contributions or Pull Requests (PRs) at this time. All PRs will be closed without review.
+* **Forks Welcome:** If you wish to add new features, fix bugs, or experiment with the code, please feel free to **Fork** this repository and develop within your own fork.
+* **Issues:** If you find a bug, you are welcome to open an **Issue** to report it. I will review and address it at my own discretion.
+
+Thank you for respecting the project's maintenance model.
+
+[Code of Conduct](./CODE_OF_CONDUCT.md)
