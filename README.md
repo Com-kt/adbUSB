@@ -2,7 +2,7 @@
 [![Telegram](image/telegram_icon.webp)](https://t.me/SkisMode)
 
 # USB Host
-Android USB Host mode Support
+Android USB mode Support
 - [x] USB mode
     - [x] Host
     - [x] accessory
@@ -38,7 +38,7 @@ Android USB Host mode Support
 - 1.我将会同时把adb shell、adb pull、adb push集成在一起，这是预期结果
 - 2.在实现 ADB 无线调试功能时，我不确定是否能集成adb pull、adb push在一起，如果可以，那么这个也是预期结果
 
-# 其他 ADB 工具以及实现 (非本人)
+# 其他 ADB 实现 (非本人)
 - 如果您不想使用此GitHub仓库实现的ADB工具，那么您也可以使用其他GitHub仓库实现的ADB工具
 - 以下列出一些包含了 ADB 工具以及实现：
 - aShellYou[1]
