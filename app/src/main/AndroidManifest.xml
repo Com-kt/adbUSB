@@ -3,14 +3,16 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:installLocation="auto">
     
-    <!-- USB 硬件功能 -->
+    <!-- 要求 Android 系统必须支持USB主机模式，后续无线调试实现完成以后，USB主机模式也可能会沦为次要的，因为无线调试它只需要 WLAN 相关功能，所以暂时设置为 true -->
     <uses-feature 
           android:name="android.hardware.usb.host"
           android:required="true" />
+    <!-- 不一定要 Android 系统支持USB配件模式，因为USB主机模式才是主要的，USB配件模式是次要的，因此设置 android:required 为 false -->
     <uses-feature 
           android:name="android.hardware.usb.accessory"
           android:required="false" />
             
+    <!-- USB 权限，哈哈哈，其实也不需要声明这个权限，因为 USB 基本上都是通过系统广播来授权，删掉也无妨，声明只是为了让程序显得更规范 -->
     <uses-permission android:name="android.permission.USB_PERMISSION" />
     <!-- 防止手机休眠 -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
@@ -24,12 +26,6 @@
     <uses-permission android:name="android.permission.REQUEST_COMPANION_RUN_IN_BACKGROUND" />
     <!-- 在后台使用数据 -->
     <uses-permission android:name="android.permission.REQUEST_COMPANION_USE_DATA_IN_BACKGROUND" />
-    <!-- 运行前台服务 -->
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-    <!-- 运行「dataSync」类型的前台服务 -->
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
-    <!-- 运行「connectedDevice」类型的前台服务 -->
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
     
     <application 
         android:allowBackup="true" 
@@ -44,6 +40,7 @@
         android:supportsRtl="true" 
         android:theme="@style/AppTheme"
         tools:targetApi="37">
+        <!-- 这个库必须添加，但不强制要求安装的系统上一定要有这个库，因为USB主机模式才是主要的，USB配件模式是次要的，因此设置 android:required 为 false -->
         <uses-library 
             android:name="com.android.future.usb.accessory"
             android:required="false" />
@@ -58,15 +55,19 @@
                 <category 
                     android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <!-- USB主机模式 -->
             <intent-filter>
                 <action android:name="android.hardware.usb.action.USB_DEVICE_ATTACHED" />
             </intent-filter>
+            <!-- USB配件模式 -->
             <intent-filter>
                 <action android:name="android.hardware.usb.action.USB_ACCESSORY_ATTACHED" />
             </intent-filter>
+            <!-- USB主机模式配置 -->
             <meta-data 
                  android:name="android.hardware.usb.action.USB_DEVICE_ATTACHED"
                  android:resource="@xml/usb_device_filter" />
+            <!-- USB配件模式配置 -->
             <meta-data
                  android:name="android.hardware.usb.action.USB_ACCESSORY_ATTACHED"
                  android:resource="@xml/accessory_filter" />

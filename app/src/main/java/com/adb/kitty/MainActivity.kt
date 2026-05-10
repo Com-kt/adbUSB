@@ -123,11 +123,13 @@ class MainActivity : AppCompatActivity() {
     private val usbStateReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
             when (intent.action) {
-                UsbManager.ACTION_USB_DEVICE_ATTACHED -> {
+                UsbManager.ACTION_USB_DEVICE_ATTACHED,
+                UsbManager.ACTION_USB_ACCESSORY_ATTACHED -> {
                     isUsbAttached = true
                     refreshUiText()
                 }
-                UsbManager.ACTION_USB_DEVICE_DETACHED -> {
+                UsbManager.ACTION_USB_DEVICE_DETACHED,
+                UsbManager.ACTION_USB_ACCESSORY_ATTACHED -> {
                     isUsbAttached = false
                     isAdbAuthorized = false
                     isFastbootMode = false
@@ -175,6 +177,8 @@ class MainActivity : AppCompatActivity() {
         registerReceiver(usbStateReceiver, IntentFilter().apply {
             addAction(UsbManager.ACTION_USB_DEVICE_ATTACHED)
             addAction(UsbManager.ACTION_USB_DEVICE_DETACHED)
+            addAction(UsbManager.ACTION_USB_ACCESSORY_ATTACHED)
+            addAction(UsbManager.ACTION_USB_ACCESSORY_DETACHED)
         }, exportFlag)
 
         binding.appMainActivity.btnConnect.setOnClickListener { findDevice() }
