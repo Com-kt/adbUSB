@@ -340,7 +340,7 @@ class MainActivity : AppCompatActivity() {
         }
         builder.show()
     }
-    
+    /* 
     private fun findDevice() {
         val devices = usbManager.deviceList
         if (devices.isEmpty()) {
@@ -383,8 +383,6 @@ class MainActivity : AppCompatActivity() {
                     // 匹配要求：同行显示 VID/PID 十进制
                     appendLog("--- 检测到 $modeName 兼容设备 ---")
                     appendLog("--- 需要开启USB调试 (安全设置) ---")
-                //    appendLog("设备: ${device.productName ?: "未知"}")
-                //    appendLog("VID: ${device.vendorId} | PID: ${device.productId}")
 
                     if (!usbManager.hasPermission(device)) {
                         // --- 修复 Android 14 崩溃的关键点 ---
@@ -393,17 +391,12 @@ class MainActivity : AppCompatActivity() {
                         } else {
                             0
                         }
-
                         // 必须明确 setPackage，将隐式 Intent 变为显式 Intent
                         val intent = Intent(ACTION_USB_PERMISSION).apply {
                             setPackage(packageName) 
                         }
-
                         val pi = PendingIntent.getBroadcast(this, 0, intent, flags)
-                        // --------------------------------
-                    
                         usbManager.requestPermission(device, pi)
-                    
                         refreshUiText()
                         
                     } else {
@@ -415,6 +408,125 @@ class MainActivity : AppCompatActivity() {
             }
         }
         updateStatus("发现设备但无 ADB/Fastboot 接口")
+    }
+    */
+    private fun findDevice() {
+        val devices = usbManager.deviceList
+        if (devices.isEmpty()) {
+            updateStatus("未发现 USB 设备")
+            return
+        }
+
+        for (device in devices.values) {
+            // --- 第一步：基本信息输出 ---
+            appendLog("设备: ${device.productName ?: "未知"}")
+            appendLog("制造商: ${device.manufacturerName ?: "未知"}")
+            appendLog("版本号: ${device.version}")
+            appendLog("VID: ${device.vendorId} | PID: ${device.productId}")
+        
+            // --- 第二步：分流处理 ---
+            // 检测是否处于 Google AOA 模式 (VID: 0x18D1 = 6353)
+            if (device.vendorId == 6353 && device.productId in 0x2D00..0x2D05) {
+                processAccessoryMode(device)
+                // 如果 AOA 模式包含 ADB (PID 为奇数)，则继续尝试主机模式逻辑
+                if (device.productId % 2 != 0) {
+                    processHostMode(device)
+                }
+            } else {
+                processHostMode(device)
+            }
+        }
+    }
+    /**
+     * 原有逻辑：主机模式 (ADB/Fastboot)
+      */
+    private fun processHostMode(device: UsbDevice) {
+        for (i in 0 until device.interfaceCount) {
+            val intf = device.getInterface(i)
+            appendLog("接口名称: ${intf.name ?: "无描述"}")
+            appendLog("检查接口 $i: Class=${intf.interfaceClass}, Subclass=${intf.interfaceSubclass}, Protocol=${intf.interfaceProtocol}")
+
+            // 遍历端点 (Endpoint) - 保持原有输出
+            for (j in 0 until intf.endpointCount) {
+                val ep = intf.getEndpoint(j)
+                val isInput = (ep.address and 0x80) != 0
+                val direction = if (isInput) "IN (设备->手机)" else "OUT (手机->设备)"
+                val epNumber = ep.address and 0x0F
+                appendLog("端点 $j: 地址=${ep.address} (方向: $direction, 编号: $epNumber), 最大包大小=${ep.maxPacketSize}")
+            }
+            appendLog("--- 通过USB连接输出 ---")
+        
+            // 核心匹配逻辑
+            if (intf.interfaceClass == 255 && intf.interfaceSubclass == 66) {
+                isFastbootMode = (intf.interfaceProtocol == 3)
+                isUsbAttached = true
+
+                val modeName = if (isFastbootMode) "Fastboot" else "ADB"
+                appendLog("--- 检测到 $modeName 兼容设备 ---")
+                appendLog("--- 需要开启USB调试 (安全设置) ---")
+
+                if (!usbManager.hasPermission(device)) {
+                    // --- 修复 Android 14 崩溃的关键点 (保持不动) ---
+                    val flags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                        PendingIntent.FLAG_MUTABLE
+                    } else {
+                        0
+                    }
+                    val intent = Intent(ACTION_USB_PERMISSION).apply {
+                        setPackage(packageName)
+                    }
+                    val pi = PendingIntent.getBroadcast(this, 0, intent, flags)
+                    usbManager.requestPermission(device, pi)
+                    refreshUiText()
+                } else {
+                    appendLog("[Serial] 硬件序列号: ${device.serialNumber ?: "未提供"}")
+                    connectToInterface(device)
+                }
+                return // 找到匹配接口后退出
+            }
+        }
+        updateStatus("发现设备但无 ADB/Fastboot 接口")
+    }
+    /**
+     * 专项处理：输出 USB 配件模式 (AOA) 的所有关键身份信息
+     */
+    private fun processAccessoryMode(device: UsbDevice) {
+        appendLog(">>> [检测到 USB 配件模式 (AOA)] <<<")
+        // 1. 输出 AOA 握手定义的核心身份信息
+        // 当手机进入 AOA 模式，这些字段会显示为你发送给手机的握手字符串
+        appendLog("【AOA 身份标识】")
+        appendLog(" -> 制造商 (Manufacturer): ${device.manufacturerName ?: "未提供"}")
+        appendLog(" -> 型号 (Model): ${device.productName ?: "未提供"}")
+        appendLog(" -> 协议版本 (Version): ${device.version ?: "1.0"}")
+
+        // 2. 根据 PID 细化模式描述
+        val aoaType = when (device.productId) {
+            0x2D00 -> "Accessory (仅配件)"
+            0x2D01 -> "Accessory + ADB (复合模式)"
+            0x2D02 -> "Audio (仅音频)"
+            0x2D03 -> "Audio + ADB"
+            0x2D04 -> "Accessory + Audio"
+            0x2D05 -> "Accessory + Audio + ADB"
+            else -> "未知 AOA 状态"
+        }
+        appendLog("【当前模式】$aoaType (PID: 0x${Integer.toHexString(device.productId).uppercase()})")
+
+        // 3. 遍历接口，识别 AOA 特有通道
+        for (i in 0 until device.interfaceCount) {
+            val intf = device.getInterface(i)
+            when {
+                intf.interfaceClass == 255 && intf.interfaceSubclass == 255 -> {
+                    appendLog("  └ [接口 $i] 关键通道: AOA Accessory Bulk Data")
+                }
+                intf.interfaceClass == 1 -> {
+                    appendLog("  └ [接口 $i] 音频通道: USB Digital Audio Out")
+                }
+                intf.interfaceClass == 255 && intf.interfaceSubclass == 66 -> {
+                    appendLog("  └ [接口 $i] 调试通道: ADB Tunnel over AOA")
+                }
+            }
+        }
+        appendLog(">>> [AOA 诊断输出完毕] <<<")
     }
 
     private fun connectToInterface(device: UsbDevice) {
