@@ -23,8 +23,8 @@ android {
         applicationId = "com.adb.kitty"
         minSdk = 26
         targetSdk = 37
-        versionCode = 9
-        versionName = "1.9-20260511-xiaomi-version"
+        versionCode = 10
+        versionName = "2.0-20260512-xiaomi-version"
         
         vectorDrawables { 
             useSupportLibrary = true

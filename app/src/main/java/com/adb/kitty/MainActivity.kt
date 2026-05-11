@@ -459,6 +459,10 @@ class MainActivity : AppCompatActivity() {
                 connectToAccessory(accessory)
             }
         }
+        
+        if (devices.isEmpty() && accessories.isNullOrEmpty()) {
+            updateStatus("未发现 USB 连接")
+        }
     }
     /**
      * 原有逻辑：主机模式 (ADB/Fastboot)
@@ -486,7 +490,7 @@ class MainActivity : AppCompatActivity() {
 
                 val modeName = if (isFastbootMode) "Fastboot" else "ADB"
                 appendLog("--- 检测到 $modeName 兼容设备 ---")
-                appendLog("--- 需要开启USB调试 (安全设置) ---")
+                appendLog("--- ADB 模式下需要开启USB调试 (安全设置) ---")
 
                 if (!usbManager.hasPermission(device)) {
                     // --- 修复 Android 14 崩溃的关键点 (保持不动) ---
@@ -551,7 +555,6 @@ class MainActivity : AppCompatActivity() {
         }
         appendLog(">>> [AOA 诊断输出完毕] <<<")
     }
-    
     /**
      * 新增：配件模式连接逻辑 (FileDescriptor 模式)
      */
@@ -653,81 +656,228 @@ class MainActivity : AppCompatActivity() {
         val data = command.toByteArray()
         usbConn?.bulkTransfer(epOut, data, data.size, 1000)
     }
-
+    
     suspend fun executeCommandSync(command: String) = withContext(Dispatchers.IO) {
+        // 1. 预处理：移除前缀并按空格拆分参数
         val cleanCmd = command.removePrefix("fastboot ").trim()
+        val parts = cleanCmd.split(Regex("\\s+"))
+        if (parts.isEmpty()) return@withContext
 
-        if (cleanCmd.startsWith("flash") || cleanCmd.startsWith("boot")) {
+        // 提取动作（如 flash, getvar, erase 等）
+        val action = parts[0].lowercase()
+
+        // 2. 分流处理
+        if (action == "flash" || action == "boot") {
+            // 针对刷写流程，直接进入 Workflow
+            // handleFlashWorkflow 内部会通过 parts[1] 提取分区名并拼接成 "flash:分区名"
             handleFlashWorkflow(cleanCmd)
         } else {
-            // 普通 getvar 或 erase 指令
-            sendFastbootCommandDirect(cleanCmd.replace(" ", ":")) // 协议格式通常为 getvar:unlocked
-            val result = waitForTerminalResponse()
-            
+            // 3. 普通指令处理逻辑
+            // 按照协议格式：第一个空格转为冒号，后续保持原样
+            // 例如 "getvar version-bootloader" -> "getvar:version-bootloader"
+            // 例如 "reboot" -> "reboot"
+            val protocolCmd = if (parts.size >= 2) {
+                "${parts[0]}:${parts.drop(1).joinToString(" ")}"
+            } else {
+                parts[0]
+            }
+
+            sendFastbootCommandDirect(protocolCmd)
+        
+            // 等待响应，并在 UI 实时回显所有 INFO 和最终结果
+            val result = waitForTerminalResponse(10000)
+        
             withContext(Dispatchers.Main) {
-                result.allLines.forEach { appendLog("FB >> $it") }
-                if (result.status == "FAIL") appendLog("[错误] 执行失败: ${result.payload}")
+                // 打印所有返回行（确保连续的 INFO 包不被遗漏）
+                result.allLines.forEach { line ->
+                    appendLog("FB << $line")
+                }
+            
+                if (result.status == "FAIL") {
+                    appendLog("❌ [错误] 执行失败: ${result.payload}")
+                }
             }
         }
     }
-
+/*
     private suspend fun handleFlashWorkflow(fullCommand: String) {
-        val parts = fullCommand.split(Regex("\\s+"))
-        val fileName = parts.last()
+        // 1. 解析命令：预估格式为 "flash <partition> <fileName>"
+        val parts = fullCommand.trim().split(Regex("\\s+"))
+        if (parts.size < 3) {
+            withContext(Dispatchers.Main) { 
+                appendLog("❌ [错误] 命令格式不全。示例: flash <分区名> <文件名>") 
+            }
+            return
+        }
+
+        val partition = parts[1]        // 获取分区名
+        val fileName = parts.last()     // 获取文件名
         val imgFile = File(flashFolder, fileName)
 
         if (!imgFile.exists()) {
-            withContext(Dispatchers.Main) { appendLog("[错误] 找不到文件: $fileName") }
+            withContext(Dispatchers.Main) { appendLog("❌ [错误] 找不到文件: $fileName") }
             return
         }
 
         val fileSize = imgFile.length()
         val fileSizeMB = fileSize / 1024 / 1024
-    
-        // 1. Download 阶段：发送下载指令
-        sendFastbootCommandDirect("download:${String.format("%08x", fileSize)}")
-        val dataResp = waitForTerminalResponse(10000) // 等待设备准备好接收数据
-        if (dataResp.status != "DATA") throw Exception("设备拒绝接收数据: ${dataResp.payload}")
 
-        // 2. Data 传输：分块发送并更新进度
-        val buffer = ByteArray(512 * 1024) // 512KB 缓冲区
-        FileInputStream(imgFile).use { input ->
-            var totalSent = 0L
-            while (totalSent < fileSize) {
-                val readSize = input.read(buffer)
-                if (readSize <= 0) break
-                // 执行 Bulk 传输
-                val result = usbConn?.bulkTransfer(epOut, buffer, readSize, 60000)
-                if (result == -1) throw Exception("USB 传输失败，请检查线缆")
-                totalSent += readSize
-                // 每传 5MB 更新一次 UI 进度，避免主线程频繁刷新
-                if (totalSent % (5 * 1024 * 1024) == 0L || totalSent == fileSize) {
-                    withContext(Dispatchers.Main) {
-                        appendLog("传输中: $fileSizeMB MB ... ${(totalSent * 100 / fileSize)}%")
+        try {
+            // --- 第一阶段: Download (握手与数据传输) ---
+            // 发送 download 指令告知设备即将传输的数据大小
+            val downloadCmd = "download:${String.format("%08x", fileSize)}"
+            sendFastbootCommandDirect(downloadCmd)
+        
+            // 等待设备返回 DATA 包（确认已准备好接收指定大小的数据）
+            val dataResp = waitForTerminalResponse(10000)
+            if (dataResp.status != "DATA") {
+                throw Exception("设备拒绝接收数据 (响应: ${dataResp.status} ${dataResp.payload})")
+            }
+            // 开始 Bulk 传输二进制文件
+            val buffer = ByteArray(512 * 1024) // 512KB 缓冲区
+            FileInputStream(imgFile).use { input ->
+                var totalSent = 0L
+                while (totalSent < fileSize) {
+                    val readSize = input.read(buffer)
+                    if (readSize <= 0) break
+                
+                    val result = usbConn?.bulkTransfer(epOut, buffer, readSize, 60000)
+                    if (result == -1) throw Exception("USB 传输中断，请检查线缆连接")
+                
+                    totalSent += readSize
+                    // 每 5MB 或结束时更新一次进度
+                    if (totalSent % (5 * 1024 * 1024) == 0L || totalSent == fileSize) {
+                        val progress = (totalSent * 100 / fileSize).toInt()
+                        withContext(Dispatchers.Main) {
+                            appendLog("传输进度: $progress% ($fileSizeMB MB)")
+                        }
                     }
                 }
             }
+            // 关键：传输完成后，必须等待设备返回 OKAY 确认数据已完整存入内存
+            val uploadConfirm = waitForTerminalResponse(Math.max(30000L, (fileSizeMB / 100) * 5000L))
+            if (uploadConfirm.status != "OKAY") {
+                throw Exception("镜像上传校验失败: ${uploadConfirm.payload}")
+            }
+            // --- 第二阶段: Flash (物理写入) ---
+            // 使用解析出的 partition 动态拼接指令
+            sendFastbootCommandDirect("flash:$partition")
+            withContext(Dispatchers.Main) { appendLog("正在写入物理分区 [$partition]，请勿断开连接...") }
+
+            // 根据文件大小动态计算写入超时（最慢写入速度预估为 10MB/s + 60s 缓冲）
+            val flashTimeout = (fileSizeMB / 10) * 1000L + 60000L
+            val flashResult = waitForTerminalResponse(flashTimeout)
+
+            // 统一处理 INFO 消息回显并判定结果
+            withContext(Dispatchers.Main) {
+                // 将过程中所有 INFO 包内容输出
+                flashResult.allLines.filter { it.startsWith("INFO") }.forEach { line ->
+                    appendLog("[设备] ${if (line.length > 4) line.substring(4) else ""}")
+                }
+
+                if (flashResult.status == "OKAY") {
+                    appendLog("✅ [成功] $partition 分区刷写完成")
+                } else {
+                    appendLog("❌ [失败] 写入中断: ${flashResult.payload}")
+                }
+            }
+        } catch (e: Exception) {
+            withContext(Dispatchers.Main) {
+                appendLog("⚠️ [异常] 流程终止: ${e.message}")
+            }
         }
-        // 3. 确认上传：等设备校验完内存中的数据
-        // 镜像越大，校验越久，这里给一个动态值（每 100MB 给 5 秒，最小 30 秒）
-        val uploadConfirmTimeout = Math.max(30000L, (fileSizeMB / 100) * 5000L)
-        if (waitForTerminalResponse(uploadConfirmTimeout).status != "OKAY") {
-            throw Exception("镜像上传校验失败 (Hash 校验不通过)")
-        }
-        // 4. Flash 写入阶段
-        val partition = parts.drop(1).firstOrNull { it != fileName && !it.startsWith("-") } ?: "boot"
-        sendFastbootCommandDirect("flash:$partition")
-        appendLog("正在写入物理分区 [$partition]，请勿拔线...")
-        // 关键：根据文件大小动态计算写入超时
-        // 假设最差写入速度为 10MB/s，计算公式：(大小 / 10) 秒 + 60秒 缓冲
-        val flashTimeout = (fileSizeMB / 10) * 1000L + 60000L
-        val flashResult = waitForTerminalResponse(flashTimeout)
+    }
+    */
+    private suspend fun handleFlashWorkflow(fullCommand: String) {
+        // 1. 解析命令：预估格式为 "flash <partition> <fileName>" 或 "boot <fileName>"
+        val parts = fullCommand.trim().split(Regex("\\s+"))
     
-        withContext(Dispatchers.Main) {
-            if (flashResult.status == "OKAY") {
-                appendLog("✅ [成功] $partition 分区刷写完成")
+        // 基础动作提取 (flash 或 boot)
+        val action = parts[0].lowercase()
+
+        // 参数数量校验
+        if (action == "flash" && parts.size < 3) {
+            withContext(Dispatchers.Main) { appendLog("❌ [错误] flash 格式不全。示例: flash <分区名> <文件名>") }
+            return
+        }
+        if (action == "boot" && parts.size < 2) {
+            withContext(Dispatchers.Main) { appendLog("❌ [错误] boot 格式不全。示例: boot <文件名>") }
+            return
+        }
+
+        val partition = if (action == "flash") parts[1] else "" // 只有 flash 需要分区名
+        val fileName = parts.last() // 无论哪种模式，最后一个参数通常是文件名
+        val imgFile = File(flashFolder, fileName)
+
+        if (!imgFile.exists()) {
+            withContext(Dispatchers.Main) { appendLog("❌ [错误] 找不到文件: $fileName") }
+            return
+        }
+
+        val fileSize = imgFile.length()
+        val fileSizeMB = fileSize / 1024 / 1024
+
+        try {
+            // --- 第一阶段: Download (握手与数据传输) ---
+            val downloadCmd = "download:${String.format("%08x", fileSize)}"
+            sendFastbootCommandDirect(downloadCmd)
+    
+            val dataResp = waitForTerminalResponse(10000)
+            if (dataResp.status != "DATA") {
+                throw Exception("设备拒绝接收数据 (响应: ${dataResp.status} ${dataResp.payload})")
+            }
+
+            // 数据 Bulk 传输逻辑 (保持不变)
+            val buffer = ByteArray(512 * 1024)
+            FileInputStream(imgFile).use { input ->
+                var totalSent = 0L
+                while (totalSent < fileSize) {
+                    val readSize = input.read(buffer)
+                    if (readSize <= 0) break
+                    val result = usbConn?.bulkTransfer(epOut, buffer, readSize, 60000)
+                    if (result == -1) throw Exception("USB 传输中断")
+                    totalSent += readSize
+                    if (totalSent % (5 * 1024 * 1024) == 0L || totalSent == fileSize) {
+                        val progress = (totalSent * 100 / fileSize).toInt()
+                        withContext(Dispatchers.Main) { appendLog("传输进度: $progress% ($fileSizeMB MB)") }
+                    }
+                }
+            }
+            // 等待传输确认
+            val uploadConfirm = waitForTerminalResponse(Math.max(30000L, (fileSizeMB / 100) * 5000L))
+            if (uploadConfirm.status != "OKAY") {
+                throw Exception("镜像上传校验失败: ${uploadConfirm.payload}")
+            }
+            // --- 第二阶段: 关键改进 - 执行 Action ---
+            // 严格根据 action 类型分流，不再有硬编码的 ":boot"
+            if (action == "boot") {
+                sendFastbootCommandDirect("boot")
+                withContext(Dispatchers.Main) { appendLog("数据已就绪，正在执行临时引导 [boot]...") }
             } else {
-                appendLog("❌ [失败] 写入中断: ${flashResult.payload}")
+            // 只有 action 为 flash 时，才拼接分区名
+                sendFastbootCommandDirect("flash:$partition")
+                withContext(Dispatchers.Main) { appendLog("正在写入物理分区 [$partition]，请勿断开连接...") }
+            }
+            // 根据文件大小计算写入/校验超时
+            val flashTimeout = (fileSizeMB / 10) * 1000L + 60000L
+            val flashResult = waitForTerminalResponse(flashTimeout)
+
+            // 统一处理 INFO 消息回显并判定结果
+            withContext(Dispatchers.Main) {
+                flashResult.allLines.filter { it.startsWith("INFO") }.forEach { line ->
+                    appendLog("[设备] ${if (line.length > 4) line.substring(4) else ""}")
+                }
+
+                if (flashResult.status == "OKAY") {
+                    val successText = if (action == "boot") "引导指令已发出" else "$partition 分区刷写完成"
+                    appendLog("✅ [成功] $successText")
+                } else {
+                    appendLog("❌ [失败] ${action.uppercase()} 失败: ${flashResult.payload}")
+                }
+            }
+        } catch (e: Exception) {
+            withContext(Dispatchers.Main) {
+                appendLog("⚠️ [异常] 流程终止: ${e.message}")
             }
         }
     }
