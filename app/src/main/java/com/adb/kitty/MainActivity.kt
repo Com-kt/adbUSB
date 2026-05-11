@@ -524,7 +524,7 @@ class MainActivity : AppCompatActivity() {
         appendLog("【AOA 身份标识】")
         appendLog(" -> 制造商 (Manufacturer): ${device.manufacturerName ?: "未提供"}")
         appendLog(" -> 型号 (Model): ${device.productName ?: "未提供"}")
-        appendLog(" -> 协议版本 (Version): ${device.version ?: "未知"}")
+        appendLog(" -> 协议版本 (Version): ${device.version.ifBlank { "未知" }}")
 
         // 2. 根据 PID 细化模式描述
         val aoaType = when (device.productId) {
