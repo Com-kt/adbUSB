@@ -54,6 +54,7 @@ import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
 import java.io.FileDescriptor
+import java.io.IOException
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.security.KeyPair
@@ -434,30 +435,29 @@ class MainActivity : AppCompatActivity() {
      * 核心：双路扫描（同时查找设备和配件）
      */
     private fun findDevice() {
-        // 1. 扫描 Host 模式设备 (手机控别人)
+        // 1. 扫描 Host 模式 (手机控别人)
         val devices = usbManager.deviceList
         for (device in devices.values) {
             appendLog("设备: ${device.productName ?: "未知"}")
             appendLog("制造商: ${device.manufacturerName ?: "未知"}")
             appendLog("版本号: ${device.version}")
             appendLog("VID: ${device.vendorId} | PID: ${device.productId}")
-            if (device.vendorId == 6353 && device.productId in 0x2D00..0x2D05) {
-                processAccessoryMode(device)
-                if (device.productId % 2 != 0) processHostMode(device)
-            } else {
-                processHostMode(device)
+            if (usbManager.hasPermission(device)) {
+                if (device.vendorId == 6353 && device.productId in 0x2D00..0x2D05) {
+                    processAccessoryMode(device)
+                    if (device.productId % 2 != 0) processHostMode(device)
+                } else {
+                    processHostMode(device)
+                }
             }
         }
-
-        // 2. 扫描 Accessory 模式配件 (手机连电脑/被控)
+        // 2. 扫描 Accessory 模式 (手机连电脑/被控)
         val accessories = usbManager.accessoryList
         accessories?.forEach { accessory ->
-            appendLog("检测到已激活的配件模式: ${accessory.model}")
-            requestUsbPermission(null, accessory)
-        }
-
-        if (devices.isEmpty() && accessories.isNullOrEmpty()) {
-            updateStatus("未发现 USB 连接")
+            if (usbManager.hasPermission(accessory)) {
+                appendLog("检测到已授权的配件: ${accessory.model}")
+                connectToAccessory(accessory)
+            }
         }
     }
     /**
