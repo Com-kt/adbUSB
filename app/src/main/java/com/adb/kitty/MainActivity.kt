@@ -20,8 +20,10 @@ import android.hardware.usb.UsbDeviceConnection
 import android.hardware.usb.UsbEndpoint
 import android.hardware.usb.UsbInterface
 import android.hardware.usb.UsbManager
+import android.hardware.usb.UsbAccessory
 import android.os.Build
 import android.os.Bundle
+import android.os.ParcelFileDescriptor
 import android.text.method.ScrollingMovementMethod
 import android.widget.Toast
 import android.widget.ArrayAdapter
@@ -50,6 +52,8 @@ import kotlinx.coroutines.currentCoroutineContext
 import kotlin.ExperimentalUnsignedTypes
 import java.io.File
 import java.io.FileInputStream
+import java.io.FileOutputStream
+import java.io.FileDescriptor
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.security.KeyPair
@@ -82,6 +86,7 @@ class MainActivity : AppCompatActivity() {
     private var rsaKeyPair: KeyPair? = null
     private var readerJob: Job? = null
     private var mLocalId = 1
+    private var accessoryPfd: ParcelFileDescriptor? = null
 
     private var isUsbAttached = false
     private var isAdbAuthorized = false
@@ -101,17 +106,29 @@ class MainActivity : AppCompatActivity() {
     private val usbPermissionReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
             if (ACTION_USB_PERMISSION == intent.action) {
-                val device: UsbDevice? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                    intent.getParcelableExtra(UsbManager.EXTRA_DEVICE, UsbDevice::class.java)
-                } else {
-                    @Suppress("DEPRECATION")
-                    intent.getParcelableExtra(UsbManager.EXTRA_DEVICE)
-                }
-
-                if (intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false)) {
-                    device?.let {
-                        appendLog("[系统] USB权限获取成功")
-                        connectToInterface(it)
+                val granted = intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false)
+                if (granted) {
+                    // 1. 尝试获取 Device (Host 模式)
+                    val device = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                        intent.getParcelableExtra(UsbManager.EXTRA_DEVICE, UsbDevice::class.java)
+                    } else {
+                        @Suppress("DEPRECATION")
+                        intent.getParcelableExtra(UsbManager.EXTRA_DEVICE)
+                    }
+                    // 2. 尝试获取 Accessory (配件模式)
+                    val accessory = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                        intent.getParcelableExtra(UsbManager.EXTRA_ACCESSORY, UsbAccessory::class.java)
+                    } else {
+                        @Suppress("DEPRECATION")
+                        intent.getParcelableExtra(UsbManager.EXTRA_ACCESSORY)
+                    }
+                    // 分别处理
+                    if (device != null) {
+                        appendLog("[系统] USB 调试设备权限获取成功")
+                        connectToInterface(device) // 保持你原有的逻辑
+                    } else if (accessory != null) {
+                        appendLog("[系统] USB 配件模式权限获取成功")
+                        connectToAccessory(accessory) // 指向处理配件的新逻辑
                     }
                 } else {
                     updateStatus("用户拒绝了 USB 权限申请")
@@ -119,7 +136,7 @@ class MainActivity : AppCompatActivity() {
             }
         }
     }
-
+    
     private val usbStateReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
             when (intent.action) {
@@ -259,7 +276,6 @@ class MainActivity : AppCompatActivity() {
            }
              else -> super.onOptionsItemSelected(item)
         }
-        
     }
     
     private fun WarngApps() {
@@ -414,31 +430,34 @@ class MainActivity : AppCompatActivity() {
         updateStatus("发现设备但无 ADB/Fastboot 接口")
     }
     */
+    /**
+     * 核心：双路扫描（同时查找设备和配件）
+     */
     private fun findDevice() {
+        // 1. 扫描 Host 模式设备 (手机控别人)
         val devices = usbManager.deviceList
-        if (devices.isEmpty()) {
-            updateStatus("未发现 USB 设备")
-            return
-        }
-
         for (device in devices.values) {
-            // --- 第一步：基本信息输出 ---
             appendLog("设备: ${device.productName ?: "未知"}")
             appendLog("制造商: ${device.manufacturerName ?: "未知"}")
             appendLog("版本号: ${device.version}")
             appendLog("VID: ${device.vendorId} | PID: ${device.productId}")
-        
-            // --- 第二步：分流处理 ---
-            // 检测是否处于 Google AOA 模式 (VID: 0x18D1 = 6353)
             if (device.vendorId == 6353 && device.productId in 0x2D00..0x2D05) {
                 processAccessoryMode(device)
-                // 如果 AOA 模式包含 ADB (PID 为奇数)，则继续尝试主机模式逻辑
-                if (device.productId % 2 != 0) {
-                    processHostMode(device)
-                }
+                if (device.productId % 2 != 0) processHostMode(device)
             } else {
                 processHostMode(device)
             }
+        }
+
+        // 2. 扫描 Accessory 模式配件 (手机连电脑/被控)
+        val accessories = usbManager.accessoryList
+        accessories?.forEach { accessory ->
+            appendLog("检测到已激活的配件模式: ${accessory.model}")
+            requestUsbPermission(null, accessory)
+        }
+
+        if (devices.isEmpty() && accessories.isNullOrEmpty()) {
+            updateStatus("未发现 USB 连接")
         }
     }
     /**
@@ -531,6 +550,39 @@ class MainActivity : AppCompatActivity() {
             }
         }
         appendLog(">>> [AOA 诊断输出完毕] <<<")
+    }
+    
+    /**
+     * 新增：配件模式连接逻辑 (FileDescriptor 模式)
+     */
+    private fun connectToAccessory(accessory: UsbAccessory) {
+        try {
+            accessoryPfd = usbManager.openAccessory(accessory)
+            accessoryPfd?.let { pfd ->
+                val inputStream = FileInputStream(pfd.fileDescriptor)
+                val outputStream = FileOutputStream(pfd.fileDescriptor)
+                
+                appendLog("[系统] 配件模式流已开启")
+                
+                // 启动异步线程处理 ADB 协议数据流
+                Thread {
+                    val buffer = ByteArray(16384)
+                    try {
+                        while (isUsbAttached) {
+                            val len = inputStream.read(buffer)
+                            if (len > 0) {
+                                // 这里接入你的 AdbKeyManager 签名或协议解析逻辑
+                                appendLog("收到配件模式数据: $len bytes")
+                            }
+                        }
+                    } catch (e: IOException) {
+                        appendLog("配件流读取关闭")
+                    }
+                }.start()
+            }
+        } catch (e: Exception) {
+            appendLog("开启配件模式失败: ${e.message}")
+        }
     }
 
     private fun connectToInterface(device: UsbDevice) {

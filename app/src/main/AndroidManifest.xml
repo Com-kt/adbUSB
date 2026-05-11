@@ -3,16 +3,16 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:installLocation="auto">
     
-    <!-- 要求 Android 系统必须支持USB主机模式，后续无线调试实现完成以后，USB主机模式也可能会沦为次要的，因为无线调试它只需要 WLAN 相关功能，所以暂时设置为 true -->
+    <!-- USB 主机模式功能 -->
     <uses-feature 
           android:name="android.hardware.usb.host"
           android:required="true" />
-    <!-- 不一定要 Android 系统支持USB配件模式，因为USB主机模式才是主要的，USB配件模式是次要的，因此设置 android:required 为 false -->
+    <!-- USB 配件模式功能 -->
     <uses-feature 
           android:name="android.hardware.usb.accessory"
           android:required="false" />
             
-    <!-- USB 权限，哈哈哈，其实也不需要声明这个权限，因为 USB 基本上都是通过系统广播来授权，删掉也无妨，声明只是为了让程序显得更规范 -->
+    <!-- USB 权限，哈哈哈 -->
     <uses-permission android:name="android.permission.USB_PERMISSION" />
     <!-- 防止手机休眠 -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
@@ -40,7 +40,7 @@
         android:supportsRtl="true" 
         android:theme="@style/AppTheme"
         tools:targetApi="37">
-        <!-- 这个库必须添加，但不强制要求安装的系统上一定要有这个库，因为USB主机模式才是主要的，USB配件模式是次要的，因此设置 android:required 为 false -->
+        <!-- USB 配件模式的库必须添加 -->
         <uses-library 
             android:name="com.android.future.usb.accessory"
             android:required="false" />
@@ -72,5 +72,14 @@
                  android:name="android.hardware.usb.action.USB_ACCESSORY_ATTACHED"
                  android:resource="@xml/accessory_filter" />
         </activity>
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
     </application>
 </manifest>
