@@ -44,7 +44,7 @@ android {
             keyAlias = System.getenv("RELEASE_KEY_ALIAS")
             keyPassword = System.getenv("RELEASE_KEY_PASSWORD")
             
-            enableV1Signing = false
+            enableV1Signing = true
             enableV2Signing = true
             enableV3Signing = true
             enableV4Signing = true
@@ -75,8 +75,8 @@ android {
     }
     
     dependenciesInfo {
-        includeInApk = false
-        includeInBundle = false
+        includeInApk = true
+        includeInBundle = true
     }
 }
 
@@ -98,4 +98,5 @@ dependencies {
     implementation(libs.androidx.activity.ktx)
     implementation(libs.androidx.annotation)
     implementation(libs.bundles.bouncycastle)
+    implementation(libs.mt.dataFilesProvider)
 }
