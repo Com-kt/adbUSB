@@ -1,3 +1,11 @@
+# /*
+# * Copyright (c) 2026-2030 小猫猫. All rights reserved.
+# * 
+# * LICENSE NOTE:
+# * Any redistribution must retain this copyright notice and license disclaimer.
+# *
+# * by: 小猫猫
+# */
 name: Android CI
 
 on:
@@ -46,7 +54,6 @@ jobs:
           
       - name: Upload Lint Report
         uses: actions/upload-artifact@v7
-        if: always()
         with:
           name: lint-reports
           path: app/build/reports/*

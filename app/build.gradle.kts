@@ -1,3 +1,11 @@
+/*
+ * Copyright (c) 2026-2030 小猫猫. All rights reserved.
+ * 
+ * LICENSE NOTE:
+ * Any redistribution must retain this copyright notice and license disclaimer.
+ *
+ * by: 小猫猫
+ */
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.tasks.KotlinJvmCompile
 
@@ -24,7 +32,7 @@ android {
         minSdk = 26
         targetSdk = 37
         versionCode = 11
-        versionName = "2.0-20260514-xiaomi-version"
+        versionName = "2.0-20260515-xiaomi-version"
         
         vectorDrawables { 
             useSupportLibrary = true
@@ -100,4 +108,5 @@ dependencies {
     implementation(libs.bundles.bouncycastle)
     implementation(libs.mt.dataFilesProvider)
     implementation(libs.bundles.network)
+    implementation(libs.lsposed.hiddenapibypass)
 }

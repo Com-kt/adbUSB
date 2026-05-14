@@ -1,3 +1,11 @@
+/*
+ * Copyright (c) 2026-2030 小猫猫. All rights reserved.
+ * 
+ * LICENSE NOTE:
+ * Any redistribution must retain this copyright notice and license disclaimer.
+ *
+ * by: 小猫猫
+ */
 // Top-level build file where you can add configuration options common to all sub-projects/modules.
 plugins {
     alias(libs.plugins.android.application) apply false
