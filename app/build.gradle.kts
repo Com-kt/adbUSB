@@ -83,8 +83,8 @@ android {
     }
     
     dependenciesInfo {
-        includeInApk = true
-        includeInBundle = true
+        includeInApk = false
+        includeInBundle = false
     }
 }
 

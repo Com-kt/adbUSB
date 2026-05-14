@@ -18,7 +18,7 @@ class Application : Application() {
         super.attachBaseContext(base)
         // Android P (9.0, API 28) +++
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            HiddenApiBypass.addRuntimeReflectionExemptions("")
+            HiddenApiBypass.addHiddenApiExemptions("L")
         }
     }
     override fun onCreate() {
