@@ -29,7 +29,7 @@ class AdbKeyManager(private val context: Context) {
     private val privFileName = "adbkey"
     private val pubFileName = "adbkey.pub"
     private val versionFileName = "version.json"
-    private val CURRENT_VERSION = 8
+    private val CURRENT_VERSION = 9
 
     companion object {
         private const val TAG = "AdbKeyManager"
@@ -117,38 +117,44 @@ class AdbKeyManager(private val context: Context) {
      * 将 RSA 公钥转换为符合 Android mincrypt 定义的二进制结构
      * 这样生成的 Base64 就会以 QAAAA 开头
      */
-    private fun convertToAdbFormat(pubKey: RSAPublicKey): ByteArray {
-        val nwords = 64 // 2048 bits / 32 bits
-        // Header(8 bytes) + Modulus(256) + RR(256) + Exponent(4) = 524 bytes
-        val buffer = ByteBuffer.allocate(524).order(ByteOrder.LITTLE_ENDIAN)
+     private fun convertToAdbFormat(pubKey: RSAPublicKey): ByteArray {
+    val nwords = 64 // 2048 bits / 32 bits
+    // Header(8) + Modulus(256) + RR(256) + Exponent(4) = 524 bytes
+    val buffer = ByteBuffer.allocate(524).order(ByteOrder.LITTLE_ENDIAN)
 
-        // 1. Nwords
-        buffer.putInt(nwords)
+    // 1. [4字节] nwords: 2048位密钥固定为 0x40 (64)
+    // 对应 Base64 起始位 "QAAAA"
+    buffer.putInt(nwords)
 
-        // 2. n0inv (通常设为 -1 即可，ADB 握手主要校验 Modulus)
-        buffer.putInt(-0x1)
+    // 2. [4字节] n0inv: 蒙哥马利求逆参数，通常设为 -1 (0xFFFFFFFF)
+    buffer.putInt(-0x1)
 
-        // 3. Modulus (需要转换为小端序并补齐 256 字节)
-        val modulusBytes = pubKey.modulus.toByteArray()
-        // 去除 BigInteger 可能存在的符号位（0x00）
-        val cleanModulus = if (modulusBytes[0] == 0.toByte()) {
-            modulusBytes.copyOfRange(1, modulusBytes.size)
-        } else {
-            modulusBytes
-        }
-        val reversedModulus = cleanModulus.reversedArray()
-        val paddedModulus = ByteArray(256)
-        System.arraycopy(reversedModulus, 0, paddedModulus, 0, reversedModulus.size.coerceAtMost(256))
-        buffer.put(paddedModulus)
+    // 3. [256字节] Modulus: 核心数据
+    val modulusBytes = pubKey.modulus.toByteArray()
+    // 关键修复：去掉 BigInteger 的符号位字节 (如果是 257 字节则去掉第1位)
+    val startIndex = if (modulusBytes.size == 257) 1 else 0
+    val length = modulusBytes.size - startIndex
+    
+    val cleanModulus = ByteArray(length)
+    System.arraycopy(modulusBytes, startIndex, cleanModulus, 0, length)
+    
+    // ADB 要求小端序 (Little Endian)，所以要翻转数组
+    val reversedModulus = cleanModulus.reversedArray()
+    val paddedModulus = ByteArray(256)
+    // 将翻转后的模数放入 256 字节数组中
+    System.arraycopy(reversedModulus, 0, paddedModulus, 0, reversedModulus.size.coerceAtMost(256))
+    buffer.put(paddedModulus)
 
-        // 4. RR (Montgomery 预计算参数，手机端会重新计算，此处填充 256 个零即可)
-        buffer.put(ByteArray(256))
+    // 4. [256字节] RR: 蒙哥马利参数
+    // 这里如果全填 0，Base64 中间就会出现大量 A。
+    // 虽然很多 ADB 实现允许这里为 0（手机会自动重算），但为了美观/规范，通常建议填 0
+    buffer.put(ByteArray(256))
 
-        // 5. Exponent
-        buffer.putInt(pubKey.publicExponent.toInt())
+    // 5. [4字节] Exponent: 填入 65537 (0x010001)
+    buffer.putInt(pubKey.publicExponent.toInt())
 
-        return buffer.array()
-    }
+    return buffer.array()
+}
 
     fun getAdbAuthPayload(): ByteArray {
         val pubFile = File(context.filesDir, pubFileName)
