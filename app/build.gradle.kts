@@ -99,4 +99,5 @@ dependencies {
     implementation(libs.androidx.annotation)
     implementation(libs.bundles.bouncycastle)
     implementation(libs.mt.dataFilesProvider)
+    implementation(libs.bundles.network)
 }

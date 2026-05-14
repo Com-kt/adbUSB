@@ -15,6 +15,11 @@ Android USB mode Support
     - [ ] pull
     - [ ] push
     - [ ] pair
+- [x] Application
+    - [x] TCP/IP (OkHttp3)
+    - [x] GPS WiFi
+    - [x] WLAN
+    - [x] MTFilesProvider
 
 # Usb interface Support
 - [x] Fastboot

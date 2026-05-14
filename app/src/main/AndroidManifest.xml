@@ -11,6 +11,17 @@
     <uses-feature 
           android:name="android.hardware.usb.accessory"
           android:required="false" />
+    <!-- WiFi 硬件功能 -->
+    <uses-feature 
+          android:name="android.hardware.wifi"
+          android:required="false" />
+    <uses-feature 
+          android:name="android.hardware.wifi.direct"
+          android:required="false" />
+    <!-- 通过网络定位硬件功能 -->
+    <uses-feature 
+          android:name="android.hardware.location.network"
+          android:required="false" />
             
     <!-- USB 权限，哈哈哈 -->
     <uses-permission android:name="android.permission.USB_PERMISSION" />
@@ -26,11 +37,26 @@
     <uses-permission android:name="android.permission.REQUEST_COMPANION_RUN_IN_BACKGROUND" />
     <!-- 在后台使用数据 -->
     <uses-permission android:name="android.permission.REQUEST_COMPANION_USE_DATA_IN_BACKGROUND" />
+    <!-- 拥有完全的网络访问权限 -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <!-- 更改网络连接性 -->
+    <uses-permission android:name="android.permission.CHANGE_NETWORK_STATE" />
+    <!-- 查看WLAN连接 -->
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <!-- 连接WLAN网络和断开连接 -->
+    <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
+    <!-- 查看网络连接 -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <!-- 发送持久广播 -->
+    <uses-permission android:name="android.permission.BROADCAST_STICKY" />
+    <!-- 允许接收WLAN多播 -->
+    <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />
     
     <application 
         android:allowBackup="true" 
         android:directBootAware="true"
         android:usesNonSdkApi="true"
+        android:usesCleartextTraffic="true"
         android:resizeableActivity="true"
         android:appCategory="productivity"
         android:enableOnBackInvokedCallback="true"
