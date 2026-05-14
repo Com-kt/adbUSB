@@ -13,7 +13,7 @@ coreKtx = "1.18.0"
 activityKtx = "1.13.0"
 
 bouncycastle = "1.78"
-mtDataFilesProvider = "1.0.1"
+mtDataFilesProvider = "1.0.0"
 
 [libraries]
 # AndroidX 核心基础库
