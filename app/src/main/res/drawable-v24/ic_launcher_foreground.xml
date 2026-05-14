@@ -1,11 +1,11 @@
-<!-- /*
- * Copyright (c) 2026-2030 小猫猫. All rights reserved.
- * 
- * LICENSE NOTE:
- * Any redistribution must retain this copyright notice and license disclaimer.
- *
- * by: 小猫猫
- */ -->
+<!-- /* -->
+<!--  * Copyright (c) 2026-2030 小猫猫. All rights reserved. -->
+<!--  *  -->
+<!--  * LICENSE NOTE:  -->
+<!-- * Any redistribution must retain this copyright notice and license disclaimer. -->
+<!-- * -->
+<!-- * by: 小猫猫 -->
+<!-- */ -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:aapt="http://schemas.android.com/aapt"
     android:width="108dp"

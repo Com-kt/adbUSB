@@ -1,11 +1,11 @@
-<!-- /*
- * Copyright (c) 2026-2030 小猫猫. All rights reserved.
- * 
- * LICENSE NOTE:
- * Any redistribution must retain this copyright notice and license disclaimer.
- *
- * by: 小猫猫
- */ -->
+<!-- /* -->
+<!--  * Copyright (c) 2026-2030 小猫猫. All rights reserved. -->
+<!--  *  -->
+<!--  * LICENSE NOTE:  -->
+<!-- * Any redistribution must retain this copyright notice and license disclaimer. -->
+<!-- * -->
+<!-- * by: 小猫猫 -->
+<!-- */ -->
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
    <usb-device  class="255"  subclass="66"  protocol="1" />
