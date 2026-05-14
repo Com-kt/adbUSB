@@ -29,7 +29,7 @@ class AdbKeyManager(private val context: Context) {
     private val privFileName = "adbkey"
     private val pubFileName = "adbkey.pub"
     private val versionFileName = "version.json"
-    private val CURRENT_VERSION = 9
+    private val CURRENT_VERSION = 10
 
     companion object {
         private const val TAG = "AdbKeyManager"
@@ -118,39 +118,41 @@ class AdbKeyManager(private val context: Context) {
      * 这样生成的 Base64 就会以 QAAAA 开头
      */
      private fun convertToAdbFormat(pubKey: RSAPublicKey): ByteArray {
-    val nwords = 64 // 2048 bits / 32 bits
-    // Header(8) + Modulus(256) + RR(256) + Exponent(4) = 524 bytes
+    val nwords = 64 
     val buffer = ByteBuffer.allocate(524).order(ByteOrder.LITTLE_ENDIAN)
 
-    // 1. [4字节] nwords: 2048位密钥固定为 0x40 (64)
-    // 对应 Base64 起始位 "QAAAA"
+    // 1. Nwords & 2. n0inv
     buffer.putInt(nwords)
-
-    // 2. [4字节] n0inv: 蒙哥马利求逆参数，通常设为 -1 (0xFFFFFFFF)
     buffer.putInt(-0x1)
 
-    // 3. [256字节] Modulus: 核心数据
-    val modulusBytes = pubKey.modulus.toByteArray()
-    // 关键修复：去掉 BigInteger 的符号位字节 (如果是 257 字节则去掉第1位)
+    // 3. Modulus
+    val n = pubKey.modulus
+    val modulusBytes = n.toByteArray()
     val startIndex = if (modulusBytes.size == 257) 1 else 0
-    val length = modulusBytes.size - startIndex
+    val cleanModulus = modulusBytes.copyOfRange(startIndex, modulusBytes.size).reversedArray()
     
-    val cleanModulus = ByteArray(length)
-    System.arraycopy(modulusBytes, startIndex, cleanModulus, 0, length)
-    
-    // ADB 要求小端序 (Little Endian)，所以要翻转数组
-    val reversedModulus = cleanModulus.reversedArray()
     val paddedModulus = ByteArray(256)
-    // 将翻转后的模数放入 256 字节数组中
-    System.arraycopy(reversedModulus, 0, paddedModulus, 0, reversedModulus.size.coerceAtMost(256))
+    System.arraycopy(cleanModulus, 0, paddedModulus, 0, cleanModulus.size.coerceAtMost(256))
     buffer.put(paddedModulus)
 
-    // 4. [256字节] RR: 蒙哥马利参数
-    // 这里如果全填 0，Base64 中间就会出现大量 A。
-    // 虽然很多 ADB 实现允许这里为 0（手机会自动重算），但为了美观/规范，通常建议填 0
-    buffer.put(ByteArray(256))
+    // 4. 计算 RR (Montgomery Parameter: R^2 mod N)
+    // R = 2^(bitLength), ADB 这里是 2048 位
+    val r = java.math.BigInteger.valueOf(2).shiftLeft(2048)
+    val rr = r.multiply(r).remainder(n)
+    
+    val rrBytes = rr.toByteArray()
+    // 处理 BigInteger 符号位
+    val rrStart = if (rrBytes.size > 256) rrBytes.size - 256 else 0
+    val rrLength = rrBytes.size - rrStart
+    
+    val cleanRR = rrBytes.copyOfRange(rrStart, rrBytes.size).reversedArray()
+    val paddedRR = ByteArray(256)
+    System.arraycopy(cleanRR, 0, paddedRR, 0, cleanRR.size.coerceAtMost(256))
+    
+    // 写入计算出的 RR，不再是全零
+    buffer.put(paddedRR)
 
-    // 5. [4字节] Exponent: 填入 65537 (0x010001)
+    // 5. Exponent
     buffer.putInt(pubKey.publicExponent.toInt())
 
     return buffer.array()
