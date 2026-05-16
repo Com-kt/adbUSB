@@ -10,6 +10,8 @@ package com.adb.kitty
 
 import com.adb.kitty.databinding.ActivityMainBinding
 
+import android.Manifest
+import android.content.pm.PackageManager
 import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -29,6 +31,8 @@ import android.hardware.usb.UsbEndpoint
 import android.hardware.usb.UsbInterface
 import android.hardware.usb.UsbManager
 import android.hardware.usb.UsbAccessory
+import android.net.nsd.NsdManager
+import android.net.nsd.NsdServiceInfo
 import android.os.Build
 import android.os.Bundle
 import android.os.ParcelFileDescriptor
@@ -39,6 +43,7 @@ import android.widget.TextView
 import androidx.appcompat.widget.Toolbar
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.SystemBarStyle
 import androidx.activity.viewModels
@@ -81,7 +86,7 @@ data class FbCommand(val description: String, val command: String)
 
 data class FastbootResponse(val status: String, val payload: String, val allLines: List<String>)
 
-class MainActivity : AppCompatActivity() {
+class MainActivity : AppCompatActivity(), OnPairingListener {
 
     private lateinit var binding: ActivityMainBinding
     private val viewModel: MainViewModel by viewModels()
@@ -101,6 +106,12 @@ class MainActivity : AppCompatActivity() {
     private var isAdbAuthorized = false
     private var isFastbootMode = false 
     private var authFailureCount = 0
+    
+    private val TAG = "MainActivity"
+    private var adbClient: AdbWifiClient? = null
+    private var nsdManager: NsdManager? = null
+    private var localChannelId = 1
+    private var isAdbWifiAuthorized = false
     
     private val responseChannel = Channel<String>(Channel.CONFLATED)
     
@@ -168,6 +179,18 @@ class MainActivity : AppCompatActivity() {
         }
     }
     
+    private val requestPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted: Boolean ->
+        if (isGranted) {
+            appendLog("[权限] 附近 Wi-Fi 设备权限已授予，开始扫描服务...")
+            startScanningForAdbConnect()
+        } else {
+            appendLog("[警告] 用户拒绝了附近设备权限，无法自动发现无线调试服务！")
+            Toast.makeText(this, "需要该权限才能自动连接无线调试", Toast.LENGTH_LONG).show()
+        }
+    }
+    
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge(
            // 状态栏：透明背景，图标颜色随系统主题自适应
@@ -189,6 +212,7 @@ class MainActivity : AppCompatActivity() {
              insets
         }
         
+        nsdManager = getSystemService(NSD_SERVICE) as NsdManager
         ensureFlashDirExists()
         usbManager = getSystemService(Context.USB_SERVICE) as UsbManager
         keyManager = AdbKeyManager(this)
@@ -208,7 +232,7 @@ class MainActivity : AppCompatActivity() {
         }, exportFlag)
 
         binding.appMainActivity.btnConnect.setOnClickListener { findDevice() }
-        
+        /*
         binding.appMainActivity.btnSend.setOnClickListener {
             val cmd = binding.appMainActivity.etCommand.text.toString().trim()
             if (cmd.isEmpty()) return@setOnClickListener
@@ -229,6 +253,30 @@ class MainActivity : AppCompatActivity() {
                 Toast.makeText(this, "设备未就绪或未授权", Toast.LENGTH_SHORT).show()
             }
         }
+        */
+        binding.appMainActivity.btnSend.setOnClickListener {
+            val cmd = binding.appMainActivity.etCommand.text.toString().trim()
+            if (cmd.isEmpty()) return@setOnClickListener
+            
+            binding.appMainActivity.etCommand.setText("")
+
+            if (isFastbootMode) {
+                lifecycleScope.launch(Dispatchers.IO) {
+                    try {
+                        executeCommandSync(cmd)
+                    } catch (e: Exception) {
+                        withContext(Dispatchers.Main) { appendLog("[错误] ${e.message}") }
+                    }
+                }
+            } else if (isAdbAuthorized) {
+                sendAdbShell(cmd)
+            } else if (isAdbWifiAuthorized) {
+                sendAdbWifiShell(cmd)
+            } else {
+                Toast.makeText(this, "设备未就绪或未授权", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
         
         binding.appMainActivity.fbSelinux.setOnClickListener {
             if (!isFastbootMode) {
@@ -276,7 +324,9 @@ class MainActivity : AppCompatActivity() {
                 true
            }
               R.id.action_main_3 -> {
-              Toast.makeText(this, "开发者没有实现无线调试功能", Toast.LENGTH_SHORT).show()
+              val dialog = AdbPairingDialogFragment()
+              dialog.setOnPairingListener(this)
+              dialog.show(supportFragmentManager, "AdbPairingDialog")
                 true
            }
               R.id.action_main_4 -> {
@@ -964,11 +1014,159 @@ class MainActivity : AppCompatActivity() {
             }
         }
     }
+    /**
+     * 新扩展的无线调试 ADB 发送命令机制（网络 Socket 流）
+     */
+    private fun sendAdbWifiShell(cmd: String) {
+        val client = adbClient
+        if (client == null || !isAdbWifiAuthorized) {
+            appendLog("[提示] 无线 ADB 客户端不可用或未授权")
+            return
+        }
+
+        lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                val payload = "shell:$cmd\u0000".toByteArray(Charsets.UTF_8)
+                val currentChannelId = localChannelId++
+
+                withContext(Dispatchers.Main) {
+                    appendLog("[无线] adb shell $cmd")
+                }
+
+                // 写入 OPEN 通道协议数据
+                client.sendPacket(
+                    command = 0x4e45504f, 
+                    arg0 = currentChannelId,
+                    arg1 = 0,
+                    payload = payload
+                )
+                Log.d(TAG, "无线命令子通道 [$currentChannelId] 投递成功")
+
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    appendLog("[无线错误] 发送失败: ${e.localizedMessage}")
+                }
+            }
+        }
+    }
+    
+    override fun onPairingSuccess() {
+        runOnUiThread {
+            Toast.makeText(this, "配对成功，检查权限并检索服务...", Toast.LENGTH_SHORT).show()
+        }
+        // 核心修改：配对成功后不再盲目扫描，先进行权限安全检查
+        checkWifiPermissionAndScan()
+    }
+
+    override fun onPairingError(error: String) {
+        Log.e(TAG, "配对失败: $error")
+        runOnUiThread { appendLog("[配对错误] $error") }
+    }
+    /**
+     * 针对 Android 13+ 的附近 Wi-Fi 设备权限检查与申请闭环
+     */
+    private fun checkWifiPermissionAndScan() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) { // Android 13 (API 33)+
+            when {
+                checkSelfPermission(Manifest.permission.NEARBY_WIFI_DEVICES) == PackageManager.PERMISSION_GRANTED -> {
+                    // 已有权限，直接启动服务发现
+                    startScanningForAdbConnect()
+                }
+                shouldShowRequestPermissionRationale(Manifest.permission.NEARBY_WIFI_DEVICES) -> {
+                    appendLog("[提示] 需要附近设备权限来扫描局域网内的 ADB 连接端口")
+                    requestPermissionLauncher.launch(Manifest.permission.NEARBY_WIFI_DEVICES)
+                }
+                else -> {
+                    // 动态发起申请
+                    requestPermissionLauncher.launch(Manifest.permission.NEARBY_WIFI_DEVICES)
+                }
+            }
+        } else {
+            // Android 12 及以下系统，无需动态申请该隐私权限，直接进入扫描
+            startScanningForAdbConnect()
+        }
+    }
+    /**
+     * 启动基于 mDNS 协议的无线调试正式服务扫描
+     */
+    private fun startScanningForAdbConnect() {
+        nsdManager?.discoverServices(
+            "_adb-tls-connect._tcp.", 
+            NsdManager.PROTOCOL_DNS_SD, 
+            object : NsdManager.DiscoveryListener {
+                override fun onDiscoveryStarted(regType: String) {
+                    Log.d(TAG, "mDNS 扫描已启动: $regType")
+                    appendLog("mDNS 扫描已启动: $regType")
+                }
+
+                override fun onServiceFound(serviceInfo: NsdServiceInfo) {
+                    Log.d(TAG, "寻找到无线调试服务端: ${serviceInfo.serviceName}")
+                    appendLog("寻找到无线调试服务端: ${serviceInfo.serviceName}")
+                    nsdManager?.resolveService(serviceInfo, object : NsdManager.ResolveListener {
+                        override fun onServiceResolved(resolvedInfo: NsdServiceInfo) {
+                            val hostAddress = resolvedInfo.host.hostAddress
+                            val port = resolvedInfo.port
+                            Log.d(TAG, "服务解析成功 -> $hostAddress:$port")
+                            appendLog("服务解析成功 -> $hostAddress:$port")
+                            
+                            // 正式发起底层 Socket 握手
+                            connectToAdbServer(hostAddress, port)
+                        }
+
+                        override fun onResolveFailed(serviceInfo: NsdServiceInfo, errorCode: Int) {
+                            Log.e(TAG, "无线调试服务解析失败，错误码: $errorCode")
+                            appendLog("无线调试服务解析失败，错误码: $errorCode")
+                        }
+                    })
+                }
+
+                override fun onServiceLost(serviceInfo: NsdServiceInfo) {}
+                override fun onDiscoveryStopped(regType: String) {}
+                override fun onStartDiscoveryFailed(regType: String, errorCode: Int) {}
+                override fun onStopDiscoveryFailed(regType: String, errorCode: Int) {}
+            }
+        )
+    }
+    /**
+     * 建立正式的无线 Socket 连接并绑定回调
+     */
+    private fun connectToAdbServer(host: String, port: Int) {
+        val app = application as MyApp
+        
+        adbClient = AdbWifiClient(
+            host = host,
+            port = port,
+            keyManager = app.adbKeyManager,
+            privateKey = app.keyPair.private,
+            // 异步接收数据块回显
+            onLogReceived = { dataChunk ->
+                lifecycleScope.launch(Dispatchers.Main) { 
+                    appendLog(dataChunk) 
+                }
+            },
+            // 无线调试授权置高
+            onAuthSuccess = {
+                isAdbWifiAuthorized = true
+                lifecycleScope.launch(Dispatchers.Main) { 
+                    appendLog("[系统] 无线网络链路认证成功，就绪。") 
+                }
+            },
+            // 断开重置状态
+            onConnectionClosed = {
+                isAdbWifiAuthorized = false
+                lifecycleScope.launch(Dispatchers.Main) { 
+                    appendLog("[断开] 无线调试链路已切断。") 
+                }
+            }
+        )
+        adbClient?.connect()
+    }
 
     private fun refreshUiText() {
         runOnUiThread {
             // 匹配要求：状态：USB 已连接，XXX
             val status = when {
+                isAdbWifiAuthorized -> "状态：WiFi 无线调试已连接"
                 isFastbootMode -> "状态：USB 已连接，Fastboot模式"
                 isUsbAttached && isAdbAuthorized -> "状态：USB 已连接，ADB已授权"
                 isUsbAttached -> "状态：USB 已连接，ADB未授权"
@@ -1005,5 +1203,6 @@ class MainActivity : AppCompatActivity() {
         usbConn?.close()
         unregisterReceiver(usbPermissionReceiver)
         unregisterReceiver(usbStateReceiver)
+        adbClient?.disconnect()
     }
 }

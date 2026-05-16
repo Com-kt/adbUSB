@@ -8,15 +8,25 @@
  */
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.tasks.KotlinJvmCompile
+import java.text.SimpleDateFormat
+import java.util.Date
 
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
 }
 
+val propCompileSdk = providers.gradleProperty("COMPILE_SDK").get().toInt()
+val propMinSdk = providers.gradleProperty("MIN_SDK").get().toInt()
+val propTargetSdk = providers.gradleProperty("TARGET_SDK").get().toInt()
+val propVersionCode = providers.gradleProperty("VERSION_CODE").get().toInt()
+
+val buildDate = SimpleDateFormat("yyyyMMdd").format(Date())
+val versionPrefix = providers.gradleProperty("VERSION_PREFIX").get()
+
 android {
     namespace = "com.adb.kitty"
-    compileSdk = 37
+    compileSdk = propCompileSdk
     
     packaging {
         jniLibs {
@@ -29,10 +39,10 @@ android {
     
     defaultConfig {
         applicationId = "com.adb.kitty"
-        minSdk = 26
-        targetSdk = 37
-        versionCode = 11
-        versionName = "2.0-20260515-xiaomi-version"
+        minSdk = propMinSdk
+        targetSdk = propTargetSdk
+        versionCode = propVersionCode
+        versionName = "$versionPrefix-$buildDate-xiaomi-version"
         
         vectorDrawables { 
             useSupportLibrary = true
@@ -107,6 +117,6 @@ dependencies {
     implementation(libs.androidx.annotation)
     implementation(libs.bundles.bouncycastle)
     implementation(libs.mt.dataFilesProvider)
-    implementation(libs.bundles.network)
     implementation(libs.lsposed.hiddenapibypass)
+    implementation(libs.zxing.core)
 }

@@ -26,11 +26,25 @@
     <uses-feature 
           android:name="android.hardware.wifi.direct"
           android:required="false" />
-    <!-- 通过网络定位硬件功能 -->
+    <!-- 定位硬件功能 -->
+    <uses-feature 
+          android:name="android.hardware.location"
+          android:required="false" />
+    <uses-feature 
+          android:name="android.hardware.location.gps"
+          android:required="false" />
     <uses-feature 
           android:name="android.hardware.location.network"
           android:required="false" />
-            
+    
+    <!-- Android 13 及以上设备使用这个权限（不需要定位） -->
+    <uses-permission 
+        android:name="android.permission.NEARBY_WIFI_DEVICES" 
+        android:usesPermissionFlags="neverForLocation" />
+    <!-- Android 12 及以下设备必须依赖定位权限 -->
+    <uses-permission 
+        android:name="android.permission.ACCESS_FINE_LOCATION" 
+        android:maxSdkVersion="32" />
     <!-- USB 权限，哈哈哈 -->
     <uses-permission android:name="android.permission.USB_PERMISSION" />
     <!-- 防止手机休眠 -->

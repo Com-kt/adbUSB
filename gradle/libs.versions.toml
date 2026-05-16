@@ -23,10 +23,8 @@ activityKtx = "1.13.0"
 bouncycastle = "1.78"
 mtDataFilesProvider = "1.0.0"
 
-okio = "3.17.0"
-okhttp = "5.3.2"
-
 hiddenapibypassVersion = "6.1"
+zxing = "3.5.3"
 
 [libraries]
 # AndroidX 核心基础库
@@ -49,11 +47,9 @@ bcprov-jdk18on = { group = "org.bouncycastle", name = "bcprov-jdk18on", version.
 # MT 文件提供者
 mt-dataFilesProvider = { group = "com.github.L-JINBIN", name = "MTDataFilesProvider", version.ref = "mtDataFilesProvider" }
 
-# 网络请求相关
-squareup-okio = { group = "com.squareup.okio", name = "okio", version.ref = "okio" }
-squareup-okhttp = { group = "com.squareup.okhttp3", name = "okhttp", version.ref = "okhttp" }
-
 lsposed-hiddenapibypass = { module = "org.lsposed.hiddenapibypass:hiddenapibypass", version.ref = "hiddenapibypassVersion" }
+
+zxing-core = { group = "com.google.zxing", name = "core", version.ref = "zxing" }
 
 [bundles]
 # 捆绑式引入
@@ -65,10 +61,6 @@ coroutines-runtime = [
 bouncycastle = [
     "bcprov-jdk18on", 
     "bcpkix-jdk18on"
-]
-network = [
-    "squareup-okio",
-    "squareup-okhttp"
 ]
 
 [plugins]

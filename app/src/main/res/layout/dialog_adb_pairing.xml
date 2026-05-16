@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- /*
+ * Copyright (c) 2026-2030 小猫猫. All rights reserved.
+ * 
+ * LICENSE NOTE:
+ * Any redistribution must retain this copyright notice and license disclaimer.
+ *
+ * by: 小猫猫
+ */ -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="24dp"
+    android:gravity="center">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="无线调试二维码配对"
+        android:textSize="18sp"
+        android:textStyle="bold"
+        android:layout_marginBottom="16dp"/>
+
+    <FrameLayout
+        android:layout_width="250dp"
+        android:layout_height="250dp"
+        android:layout_marginBottom="16dp">
+
+        <ImageView
+            android:id="@+id/iv_qrcode"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:contentDescription="QR Code" />
+
+        <ProgressBar
+            android:id="@+id/pb_loading"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center" />
+    </FrameLayout>
+
+    <TextView
+        android:id="@+id/tv_status"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="正在初始化配对服务..."
+        android:textAlignment="center"
+        android:textColor="#666666" />
+</LinearLayout>
