@@ -11,6 +11,7 @@ package com.adb.kitty
 import com.adb.kitty.databinding.ActivityMainBinding
 
 import android.Manifest
+import android.util.Log
 import android.content.pm.PackageManager
 import android.app.PendingIntent
 import android.content.BroadcastReceiver
@@ -183,11 +184,9 @@ class MainActivity : AppCompatActivity(), OnPairingListener {
         ActivityResultContracts.RequestPermission()
     ) { isGranted: Boolean ->
         if (isGranted) {
-            appendLog("[权限] 附近 Wi-Fi 设备权限已授予，开始扫描服务...")
             startScanningForAdbConnect()
         } else {
-            appendLog("[警告] 用户拒绝了附近设备权限，无法自动发现无线调试服务！")
-            Toast.makeText(this, "需要该权限才能自动连接无线调试", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, "未获得附近设备权限，无法自动连接无线调试", Toast.LENGTH_SHORT).show()
         }
     }
     
@@ -325,6 +324,7 @@ class MainActivity : AppCompatActivity(), OnPairingListener {
               R.id.action_main_3 -> {
               val dialog = AdbPairingDialogFragment()
               dialog.setOnPairingListener(this)
+              dialog.setKeyManager(this.keyManager)
               dialog.show(supportFragmentManager, "AdbPairingDialog")
                 true
            }
@@ -756,95 +756,7 @@ class MainActivity : AppCompatActivity(), OnPairingListener {
             }
         }
     }
-/*
-    private suspend fun handleFlashWorkflow(fullCommand: String) {
-        // 1. 解析命令：预估格式为 "flash <partition> <fileName>"
-        val parts = fullCommand.trim().split(Regex("\\s+"))
-        if (parts.size < 3) {
-            withContext(Dispatchers.Main) { 
-                appendLog("❌ [错误] 命令格式不全。示例: flash <分区名> <文件名>") 
-            }
-            return
-        }
 
-        val partition = parts[1]        // 获取分区名
-        val fileName = parts.last()     // 获取文件名
-        val imgFile = File(flashFolder, fileName)
-
-        if (!imgFile.exists()) {
-            withContext(Dispatchers.Main) { appendLog("❌ [错误] 找不到文件: $fileName") }
-            return
-        }
-
-        val fileSize = imgFile.length()
-        val fileSizeMB = fileSize / 1024 / 1024
-
-        try {
-            // --- 第一阶段: Download (握手与数据传输) ---
-            // 发送 download 指令告知设备即将传输的数据大小
-            val downloadCmd = "download:${String.format("%08x", fileSize)}"
-            sendFastbootCommandDirect(downloadCmd)
-        
-            // 等待设备返回 DATA 包（确认已准备好接收指定大小的数据）
-            val dataResp = waitForTerminalResponse(10000)
-            if (dataResp.status != "DATA") {
-                throw Exception("设备拒绝接收数据 (响应: ${dataResp.status} ${dataResp.payload})")
-            }
-            // 开始 Bulk 传输二进制文件
-            val buffer = ByteArray(512 * 1024) // 512KB 缓冲区
-            FileInputStream(imgFile).use { input ->
-                var totalSent = 0L
-                while (totalSent < fileSize) {
-                    val readSize = input.read(buffer)
-                    if (readSize <= 0) break
-                
-                    val result = usbConn?.bulkTransfer(epOut, buffer, readSize, 60000)
-                    if (result == -1) throw Exception("USB 传输中断，请检查线缆连接")
-                
-                    totalSent += readSize
-                    // 每 5MB 或结束时更新一次进度
-                    if (totalSent % (5 * 1024 * 1024) == 0L || totalSent == fileSize) {
-                        val progress = (totalSent * 100 / fileSize).toInt()
-                        withContext(Dispatchers.Main) {
-                            appendLog("传输进度: $progress% ($fileSizeMB MB)")
-                        }
-                    }
-                }
-            }
-            // 关键：传输完成后，必须等待设备返回 OKAY 确认数据已完整存入内存
-            val uploadConfirm = waitForTerminalResponse(Math.max(30000L, (fileSizeMB / 100) * 5000L))
-            if (uploadConfirm.status != "OKAY") {
-                throw Exception("镜像上传校验失败: ${uploadConfirm.payload}")
-            }
-            // --- 第二阶段: Flash (物理写入) ---
-            // 使用解析出的 partition 动态拼接指令
-            sendFastbootCommandDirect("flash:$partition")
-            withContext(Dispatchers.Main) { appendLog("正在写入物理分区 [$partition]，请勿断开连接...") }
-
-            // 根据文件大小动态计算写入超时（最慢写入速度预估为 10MB/s + 60s 缓冲）
-            val flashTimeout = (fileSizeMB / 10) * 1000L + 60000L
-            val flashResult = waitForTerminalResponse(flashTimeout)
-
-            // 统一处理 INFO 消息回显并判定结果
-            withContext(Dispatchers.Main) {
-                // 将过程中所有 INFO 包内容输出
-                flashResult.allLines.filter { it.startsWith("INFO") }.forEach { line ->
-                    appendLog("[设备] ${if (line.length > 4) line.substring(4) else ""}")
-                }
-
-                if (flashResult.status == "OKAY") {
-                    appendLog("✅ [成功] $partition 分区刷写完成")
-                } else {
-                    appendLog("❌ [失败] 写入中断: ${flashResult.payload}")
-                }
-            }
-        } catch (e: Exception) {
-            withContext(Dispatchers.Main) {
-                appendLog("⚠️ [异常] 流程终止: ${e.message}")
-            }
-        }
-    }
-    */
     private suspend fun handleFlashWorkflow(fullCommand: String) {
         // 1. 解析命令：预估格式为 "flash <partition> <fileName>" 或 "boot <fileName>"
         val parts = fullCommand.trim().split(Regex("\\s+"))
@@ -1014,14 +926,11 @@ class MainActivity : AppCompatActivity(), OnPairingListener {
         }
     }
     /**
-     * 新扩展的无线调试 ADB 发送命令机制（网络 Socket 流）
+     * 独立扩展：无线 Shell 命令投递
      */
     private fun sendAdbWifiShell(cmd: String) {
-        val client = adbClient
-        if (client == null || !isAdbWifiAuthorized) {
-            appendLog("[提示] 无线 ADB 客户端不可用或未授权")
-            return
-        }
+        val client = adbClient ?: return
+        if (!isAdbWifiAuthorized) return
 
         lifecycleScope.launch(Dispatchers.IO) {
             try {
@@ -1032,15 +941,13 @@ class MainActivity : AppCompatActivity(), OnPairingListener {
                     appendLog("[无线] adb shell $cmd")
                 }
 
-                // 写入 OPEN 通道协议数据
                 client.sendPacket(
-                    command = 0x4e45504f, 
+                    command = 0x4e45504f, // OPEN
                     arg0 = currentChannelId,
                     arg1 = 0,
                     payload = payload
                 )
-                Log.d(TAG, "无线命令子通道 [$currentChannelId] 投递成功")
-
+                Log.d(TAG, "无线子通道 [$currentChannelId] 发送成功")
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
                     appendLog("[无线错误] 发送失败: ${e.localizedMessage}")
@@ -1051,111 +958,73 @@ class MainActivity : AppCompatActivity(), OnPairingListener {
     
     override fun onPairingSuccess() {
         runOnUiThread {
-            Toast.makeText(this, "配对成功，检查权限并检索服务...", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "配对成功，启动扫描...", Toast.LENGTH_SHORT).show()
+            checkWifiPermissionAndScan()
         }
-        // 核心修改：配对成功后不再盲目扫描，先进行权限安全检查
-        checkWifiPermissionAndScan()
     }
 
     override fun onPairingError(error: String) {
         Log.e(TAG, "配对失败: $error")
         runOnUiThread { appendLog("[配对错误] $error") }
     }
-    /**
-     * 针对 Android 13+ 的附近 Wi-Fi 设备权限检查与申请闭环
-     */
+    
     private fun checkWifiPermissionAndScan() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) { // Android 13 (API 33)+
-            when {
-                checkSelfPermission(Manifest.permission.NEARBY_WIFI_DEVICES) == PackageManager.PERMISSION_GRANTED -> {
-                    // 已有权限，直接启动服务发现
-                    startScanningForAdbConnect()
-                }
-                shouldShowRequestPermissionRationale(Manifest.permission.NEARBY_WIFI_DEVICES) -> {
-                    appendLog("[提示] 需要附近设备权限来扫描局域网内的 ADB 连接端口")
-                    requestPermissionLauncher.launch(Manifest.permission.NEARBY_WIFI_DEVICES)
-                }
-                else -> {
-                    // 动态发起申请
-                    requestPermissionLauncher.launch(Manifest.permission.NEARBY_WIFI_DEVICES)
-                }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (checkSelfPermission(Manifest.permission.NEARBY_WIFI_DEVICES) == PackageManager.PERMISSION_GRANTED) {
+                startScanningForAdbConnect()
+            } else {
+                requestPermissionLauncher.launch(Manifest.permission.NEARBY_WIFI_DEVICES)
             }
         } else {
-            // Android 12 及以下系统，无需动态申请该隐私权限，直接进入扫描
             startScanningForAdbConnect()
         }
     }
-    /**
-     * 启动基于 mDNS 协议的无线调试正式服务扫描
-     */
+    
     private fun startScanningForAdbConnect() {
         nsdManager?.discoverServices(
             "_adb-tls-connect._tcp.", 
             NsdManager.PROTOCOL_DNS_SD, 
             object : NsdManager.DiscoveryListener {
-                override fun onDiscoveryStarted(regType: String) {
-                    Log.d(TAG, "mDNS 扫描已启动: $regType")
-                    appendLog("mDNS 扫描已启动: $regType")
-                }
-
+                override fun onDiscoveryStarted(regType: String) {}
                 override fun onServiceFound(serviceInfo: NsdServiceInfo) {
-                    Log.d(TAG, "寻找到无线调试服务端: ${serviceInfo.serviceName}")
-                    appendLog("寻找到无线调试服务端: ${serviceInfo.serviceName}")
                     nsdManager?.resolveService(serviceInfo, object : NsdManager.ResolveListener {
                         override fun onServiceResolved(resolvedInfo: NsdServiceInfo) {
-                            val hostAddress = resolvedInfo.host.hostAddress
-                            val port = resolvedInfo.port
-                            Log.d(TAG, "服务解析成功 -> $hostAddress:$port")
-                            appendLog("服务解析成功 -> $hostAddress:$port")
-                            
-                            // 正式发起底层 Socket 握手
-                            connectToAdbServer(hostAddress, port)
+                            connectToAdbServer(resolvedInfo.host.hostAddress, resolvedInfo.port)
                         }
-
-                        override fun onResolveFailed(serviceInfo: NsdServiceInfo, errorCode: Int) {
-                            Log.e(TAG, "无线调试服务解析失败，错误码: $errorCode")
-                            appendLog("无线调试服务解析失败，错误码: $errorCode")
-                        }
+                        override fun onResolveFailed(p0: NsdServiceInfo?, p1: Int) {}
                     })
                 }
-
-                override fun onServiceLost(serviceInfo: NsdServiceInfo) {}
-                override fun onDiscoveryStopped(regType: String) {}
-                override fun onStartDiscoveryFailed(regType: String, errorCode: Int) {}
-                override fun onStopDiscoveryFailed(regType: String, errorCode: Int) {}
+                override fun onServiceLost(p0: NsdServiceInfo?) {}
+                override fun onDiscoveryStopped(p0: String?) {}
+                override fun onStartDiscoveryFailed(p0: String?, p1: Int) {}
+                override fun onStopDiscoveryFailed(p0: String?, p1: Int) {}
             }
         )
     }
     /**
-     * 建立正式的无线 Socket 连接并绑定回调
+     * 无线底层长连接：完美桥接本地 keyManager 与 rsaKeyPair
      */
     private fun connectToAdbServer(host: String, port: Int) {
-        val app = application as MyApp
-        
+        val currentPrivateKey = this.rsaKeyPair?.private
+        if (currentPrivateKey == null) {
+            lifecycleScope.launch(Dispatchers.Main) { appendLog("[系统警告] 密钥尚在加载，连接中断") }
+            return
+        }
+
         adbClient = AdbWifiClient(
             host = host,
             port = port,
-            keyManager = app.adbKeyManager,
-            privateKey = app.keyPair.private,
-            // 异步接收数据块回显
-            onLogReceived = { dataChunk ->
-                lifecycleScope.launch(Dispatchers.Main) { 
-                    appendLog(dataChunk) 
-                }
+            keyManager = this.keyManager,        // 使用本地 keyManager
+            privateKey = currentPrivateKey,     // 使用本地公私钥中的私钥
+            onLogReceived = { chunk ->
+                lifecycleScope.launch(Dispatchers.Main) { appendLog(chunk) }
             },
-            // 无线调试授权置高
             onAuthSuccess = {
                 isAdbWifiAuthorized = true
-                lifecycleScope.launch(Dispatchers.Main) { 
-                    appendLog("[系统] 无线网络链路认证成功，就绪。") 
-                }
+                lifecycleScope.launch(Dispatchers.Main) { appendLog("[系统] 无线网络接入认证成功！") }
             },
-            // 断开重置状态
             onConnectionClosed = {
                 isAdbWifiAuthorized = false
-                lifecycleScope.launch(Dispatchers.Main) { 
-                    appendLog("[断开] 无线调试链路已切断。") 
-                }
             }
         )
         adbClient?.connect()

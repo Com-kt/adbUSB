@@ -22,12 +22,20 @@ class AdbPairingDialogFragment : DialogFragment() {
     private val binding get() = _binding!!
 
     private var listener: OnPairingListener? = null
-    
-    // 确保你的项目中有一个叫做 AdbQrPairingServer 的类，如果没有，请确保名字一致
     private var pairingServer: AdbQrPairingServer? = null
+    
+    // 显式声明接收你的 AdbKeyManager
+    private var externalKeyManager: AdbKeyManager? = null
 
     fun setOnPairingListener(listener: OnPairingListener) {
         this.listener = listener
+    }
+
+    /**
+     * 接收从 MainActivity 传递过来的密钥管理器
+     */
+    fun setKeyManager(keyManager: AdbKeyManager) {
+        this.externalKeyManager = keyManager
     }
 
     override fun onCreateView(
@@ -39,27 +47,32 @@ class AdbPairingDialogFragment : DialogFragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        
-        // 显式造型为你项目实际的 Application 类
-        val app = requireActivity().application as MyApp
 
         binding.tvStatus.text = "正在初始化配对服务..."
         
+        val finalKeyManager = externalKeyManager
+        if (finalKeyManager == null) {
+            binding.tvStatus.text = "错误：密钥管理器未就绪"
+            binding.pbLoading.visibility = View.GONE
+            return
+        }
+
+        // 初始化配对服务端
         pairingServer = AdbQrPairingServer(
             context = requireContext(),
-            adbKeyManager = app.adbKeyManager, // 引用 MyApp 中的 adbKeyManager
+            adbKeyManager = finalKeyManager, 
             onPairingSuccess = {
                 listener?.onPairingSuccess()
                 dismiss()
             },
-            onError = { error: String -> // 显式指定 String 类型，修复 Cannot infer type 报错
+            onError = { error: String -> 
                 binding.tvStatus.text = "错误: $error"
                 binding.pbLoading.visibility = View.GONE
                 listener?.onPairingError(error)
             }
         )
 
-        // 调用配对服务的核心方法
+        // 生成配对二维码
         val qrBitmap: Bitmap? = pairingServer?.startPairing()
         if (qrBitmap != null) {
             binding.pbLoading.visibility = View.GONE
@@ -72,7 +85,7 @@ class AdbPairingDialogFragment : DialogFragment() {
 
     override fun onDestroyView() {
         super.onDestroyView()
-        pairingServer?.stopPairing() // 释放配对 Socket 服务
+        pairingServer?.stopPairing()
         _binding = null
     }
 }

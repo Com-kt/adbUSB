@@ -41,8 +41,7 @@ class AdbWifiClient(
                 inputStream = socket?.getInputStream()
                 isConnected = true
                 
-                // 发送 CNXN 握手包
-                sendPacket(0x4e584e43, 0x01000000, 1048576, "host::features=shell_v2,cmd\u0000".toByteArray())
+                sendPacket(0x4e584e43, 0x01000001, 262144, "host::features=shell_v2,cmd,stat_v2,ls_v2,fixed_push_mkdir,abb,abb_exec,remount_shell,track_app,sendrecv_v2,sendrecv_v2_brotli,openscreen_mdns,compression_zstd\u0000".toByteArray())
 
                 val headerBytes = ByteArray(24)
                 while (isConnected) {
@@ -131,6 +130,7 @@ class AdbWifiClient(
     }
 
     fun disconnect() {
+        if (!isConnected) return // 避免重复触发
         isConnected = false
         onConnectionClosed()
         try { socket?.close() } catch (_: Exception) {}
