@@ -88,6 +88,7 @@ data class FastbootResponse(val status: String, val payload: String, val allLine
 
 class MainActivity : AppCompatActivity(), OnPairingListener {
 
+    private val TAG = "MainActivity"
     private lateinit var binding: ActivityMainBinding
     private val viewModel: MainViewModel by viewModels()
     private lateinit var usbManager: UsbManager
@@ -107,7 +108,6 @@ class MainActivity : AppCompatActivity(), OnPairingListener {
     private var isFastbootMode = false 
     private var authFailureCount = 0
     
-    private val TAG = "MainActivity"
     private var adbClient: AdbWifiClient? = null
     private var nsdManager: NsdManager? = null
     private var localChannelId = 1
@@ -276,7 +276,6 @@ class MainActivity : AppCompatActivity(), OnPairingListener {
                 Toast.makeText(this, "设备未就绪或未授权", Toast.LENGTH_SHORT).show()
             }
         }
-    }
         
         binding.appMainActivity.fbSelinux.setOnClickListener {
             if (!isFastbootMode) {
