@@ -19,6 +19,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.graphics.Color
+import android.graphics.Bitmap
 import android.view.View
 import android.view.ViewGroup
 import android.view.Menu
@@ -32,10 +33,15 @@ import android.hardware.usb.UsbEndpoint
 import android.hardware.usb.UsbInterface
 import android.hardware.usb.UsbManager
 import android.hardware.usb.UsbAccessory
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
+import android.net.wifi.WifiManager
 import android.net.nsd.NsdManager
 import android.net.nsd.NsdServiceInfo
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.os.ParcelFileDescriptor
 import android.text.method.ScrollingMovementMethod
 import android.widget.Toast
@@ -64,6 +70,7 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.currentCoroutineContext
 import kotlin.ExperimentalUnsignedTypes
+import kotlin.coroutines.resume
 import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
@@ -75,6 +82,9 @@ import java.security.KeyPair
 import java.security.Signature
 import javax.crypto.Cipher
 import java.text.SimpleDateFormat
+import java.net.Inet4Address
+import java.net.NetworkInterface
+import java.util.Collections
 import java.util.Date
 import java.util.Locale
 import java.util.zip.CRC32
@@ -87,7 +97,7 @@ data class FbCommand(val description: String, val command: String)
 
 data class FastbootResponse(val status: String, val payload: String, val allLines: List<String>)
 
-class MainActivity : AppCompatActivity(), OnPairingListener {
+class MainActivity : AppCompatActivity() {
 
     private val TAG = "MainActivity"
     private lateinit var binding: ActivityMainBinding
@@ -108,12 +118,7 @@ class MainActivity : AppCompatActivity(), OnPairingListener {
     private var isAdbAuthorized = false
     private var isFastbootMode = false 
     private var authFailureCount = 0
-    
-    private var adbClient: AdbWifiClient? = null
-    private var nsdManager: NsdManager? = null
-    private var localChannelId = 1
-    private var isAdbWifiAuthorized = false
-    
+
     private val responseChannel = Channel<String>(Channel.CONFLATED)
     
     private val flashFolder by lazy { File(getExternalFilesDir(null), "flash") }
@@ -149,7 +154,6 @@ class MainActivity : AppCompatActivity(), OnPairingListener {
                         connectToInterface(device) // 保持你原有的逻辑
                     } else if (accessory != null) {
                         appendLog("[系统] USB 配件模式权限获取成功")
-                        connectToAccessory(accessory) // 指向处理配件的新逻辑
                     }
                 } else {
                     updateStatus("用户拒绝了 USB 权限申请")
@@ -180,16 +184,6 @@ class MainActivity : AppCompatActivity(), OnPairingListener {
         }
     }
     
-    private val requestPermissionLauncher = registerForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { isGranted: Boolean ->
-        if (isGranted) {
-            startScanningForAdbConnect()
-        } else {
-            Toast.makeText(this, "未获得附近设备权限，无法自动连接无线调试", Toast.LENGTH_SHORT).show()
-        }
-    }
-    
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge(
            // 状态栏：透明背景，图标颜色随系统主题自适应
@@ -211,7 +205,6 @@ class MainActivity : AppCompatActivity(), OnPairingListener {
              insets
         }
         
-        nsdManager = getSystemService(NSD_SERVICE) as NsdManager
         ensureFlashDirExists()
         usbManager = getSystemService(Context.USB_SERVICE) as UsbManager
         keyManager = AdbKeyManager(this)
@@ -229,9 +222,9 @@ class MainActivity : AppCompatActivity(), OnPairingListener {
             addAction(UsbManager.ACTION_USB_ACCESSORY_ATTACHED)
             addAction(UsbManager.ACTION_USB_ACCESSORY_DETACHED)
         }, exportFlag)
-
-        binding.appMainActivity.btnConnect.setOnClickListener { findDevice() }
-        /*
+        
+        binding.appMainActivity.btnConnect.setOnClickListener { findHostDevice() }
+        
         binding.appMainActivity.btnSend.setOnClickListener {
             val cmd = binding.appMainActivity.etCommand.text.toString().trim()
             if (cmd.isEmpty()) return@setOnClickListener
@@ -252,7 +245,7 @@ class MainActivity : AppCompatActivity(), OnPairingListener {
                 Toast.makeText(this, "设备未就绪或未授权", Toast.LENGTH_SHORT).show()
             }
         }
-        */
+        /*
         binding.appMainActivity.btnSend.setOnClickListener {
             val cmd = binding.appMainActivity.etCommand.text.toString().trim()
             if (cmd.isEmpty()) return@setOnClickListener
@@ -275,7 +268,7 @@ class MainActivity : AppCompatActivity(), OnPairingListener {
                 Toast.makeText(this, "设备未就绪或未授权", Toast.LENGTH_SHORT).show()
             }
         }
-        
+        */
         binding.appMainActivity.fbSelinux.setOnClickListener {
             if (!isFastbootMode) {
                  Toast.makeText(this, "当前不是 Fastboot 模式", Toast.LENGTH_SHORT).show()
@@ -322,10 +315,10 @@ class MainActivity : AppCompatActivity(), OnPairingListener {
                 true
            }
               R.id.action_main_3 -> {
-              val dialog = AdbPairingDialogFragment()
-              dialog.setOnPairingListener(this)
-              dialog.setKeyManager(this.keyManager)
-              dialog.show(supportFragmentManager, "AdbPairingDialog")
+              val qrText = "adb-test:qr_code_data_here"
+              val pairingCode = "123456"
+              val dialogFragment = AdbQrDialogFragment.newInstance(qrText, pairingCode)
+              dialogFragment.show(supportFragmentManager, "AdbQrDialog")
                 true
            }
               R.id.action_main_4 -> {
@@ -418,8 +411,8 @@ class MainActivity : AppCompatActivity(), OnPairingListener {
         }
         builder.show()
     }
-    /* 
-    private fun findDevice() {
+    
+    private fun findHostDevice() {
         val devices = usbManager.deviceList
         if (devices.isEmpty()) {
             updateStatus("未发现 USB 设备")
@@ -486,163 +479,6 @@ class MainActivity : AppCompatActivity(), OnPairingListener {
             }
         }
         updateStatus("发现设备但无 ADB/Fastboot 接口")
-    }
-    */
-    /**
-     * 核心：双路扫描（同时查找设备和配件）
-     */
-    private fun findDevice() {
-        // 1. 扫描 Host 模式 (手机控别人)
-        val devices = usbManager.deviceList
-        for (device in devices.values) {
-            appendLog("设备: ${device.productName ?: "未知"}")
-            appendLog("制造商: ${device.manufacturerName ?: "未知"}")
-            appendLog("版本号: ${device.version}")
-            appendLog("VID: ${device.vendorId} | PID: ${device.productId}")
-            if (usbManager.hasPermission(device)) {
-                if (device.vendorId == 6353 && device.productId in 0x2D00..0x2D05) {
-                    processAccessoryMode(device)
-                    if (device.productId % 2 != 0) processHostMode(device)
-                } else {
-                    processHostMode(device)
-                }
-            }
-        }
-        // 2. 扫描 Accessory 模式 (手机连电脑/被控)
-        val accessories = usbManager.accessoryList
-        accessories?.forEach { accessory ->
-            if (usbManager.hasPermission(accessory)) {
-                appendLog("检测到已授权的配件: ${accessory.model}")
-                connectToAccessory(accessory)
-            }
-        }
-        
-        if (devices.isEmpty() && accessories.isNullOrEmpty()) {
-            updateStatus("未发现 USB 连接")
-        }
-    }
-    /**
-     * 原有逻辑：主机模式 (ADB/Fastboot)
-      */
-    private fun processHostMode(device: UsbDevice) {
-        for (i in 0 until device.interfaceCount) {
-            val intf = device.getInterface(i)
-            appendLog("接口名称: ${intf.name ?: "无描述"}")
-            appendLog("检查接口 $i: Class=${intf.interfaceClass}, Subclass=${intf.interfaceSubclass}, Protocol=${intf.interfaceProtocol}")
-
-            // 遍历端点 (Endpoint) - 保持原有输出
-            for (j in 0 until intf.endpointCount) {
-                val ep = intf.getEndpoint(j)
-                val isInput = (ep.address and 0x80) != 0
-                val direction = if (isInput) "IN (设备->手机)" else "OUT (手机->设备)"
-                val epNumber = ep.address and 0x0F
-                appendLog("端点 $j: 地址=${ep.address} (方向: $direction, 编号: $epNumber), 最大包大小=${ep.maxPacketSize}")
-            }
-            appendLog("--- 通过USB连接输出 ---")
-        
-            // 核心匹配逻辑
-            if (intf.interfaceClass == 255 && intf.interfaceSubclass == 66) {
-                isFastbootMode = (intf.interfaceProtocol == 3)
-                isUsbAttached = true
-
-                val modeName = if (isFastbootMode) "Fastboot" else "ADB"
-                appendLog("--- 检测到 $modeName 兼容设备 ---")
-                appendLog("--- ADB 模式下需要开启USB调试 (安全设置) ---")
-
-                if (!usbManager.hasPermission(device)) {
-                    // --- 修复 Android 14 崩溃的关键点 (保持不动) ---
-                    val flags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                        PendingIntent.FLAG_MUTABLE
-                    } else {
-                        0
-                    }
-                    val intent = Intent(ACTION_USB_PERMISSION).apply {
-                        setPackage(packageName)
-                    }
-                    val pi = PendingIntent.getBroadcast(this, 0, intent, flags)
-                    usbManager.requestPermission(device, pi)
-                    refreshUiText()
-                } else {
-                    appendLog("[Serial] 硬件序列号: ${device.serialNumber ?: "未提供"}")
-                    connectToInterface(device)
-                }
-                return // 找到匹配接口后退出
-            }
-        }
-        updateStatus("发现设备但无 ADB/Fastboot 接口")
-    }
-    /**
-     * 专项处理：输出 USB 配件模式 (AOA) 的所有关键身份信息
-     */
-    private fun processAccessoryMode(device: UsbDevice) {
-        appendLog(">>> [检测到 USB 配件模式 (AOA)] <<<")
-        // 1. 输出 AOA 握手定义的核心身份信息
-        // 当手机进入 AOA 模式，这些字段会显示为你发送给手机的握手字符串
-        appendLog("【AOA 身份标识】")
-        appendLog(" -> 制造商 (Manufacturer): ${device.manufacturerName ?: "未提供"}")
-        appendLog(" -> 型号 (Model): ${device.productName ?: "未提供"}")
-        appendLog(" -> 协议版本 (Version): ${device.version.ifBlank { "未知" }}")
-
-        // 2. 根据 PID 细化模式描述
-        val aoaType = when (device.productId) {
-            0x2D00 -> "Accessory (仅配件)"
-            0x2D01 -> "Accessory + ADB (复合模式)"
-            0x2D02 -> "Audio (仅音频)"
-            0x2D03 -> "Audio + ADB"
-            0x2D04 -> "Accessory + Audio"
-            0x2D05 -> "Accessory + Audio + ADB"
-            else -> "未知 AOA 状态"
-        }
-        appendLog("【当前模式】$aoaType (PID: 0x${Integer.toHexString(device.productId).uppercase()})")
-
-        // 3. 遍历接口，识别 AOA 特有通道
-        for (i in 0 until device.interfaceCount) {
-            val intf = device.getInterface(i)
-            when {
-                intf.interfaceClass == 255 && intf.interfaceSubclass == 255 -> {
-                    appendLog("  └ [接口 $i] 关键通道: AOA Accessory Bulk Data")
-                }
-                intf.interfaceClass == 1 -> {
-                    appendLog("  └ [接口 $i] 音频通道: USB Digital Audio Out")
-                }
-                intf.interfaceClass == 255 && intf.interfaceSubclass == 66 -> {
-                    appendLog("  └ [接口 $i] 调试通道: ADB Tunnel over AOA")
-                }
-            }
-        }
-        appendLog(">>> [AOA 诊断输出完毕] <<<")
-    }
-    /**
-     * 新增：配件模式连接逻辑 (FileDescriptor 模式)
-     */
-    private fun connectToAccessory(accessory: UsbAccessory) {
-        try {
-            accessoryPfd = usbManager.openAccessory(accessory)
-            accessoryPfd?.let { pfd ->
-                val inputStream = FileInputStream(pfd.fileDescriptor)
-                val outputStream = FileOutputStream(pfd.fileDescriptor)
-                
-                appendLog("[系统] 配件模式流已开启")
-                
-                // 启动异步线程处理 ADB 协议数据流
-                Thread {
-                    val buffer = ByteArray(16384)
-                    try {
-                        while (isUsbAttached) {
-                            val len = inputStream.read(buffer)
-                            if (len > 0) {
-                                // 这里接入你的 AdbKeyManager 签名或协议解析逻辑
-                                appendLog("收到配件模式数据: $len bytes")
-                            }
-                        }
-                    } catch (e: IOException) {
-                        appendLog("配件流读取关闭")
-                    }
-                }.start()
-            }
-        } catch (e: Exception) {
-            appendLog("开启配件模式失败: ${e.message}")
-        }
     }
 
     private fun connectToInterface(device: UsbDevice) {
@@ -877,7 +713,7 @@ class MainActivity : AppCompatActivity(), OnPairingListener {
                                     } ?: appendLog("[Error] 收到 AUTH TOKEN 但 payload 为空")
                                 } else {
                                     appendLog("[Auth] 发送公钥申请授权...")
-                                    val pubPayload = keyManager.getAdbAuthPayload()
+                                    val pubPayload = keyManager.getAdbPublicKeyBytes()
                                     sendPacket(0x48545541, 3, 0, pubPayload)
                                 }
                             }
@@ -925,116 +761,12 @@ class MainActivity : AppCompatActivity(), OnPairingListener {
             }
         }
     }
-    /**
-     * 独立扩展：无线 Shell 命令投递
-     */
-    private fun sendAdbWifiShell(cmd: String) {
-        val client = adbClient ?: return
-        if (!isAdbWifiAuthorized) return
-
-        lifecycleScope.launch(Dispatchers.IO) {
-            try {
-                val payload = "shell:$cmd\u0000".toByteArray(Charsets.UTF_8)
-                val currentChannelId = localChannelId++
-
-                withContext(Dispatchers.Main) {
-                    appendLog("[无线] adb shell $cmd")
-                }
-
-                client.sendPacket(
-                    command = 0x4e45504f, // OPEN
-                    arg0 = currentChannelId,
-                    arg1 = 0,
-                    payload = payload
-                )
-                Log.d(TAG, "无线子通道 [$currentChannelId] 发送成功")
-            } catch (e: Exception) {
-                withContext(Dispatchers.Main) {
-                    appendLog("[无线错误] 发送失败: ${e.localizedMessage}")
-                }
-            }
-        }
-    }
-    
-    override fun onPairingSuccess() {
-        runOnUiThread {
-            Toast.makeText(this, "配对成功，启动扫描...", Toast.LENGTH_SHORT).show()
-            checkWifiPermissionAndScan()
-        }
-    }
-
-    override fun onPairingError(error: String) {
-        Log.e(TAG, "配对失败: $error")
-        runOnUiThread { appendLog("[配对错误] $error") }
-    }
-    
-    private fun checkWifiPermissionAndScan() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            if (checkSelfPermission(Manifest.permission.NEARBY_WIFI_DEVICES) == PackageManager.PERMISSION_GRANTED) {
-                startScanningForAdbConnect()
-            } else {
-                requestPermissionLauncher.launch(Manifest.permission.NEARBY_WIFI_DEVICES)
-            }
-        } else {
-            startScanningForAdbConnect()
-        }
-    }
-    
-    private fun startScanningForAdbConnect() {
-        nsdManager?.discoverServices(
-            "_adb-tls-connect._tcp.", 
-            NsdManager.PROTOCOL_DNS_SD, 
-            object : NsdManager.DiscoveryListener {
-                override fun onDiscoveryStarted(regType: String) {}
-                override fun onServiceFound(serviceInfo: NsdServiceInfo) {
-                    nsdManager?.resolveService(serviceInfo, object : NsdManager.ResolveListener {
-                        override fun onServiceResolved(resolvedInfo: NsdServiceInfo) {
-                            connectToAdbServer(resolvedInfo.host.hostAddress, resolvedInfo.port)
-                        }
-                        override fun onResolveFailed(p0: NsdServiceInfo?, p1: Int) {}
-                    })
-                }
-                override fun onServiceLost(p0: NsdServiceInfo?) {}
-                override fun onDiscoveryStopped(p0: String?) {}
-                override fun onStartDiscoveryFailed(p0: String?, p1: Int) {}
-                override fun onStopDiscoveryFailed(p0: String?, p1: Int) {}
-            }
-        )
-    }
-    /**
-     * 无线底层长连接：完美桥接本地 keyManager 与 rsaKeyPair
-     */
-    private fun connectToAdbServer(host: String, port: Int) {
-        val currentPrivateKey = this.rsaKeyPair?.private
-        if (currentPrivateKey == null) {
-            lifecycleScope.launch(Dispatchers.Main) { appendLog("[系统警告] 密钥尚在加载，连接中断") }
-            return
-        }
-
-        adbClient = AdbWifiClient(
-            host = host,
-            port = port,
-            keyManager = this.keyManager,        // 使用本地 keyManager
-            privateKey = currentPrivateKey,     // 使用本地公私钥中的私钥
-            onLogReceived = { chunk ->
-                lifecycleScope.launch(Dispatchers.Main) { appendLog(chunk) }
-            },
-            onAuthSuccess = {
-                isAdbWifiAuthorized = true
-                lifecycleScope.launch(Dispatchers.Main) { appendLog("[系统] 无线网络接入认证成功！") }
-            },
-            onConnectionClosed = {
-                isAdbWifiAuthorized = false
-            }
-        )
-        adbClient?.connect()
-    }
 
     private fun refreshUiText() {
         runOnUiThread {
             // 匹配要求：状态：USB 已连接，XXX
             val status = when {
-                isAdbWifiAuthorized -> "状态：WiFi 无线调试已连接"
+            //    isAdbWifiAuthorized -> "状态：WiFi 无线调试已连接"
                 isFastbootMode -> "状态：USB 已连接，Fastboot模式"
                 isUsbAttached && isAdbAuthorized -> "状态：USB 已连接，ADB已授权"
                 isUsbAttached -> "状态：USB 已连接，ADB未授权"
@@ -1071,6 +803,5 @@ class MainActivity : AppCompatActivity(), OnPairingListener {
         usbConn?.close()
         unregisterReceiver(usbPermissionReceiver)
         unregisterReceiver(usbStateReceiver)
-        adbClient?.disconnect()
     }
 }

@@ -10,7 +10,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
     android:installLocation="auto">
-    
+    <uses-feature 
+          android:glEsVersion="0x00030002"
+          android:required="false" />
     <!-- USB 主机模式功能 -->
     <uses-feature 
           android:name="android.hardware.usb.host"
@@ -38,45 +40,51 @@
           android:required="false" />
     
     <!-- Android 13 及以上设备使用这个权限（不需要定位） -->
-    <uses-permission 
+    <uses-permission-sdk-23 
         android:name="android.permission.NEARBY_WIFI_DEVICES" 
         android:usesPermissionFlags="neverForLocation" />
     <!-- Android 12 及以下设备必须依赖定位权限 -->
-    <uses-permission 
+    <uses-permission-sdk-23 
         android:name="android.permission.ACCESS_FINE_LOCATION" 
         android:maxSdkVersion="32" />
-    <!-- USB 权限，哈哈哈 -->
-    <uses-permission android:name="android.permission.USB_PERMISSION" />
+    <!-- 使用证书 -->
+    <uses-permission-sdk-23 android:name="android.permission.USE_CREDENTIALS" />
+    <uses-permission-sdk-23 android:name="android.permission.USB_PERMISSION" />
     <!-- 防止手机休眠 -->
-    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission-sdk-23 android:name="android.permission.WAKE_LOCK" />
     <!-- 以高采样率访问传感器数据 -->
-    <uses-permission android:name="android.permission.HIGH_SAMPLING_RATE_SENSORS" />
+    <uses-permission-sdk-23 android:name="android.permission.HIGH_SAMPLING_RATE_SENSORS" />
     <!-- 开机启动 -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <!-- 强制更新所有权 -->
-    <uses-permission android:name="android.permission.ENFORCE_UPDATE_OWNERSHIP" />
+    <uses-permission-sdk-23 android:name="android.permission.ENFORCE_UPDATE_OWNERSHIP" />
     <!-- 在后台运行 -->
-    <uses-permission android:name="android.permission.REQUEST_COMPANION_RUN_IN_BACKGROUND" />
+    <uses-permission-sdk-23 android:name="android.permission.REQUEST_COMPANION_RUN_IN_BACKGROUND" />
     <!-- 在后台使用数据 -->
-    <uses-permission android:name="android.permission.REQUEST_COMPANION_USE_DATA_IN_BACKGROUND" />
-    <!-- 拥有完全的网络访问权限 -->
-    <uses-permission android:name="android.permission.INTERNET" />
-    <!-- 更改网络连接性 -->
-    <uses-permission android:name="android.permission.CHANGE_NETWORK_STATE" />
+    <uses-permission-sdk-23 android:name="android.permission.REQUEST_COMPANION_USE_DATA_IN_BACKGROUND" />
     <!-- 查看WLAN连接 -->
-    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <uses-permission-sdk-23 android:name="android.permission.ACCESS_WIFI_STATE" />
     <!-- 连接WLAN网络和断开连接 -->
-    <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
-    <!-- 查看网络连接 -->
-    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-    <!-- 发送持久广播 -->
-    <uses-permission android:name="android.permission.BROADCAST_STICKY" />
+    <uses-permission-sdk-23 android:name="android.permission.CHANGE_WIFI_STATE" />
     <!-- 允许接收WLAN多播 -->
-    <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />
-    
-    <application 
+    <uses-permission-sdk-23 android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />
+    <!-- 查看网络连接 -->
+    <uses-permission-sdk-23 android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <!-- 拥有完全的网络访问权限 -->
+    <uses-permission-sdk-23 android:name="android.permission.INTERNET" />
+    <!-- 更改网络连接性 -->
+    <uses-permission-sdk-23 android:name="android.permission.CHANGE_NETWORK_STATE" />
+    <!-- 运行前台服务 -->
+    <uses-permission-sdk-23 android:name="android.permission.FOREGROUND_SERVICE" />
+    <!-- 运行「dataSync」类型的前台服务 -->
+    <uses-permission-sdk-23 android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <!-- 运行「connectedDevice」类型的前台服务 -->
+    <uses-permission-sdk-23 android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
+    <!-- uses-permission-sdk-23 强行要求应用程序必须在运行的情况下才能使用权限，不管是不是普通权限 -->
+    <application
+        android:process=":adb"
         android:name=".Application"
-        android:allowBackup="true" 
+        android:allowBackup="true"
         android:directBootAware="true"
         android:usesNonSdkApi="true"
         android:usesCleartextTraffic="true"
@@ -89,14 +97,21 @@
         android:supportsRtl="true" 
         android:theme="@style/AppTheme"
         tools:targetApi="37">
-        <!-- USB 配件模式的库必须添加 -->
-        <uses-library 
+        <!-- uses-native-library Android 12+ -->
+        <uses-native-library
             android:name="com.android.future.usb.accessory"
             android:required="false" />
         <activity 
             android:name="MainActivity"
+            android:process=":adb"
             android:directBootAware="true"
+            android:showForAllUsers="false"
+            android:supportsPictureInPicture="true"
+            android:windowSoftInputMode="adjustPan"
+            android:canDisplayOnRemoteDevices="false"
+            android:requireContentUriPermissionFromCaller="4"
             android:launchMode="singleTop"
+            android:persistableMode="persistNever"
             android:exported="true">
             <intent-filter>
                 <action 
@@ -124,6 +139,7 @@
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"
+            android:process=":adb"
             android:exported="false"
             android:grantUriPermissions="true">
             <meta-data

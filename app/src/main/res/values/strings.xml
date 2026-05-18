@@ -8,7 +8,7 @@
  * by: 小猫猫
  */ -->
 <resources>
-    <string name="app_name">usb接口</string>
+    <string name="app_name">userKitty</string>
     <string name="action_main_1">快捷adb</string>
     <string name="action_main_2">快捷fastboot</string>
     <string name="action_main_3">无线调试</string>

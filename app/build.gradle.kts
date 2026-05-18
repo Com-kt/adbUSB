@@ -118,5 +118,5 @@ dependencies {
     implementation(libs.bundles.bouncycastle)
     implementation(libs.mt.dataFilesProvider)
     implementation(libs.lsposed.hiddenapibypass)
-    implementation(libs.zxing.core)
+    implementation(libs.nayuki.qrcode)
 }

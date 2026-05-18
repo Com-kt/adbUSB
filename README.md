@@ -8,7 +8,7 @@
 # Support
 - [x] USB mode
     - [x] Host
-    - [x] accessory
+    - [ ] accessory
     - [x] UsbManager API
 - [x] Fastboot
     - [x] cmd
@@ -27,6 +27,7 @@
     - [x] GPS WiFi
     - [x] WLAN
     - [x] MTFilesProvider
+    - [x] Android 12 ~ 17
 
 > [!WARNING]
 > 

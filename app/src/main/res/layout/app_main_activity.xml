@@ -15,7 +15,7 @@
     android:layout_height="wrap_content"
     android:orientation="vertical"
     tools:context=".MainActivity">
-
+    
     <Button
         android:id="@+id/btnConnect"
         android:layout_width="match_parent"
