@@ -5,28 +5,31 @@
 > 
 > THIS PROJECT IS NOT MAINTAINED ANYMORE.
 
-# Support
+# Work
+因工作原因，不得不暂时放下这一切，可能一个月，可能两个月，可能三个月，暂时放下等同于给自己一条生路，我会归档这个项目，下一次解除归档不知道是什么时候，你也可以开分叉，试着自己去实现，希望你永远不要有碰这个项目的代码的想法
+
+# Concrete realization
 - [x] USB mode
-    - [x] Host
-    - [ ] accessory
-    - [x] UsbManager API
+    - [x] Host (Android 9+)
+    - [ ] accessory (Android 12+)
+    - [x] UsbManager API (Android 9+)
 - [x] Fastboot
-    - [x] cmd
-    - [x] flash
+    - [x] cmd (Android 9+)
+    - [x] flash (Android 9+)
     - [x] 255/66/3
     - [ ] 255/68/3
 - [x] ADB
-    - [x] shell
-    - [ ] pull
-    - [ ] push
-    - [ ] pair
+    - [x] shell (Android 9+)
+    - [ ] pull (Android 9+)
+    - [ ] push (Android 9+)
+    - [ ] pair (Android 13+)
     - [x] 255/66/1
     - [ ] 6/1/1
 - [x] Application
-    - [x] TCP/IP
-    - [x] GPS WiFi
-    - [x] WLAN
-    - [x] MTFilesProvider
+    - [x] TCP/IP (Android 13+)
+    - [x] GPS WiFi (Android 13+)
+    - [x] WLAN (Android 13+)
+    - [x] MTFilesProvider (Android 9+)
     - [x] Android 12 ~ 17
 
 > [!WARNING]

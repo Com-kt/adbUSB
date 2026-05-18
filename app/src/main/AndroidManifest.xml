@@ -39,14 +39,10 @@
           android:name="android.hardware.location.network"
           android:required="false" />
     
-    <!-- Android 13 及以上设备使用这个权限（不需要定位） -->
+    <!-- Android 13+ 附近 WiFi 设备 -->
     <uses-permission-sdk-23 
         android:name="android.permission.NEARBY_WIFI_DEVICES" 
         android:usesPermissionFlags="neverForLocation" />
-    <!-- Android 12 及以下设备必须依赖定位权限 -->
-    <uses-permission-sdk-23 
-        android:name="android.permission.ACCESS_FINE_LOCATION" 
-        android:maxSdkVersion="32" />
     <!-- 使用证书 -->
     <uses-permission-sdk-23 android:name="android.permission.USE_CREDENTIALS" />
     <uses-permission-sdk-23 android:name="android.permission.USB_PERMISSION" />
