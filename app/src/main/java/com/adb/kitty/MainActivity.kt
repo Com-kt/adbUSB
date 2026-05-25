@@ -225,12 +225,33 @@ class MainActivity : AppCompatActivity() {
         
         val ipManager = IpManager()
         lifecycleScope.launch {
-            val ipInfo = ipManager.getAllIpAddresses(applicationContext)
-            
-            appendLog("[系统] IPv4 (局域网/NAT): ${ipInfo.physicalIpv4 ?: "未连网"}")
-            appendLog("[系统] IPv6 (公网唯一): ${ipInfo.physicalIpv6 ?: "运营商未分配"}")
-            appendLog("[系统] 代理 IPv4: ${ipInfo.vpnProxyIpv4 ?: "未开启VPN或获取失败"}")
-            appendLog("[系统] 代理 IPv6: ${ipInfo.vpnProxyIpv6 ?: "VPN不支持IPv6"}")
+            // 1. Fetch the comprehensive network profile
+            val profile = ipManager.getComprehensiveIpProfile()
+    
+            // 2. Extract the local physical IPv4 (wlan0 or rmnet, ignoring VPN tunnels and loopbacks)
+            val physicalIpv4 = profile.localIpList.firstOrNull { ip ->
+                !ip.isIPv6 && !ip.isLoopback && 
+                (ip.interfaceName.contains("wlan") || ip.interfaceName.contains("rmnet") || ip.interfaceName.contains("pdp"))
+            }?.ipAddress
+
+            // 3. Extract the local physical IPv6 (Global Unicast, ignoring local-link fe80 and loopbacks)
+            val physicalIpv6 = profile.localIpList.firstOrNull { ip ->
+                ip.isIPv6 && !ip.isLinkLocal && !ip.isLoopback &&
+                (ip.interfaceName.contains("wlan") || ip.interfaceName.contains("rmnet") || ip.interfaceName.contains("pdp"))
+            }?.ipAddress
+
+            // 4. Determine VPN proxy IPs based on whether a VPN transport layer is actually active
+            val isVpn = ipManager.isVpnActive(applicationContext)
+    
+            // If VPN is on, use the fetched public WAN IP. If VPN is off, display "未开启VPN"
+            val vpnProxyIpv4 = if (isVpn) profile.publicIpv4 else "未开启VPN"
+            val vpnProxyIpv6 = if (isVpn) (profile.publicIpv6 ?: "VPN不支持IPv6") else "未开启VPN"
+
+            // 5. Append to your logs exactly as before
+            appendLog("[系统] IPv4 (局域网/NAT): ${physicalIpv4 ?: "未连网"}")
+            appendLog("[系统] IPv6 (公网唯一): ${physicalIpv6 ?: "运营商未分配"}")
+            appendLog("[系统] 代理 IPv4: ${if (isVpn && profile.publicIpv4 == null) "获取失败" else vpnProxyIpv4}")
+            appendLog("[系统] 代理 IPv6: ${if (isVpn && profile.publicIpv6 == null && profile.publicIpv4 != null) "VPN不支持IPv6" else vpnProxyIpv6}")
         }
         
         binding.appMainActivity.btnConnect.setOnClickListener { findHostDevice() }

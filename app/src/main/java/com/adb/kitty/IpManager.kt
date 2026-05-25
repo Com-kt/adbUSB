@@ -22,98 +22,92 @@ import java.net.NetworkInterface
 import java.net.URL
 import java.util.Collections
 
-// 定义一个大结构体，装下所有 4 个 IP
-data class AllIpInfo(
-    val physicalIpv4: String?,
-    val physicalIpv6: String?,
-    val vpnProxyIpv4: String?,
-    val vpnProxyIpv6: String?
+/**
+ * Data class representing a single IP address entry found on the device.
+ */
+data class IpDetails(
+    val interfaceName: String, // e.g., "wlan0", "rmnet0", "tun0"
+    val ipAddress: String,     // The actual IP string
+    val isIPv6: Boolean,       // True for IPv6, False for IPv4
+    val isLoopback: Boolean,   // True for 127.0.0.1 or ::1
+    val isLinkLocal: Boolean   // True for scope-local addresses like fe80::
+)
+
+/**
+ * Master data class containing the complete network profile of the device.
+ */
+data class ComprehensiveIpProfile(
+    val localIpList: List<IpDetails>,
+    val publicIpv4: String?,
+    val publicIpv6: String?
 )
 
 class IpManager {
 
     /**
-     * 核心方法：同时获取物理真身 IP 和 VPN 代理面具 IP
-     * 因为涉及网络请求，必须在协程（Coroutine）或子线程中调用
+     * Core Method: Collects the entire list of local IP addresses from all interfaces
+     * and queries external servers for the current public-facing WAN IPs.
+     * Must be called from a Coroutine or background thread.
      */
-    suspend fun getAllIpAddresses(context: Context): AllIpInfo = withContext(Dispatchers.IO) {
-        
-        // 1. 从底层物理网卡“硬挖”出物理真实 IP
-        val (physV4, physV6) = getPhysicalIpFromHardware()
+    suspend fun getComprehensiveIpProfile(): ComprehensiveIpProfile = withContext(Dispatchers.IO) {
+        // 1. Scraping the entire list of IPs bound to the hardware/virtual interfaces
+        val localIPs = getAllLocalAddresses()
 
-        // 2. 判断当前手机是否真的开启了 VPN 代理
-        val isVpnActive = isVpnConnected(context)
+        // 2. Fetch public WAN IPs via web requests (handles VPN tunnels automatically)
+        val wanV4 = fetchIpFromWeb("https://ipify.org")
+        val wanV6 = fetchIpFromWeb("https://ipify.org")
 
-        var proxyV4: String? = null
-        var proxyV6: String? = null
-
-        if (isVpnActive) {
-            // 3. 如果开了 VPN，顺着代理网络去问互联网服务器，拿到 VPN 代理 IP
-            proxyV4 = fetchIpFromWeb("https://api.ipify.org")  // 纯 IPv4 服务器
-            proxyV6 = fetchIpFromWeb("https://api6.ipify.org") // 纯 IPv6 服务器
-        } else {
-            // 没开 VPN 的话，代理 IP 自然就是物理 IP 本身（或者直接为 null）
-            proxyV4 = physV4
-            proxyV6 = physV6
-        }
-
-        AllIpInfo(physV4, physV6, proxyV4, proxyV6)
+        ComprehensiveIpProfile(
+            localIpList = localIPs,
+            publicIpv4 = wanV4,
+            publicIpv6 = wanV6
+        )
     }
 
     /**
-     * 算法 A：无视 VPN 虚拟网卡，只扒物理硬件网卡 (wlan / rmnet)
+     * Iterates through every network interface on the device to build a full list of IPs.
      */
-    private fun getPhysicalIpFromHardware(): Pair<String?, String?> {
-        var v4: String? = null
-        var v6: String? = null
+    private fun getAllLocalAddresses(): List<IpDetails> {
+        val masterList = mutableListOf<IpDetails>()
         try {
             val interfaces = Collections.list(NetworkInterface.getNetworkInterfaces())
+            
             for (netInterface in interfaces) {
-                val name = netInterface.name.lowercase()
+                // Ignore down interfaces to keep the list relevant
+                if (!netInterface.isUp) continue
 
-                // 核心过滤：只看蜂窝(rmnet/pdp)和Wi-Fi(wlan)，彻底无视含有 tun/ppp 的 VPN 网卡
-                val isPhysical = name.contains("rmnet") || name.contains("wlan") || 
-                                 name.contains("pdp") || name.contains("ccmni")
-
-                if (isPhysical && netInterface.isUp) {
-                    val addresses = Collections.list(netInterface.inetAddresses)
-                    for (address in addresses) {
-                        if (!address.isLoopbackAddress) {
-                            val hostAddress = address.hostAddress?.split("%")?.get(0)
-                            when (address) {
-                                is Inet4Address -> v4 = hostAddress
-                                is Inet6Address -> v6 = hostAddress
-                            }
-                        }
-                    }
+                val addresses = Collections.list(netInterface.inetAddresses)
+                for (address in addresses) {
+                    // Clean up IPv6 zone indices (e.g., fe80::1%wlan0 -> fe80::1)
+                    val cleanAddress = address.hostAddress?.split("%")?.get(0) ?: continue
+                    
+                    val details = IpDetails(
+                        interfaceName = netInterface.name,
+                        ipAddress = cleanAddress,
+                        isIPv6 = address is Inet6Address,
+                        isLoopback = address.isLoopbackAddress,
+                        isLinkLocal = address.isLinkLocalAddress
+                    )
+                    masterList.add(details)
                 }
             }
         } catch (e: Exception) {
             e.printStackTrace()
         }
-        return Pair(v4, v6)
+        return masterList
     }
 
     /**
-     * 辅助方法：判断系统当前是否挂着 VPN
-     */
-    private fun isVpnConnected(context: Context): Boolean {
-        val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-        val activeNetwork = cm.activeNetwork
-        val capabilities = cm.getNetworkCapabilities(activeNetwork)
-        // 检查当前活跃网络是否带有 TRANSPORT_VPN 标志
-        return capabilities?.hasTransport(NetworkCapabilities.TRANSPORT_VPN) ?: false
-    }
-
-    /**
-     * 辅助方法：通过网络请求获取外网看我们的 IP
+     * Helper Method: Network request to resolve how the internet sees this device.
      */
     private fun fetchIpFromWeb(urlString: String): String? {
         return try {
             val url = URL(urlString)
             val urlConnection = url.openConnection() as HttpURLConnection
-            urlConnection.connectTimeout = 3000
-            urlConnection.readTimeout = 3000
+            urlConnection.connectTimeout = 2500 
+            urlConnection.readTimeout = 2500
+            urlConnection.useCaches = false
+            
             if (urlConnection.responseCode == HttpURLConnection.HTTP_OK) {
                 val reader = BufferedReader(InputStreamReader(urlConnection.inputStream))
                 val ip = reader.readLine()
@@ -121,7 +115,17 @@ class IpManager {
                 ip?.trim()
             } else null
         } catch (e: Exception) {
-            null // 如果 VPN 不支持 IPv6，访问 api6 会超时断开，直接返回 null
+            null // Returns null if the protocol (like IPv6) is unsupported or timed out
         }
+    }
+
+    /**
+     * Helper Method: Diagnostic check to see if a system-wide VPN transport layer is active.
+     */
+    fun isVpnActive(context: Context): Boolean {
+        val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        val activeNetwork = cm.activeNetwork ?: return false
+        val capabilities = cm.getNetworkCapabilities(activeNetwork) ?: return false
+        return capabilities.hasTransport(NetworkCapabilities.TRANSPORT_VPN)
     }
 }
