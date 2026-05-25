@@ -223,6 +223,16 @@ class MainActivity : AppCompatActivity() {
             addAction(UsbManager.ACTION_USB_ACCESSORY_DETACHED)
         }, exportFlag)
         
+        val ipManager = IpManager()
+        lifecycleScope.launch {
+            val ipInfo = ipManager.getAllIpAddresses(applicationContext)
+            
+            appendLog("[系统] IPv4 (局域网/NAT): ${ipInfo.physicalIpv4 ?: "未连网"}")
+            appendLog("[系统] IPv6 (公网唯一): ${ipInfo.physicalIpv6 ?: "运营商未分配"}")
+            appendLog("[系统] 代理 IPv4: ${ipInfo.vpnProxyIpv4 ?: "未开启VPN或获取失败"}")
+            appendLog("[系统] 代理 IPv6: ${ipInfo.vpnProxyIpv6 ?: "VPN不支持IPv6"}")
+        }
+        
         binding.appMainActivity.btnConnect.setOnClickListener { findHostDevice() }
         
         binding.appMainActivity.btnSend.setOnClickListener {
