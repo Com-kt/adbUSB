@@ -97,6 +97,18 @@
         <uses-native-library
             android:name="com.android.future.usb.accessory"
             android:required="false" />
+        <!-- activity-alias 适配 Pixel 系列的类原生系统桌面 -->
+        <activity-alias
+             android:name="aliasActivity"
+             android:exported="true"
+             android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action
+                    android:name="android.intent.action.MAIN" />
+                <category
+                    android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
         <activity 
             android:name="MainActivity"
             android:process=":adb"
@@ -109,12 +121,6 @@
             android:launchMode="singleTop"
             android:persistableMode="persistNever"
             android:exported="true">
-            <intent-filter>
-                <action 
-                    android:name="android.intent.action.MAIN" />
-                <category 
-                    android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
             <!-- USB主机模式 -->
             <intent-filter>
                 <action android:name="android.hardware.usb.action.USB_DEVICE_ATTACHED" />
