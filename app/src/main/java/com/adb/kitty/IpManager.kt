@@ -54,8 +54,8 @@ class IpManager {
         val localIPs = getAllLocalAddresses()
 
         // 2. Fetch public WAN IPs via web requests (handles VPN tunnels automatically)
-        val wanV4 = fetchIpFromWeb("https://ipify.org")
-        val wanV6 = fetchIpFromWeb("https://ipify.org")
+        val wanV4 = fetchIpFromWeb("https://api.ipify.org")
+        val wanV6 = fetchIpFromWeb("https://api6.ipify.org")
 
         ComprehensiveIpProfile(
             localIpList = localIPs,
