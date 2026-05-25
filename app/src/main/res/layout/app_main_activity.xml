@@ -36,7 +36,7 @@
         android:layout_marginEnd="@dimen/activity_xml_layout_marginEnd"
         android:layout_marginStart="@dimen/activity_xml_layout_marginStart"
         app:layout_constraintTop_toBottomOf="@+id/btnConnect"
-        app:layout_constraintBottom_toTopOf="@+id/btnSend"
+        app:layout_constraintBottom_toTopOf="@+id/etCommand"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent" />
 
