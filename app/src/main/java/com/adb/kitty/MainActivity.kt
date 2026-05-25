@@ -76,6 +76,8 @@ import java.io.FileInputStream
 import java.io.FileOutputStream
 import java.io.FileDescriptor
 import java.io.IOException
+import java.io.BufferedReader
+import java.io.InputStreamReader
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.security.KeyPair
@@ -84,6 +86,8 @@ import javax.crypto.Cipher
 import java.text.SimpleDateFormat
 import java.net.Inet4Address
 import java.net.NetworkInterface
+import java.net.HttpURLConnection
+import java.net.URL
 import java.util.Collections
 import java.util.Date
 import java.util.Locale
@@ -225,24 +229,22 @@ class MainActivity : AppCompatActivity() {
         
         val ipManager = IpManager()
         lifecycleScope.launch {
-            val profile = ipManager.getComprehensiveIpProfile(applicationContext)
-            val isVpn = ipManager.isVpnActive(applicationContext)
+            val localIp = ipManager.getAllLocalIpAddresses()
+            appendLog("[本地Wi-Fi] IPv4: ${localIp.wifiIpv4 ?: "未连接"}")
+            appendLog("[本地Wi-Fi] IPv6: ${localIp.wifiIpv6 ?: "无IPv6"}")
+            appendLog("[本地移动网] IPv4: ${localIp.mobileIpv4 ?: "未开启"}")
+            appendLog("[本地移动网] IPv6: ${localIp.mobileIpv6 ?: "无IPv6"}")
+            appendLog("[本地VPN网卡] IPv4: ${localIp.vpnIpv4 ?: "未创建"}")
+            
+            // 测试 VPN 的 IPv4 出口
+            val vpnOuterIpv4 = fetchIpFromWeb("https://api.ipify.org")
+            appendLog("[外网出口] 测试 IPv4 (api.ipify.org) -> ${vpnOuterIpv4 ?: "连接失败(可能无v4网络或代理断开)"}")
 
-            val wifiIpv4 = profile.localIpList.firstOrNull { it.interfaceName == "wlan" && !it.isIPv6 }?.ipAddress
-            val wifiIpv6 = profile.localIpList.firstOrNull { it.interfaceName == "wlan" && it.isIPv6 && !it.isLinkLocal }?.ipAddress
-
-            val mobileIpv4 = profile.localIpList.firstOrNull { it.interfaceName == "rmnet" && !it.isIPv6 }?.ipAddress
-            val mobileIpv6 = profile.localIpList.firstOrNull { it.interfaceName == "rmnet" && it.isIPv6 && !it.isLinkLocal }?.ipAddress
-
-            val vpnProxyIpv4 = if (isVpn) (profile.publicIpv4 ?: "获取失败") else "未开启VPN"
-            val vpnProxyIpv6 = if (isVpn) (profile.publicIpv6 ?: "VPN不支持IPv6") else "未开启VPN"
-
-            appendLog("[网络] Wi-Fi IPv4: ${wifiIpv4 ?: "未连接Wi-Fi"}")
-            appendLog("[网络] Wi-Fi IPv6: ${wifiIpv6 ?: "Wi-Fi未分配IPv6"}")
-            appendLog("[系统] 蜂窝 IPv4: ${mobileIpv4 ?: "未开启移动数据"}")
-            appendLog("[系统] 蜂窝 IPv6: ${mobileIpv6 ?: "蜂窝未分配IPv6"}")
-            appendLog("[系统] 代理 IPv4 (当前出口): $vpnProxyIpv4")
-            appendLog("[系统] 代理 IPv6 (当前出口): $vpnProxyIpv6")
+            // 测试 VPN 的 IPv6 出口
+            val vpnOuterIpv6 = fetchIpFromWeb("https://api6.ipify.org")
+            appendLog("[外网出口] 测试 IPv6 (api6.ipify.org) -> ${vpnOuterIpv6 ?: "连接失败(可能代理不支持v6或网络无v6)"}")
+            
+            appendLog("[系统] === 检测结束 ===")
         }
         
         binding.appMainActivity.btnConnect.setOnClickListener { findHostDevice() }
@@ -348,6 +350,27 @@ class MainActivity : AppCompatActivity() {
                 true
            }
              else -> super.onOptionsItemSelected(item)
+        }
+    }
+    
+    private suspend fun fetchIpFromWeb(urlString: String): String? = withContext(Dispatchers.IO) {
+        return@withContext try {
+            val url = URL(urlString)
+            val conn = url.openConnection() as HttpURLConnection
+            conn.connectTimeout = 4000
+            conn.readTimeout = 4000
+            conn.requestMethod = "GET"
+
+            if (conn.responseCode == HttpURLConnection.HTTP_OK) {
+                val reader = BufferedReader(InputStreamReader(conn.inputStream))
+                val ip = reader.readLine()
+                reader.close()
+                ip?.trim()
+            } else {
+                null
+            }
+        } catch (e: Exception) {
+            null
         }
     }
     

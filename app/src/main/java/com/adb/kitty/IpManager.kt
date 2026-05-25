@@ -6,128 +6,77 @@
  *
  * by: 小猫猫
  */
-package com.adb.kitty
-
-import android.content.Context
-import android.net.ConnectivityManager
-import android.net.NetworkCapabilities
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
-import java.io.BufferedReader
-import java.io.InputStreamReader
-import java.net.HttpURLConnection
 import java.net.Inet4Address
 import java.net.Inet6Address
 import java.net.NetworkInterface
-import java.net.URL
 import java.util.Collections
 
-/**
- * Data class representing a single IP address entry found on the device.
- */
-data class IpDetails(
-    val interfaceName: String, // e.g., "wlan0", "rmnet0", "tun0"
-    val ipAddress: String,     // The actual IP string
-    val isIPv6: Boolean,       // True for IPv6, False for IPv4
-    val isLoopback: Boolean,   // True for 127.0.0.1 or ::1
-    val isLinkLocal: Boolean   // True for scope-local addresses like fe80::
-)
-
-/**
- * Master data class containing the complete network profile of the device.
- */
-data class ComprehensiveIpProfile(
-    val localIpList: List<IpDetails>,
-    val publicIpv4: String?,
-    val publicIpv6: String?
+// 终极数据类：容纳所有 3 种通道的 v4 和 v6
+data class MultiNetworkIp(
+    val wifiIpv4: String? = null,
+    val wifiIpv6: String? = null,
+    val mobileIpv4: String? = null,
+    val mobileIpv6: String? = null,
+    val vpnIpv4: String? = null,
+    val vpnIpv6: String? = null
 )
 
 class IpManager {
 
     /**
-     * Core Method: Collects the entire list of local IP addresses from all interfaces
-     * and queries external servers for the current public-facing WAN IPs.
-     * Must be called from a Coroutine or background thread.
+     * 一网打尽：同时抓取 Wi-Fi、移动网络 以及 VPN 虚拟网卡的本地 IP 地址
      */
-    suspend fun getComprehensiveIpProfile(): ComprehensiveIpProfile = withContext(Dispatchers.IO) {
-        // 1. Scraping the entire list of IPs bound to the hardware/virtual interfaces
-        val localIPs = getAllLocalAddresses()
+    fun getAllLocalIpAddresses(): MultiNetworkIp {
+        var wifiIpv4: String? = null
+        var wifiIpv6: String? = null
+        var mobileIpv4: String? = null
+        var mobileIpv6: String? = null
+        var vpnIpv4: String? = null
+        var vpnIpv6: String? = null
 
-        // 2. Fetch public WAN IPs via web requests (handles VPN tunnels automatically)
-        
-        val wanV4 = fetchIpFromWeb("https://api.ipify.org")
-        val wanV6 = fetchIpFromWeb("https://api6.ipify.org")
-
-
-        ComprehensiveIpProfile(
-            localIpList = localIPs,
-            publicIpv4 = wanV4,
-            publicIpv6 = wanV6
-        )
-    }
-
-    /**
-     * Iterates through every network interface on the device to build a full list of IPs.
-     */
-    private fun getAllLocalAddresses(): List<IpDetails> {
-        val masterList = mutableListOf<IpDetails>()
         try {
             val interfaces = Collections.list(NetworkInterface.getNetworkInterfaces())
-            
             for (netInterface in interfaces) {
-                // Ignore down interfaces to keep the list relevant
-                if (!netInterface.isUp) continue
+                val name = netInterface.name.lowercase()
+                
+                // 确保网卡是启动状态，且不是回环网卡
+                if (!netInterface.isUp || netInterface.isLoopback) continue
 
                 val addresses = Collections.list(netInterface.inetAddresses)
                 for (address in addresses) {
-                    // Clean up IPv6 zone indices (e.g., fe80::1%wlan0 -> fe80::1)
-                    val cleanAddress = address.hostAddress?.split("%")?.get(0) ?: continue
-                    
-                    val details = IpDetails(
-                        interfaceName = netInterface.name,
-                        ipAddress = cleanAddress,
-                        isIPv6 = address is Inet6Address,
-                        isLoopback = address.isLoopbackAddress,
-                        isLinkLocal = address.isLinkLocalAddress
-                    )
-                    masterList.add(details)
+                    if (address.isLoopbackAddress) continue
+
+                    // 截退 IPv6 尾部的网卡名后缀 (例如 %tun0)
+                    val hostAddress = address.hostAddress?.split("%")?.get(0) ?: continue
+
+                    // 1. 筛选 Wi-Fi 网卡 (通常包含 wlan)
+                    if (name.contains("wlan")) {
+                        when (address) {
+                            is Inet4Address -> wifiIpv4 = hostAddress
+                            is Inet6Address -> wifiIpv6 = hostAddress
+                        }
+                    }
+                    // 2. 筛选移动网络网卡 (包含 rmnet, pdp, ccmni, vzw 等)
+                    else if (name.contains("rmnet") || name.contains("pdp") || 
+                             name.contains("ccmni") || name.contains("vzw")) {
+                        when (address) {
+                            is Inet4Address -> mobileIpv4 = hostAddress
+                            is Inet6Address -> mobileIpv6 = hostAddress
+                        }
+                    }
+                    // 3. 筛选 VPN 虚拟网卡 (通常包含 tun, ppp, tap)
+                    else if (name.contains("tun") || name.contains("ppp") || name.contains("tap")) {
+                        when (address) {
+                            is Inet4Address -> vpnIpv4 = hostAddress
+                            is Inet6Address -> vpnIpv6 = hostAddress
+                        }
+                    }
                 }
             }
         } catch (e: Exception) {
             e.printStackTrace()
         }
-        return masterList
-    }
 
-    /**
-     * Helper Method: Network request to resolve how the internet sees this device.
-     */
-    private fun fetchIpFromWeb(urlString: String): String? {
-        return try {
-            val url = URL(urlString)
-            val urlConnection = url.openConnection() as HttpURLConnection
-            urlConnection.connectTimeout = 2500 
-            urlConnection.readTimeout = 2500
-            urlConnection.useCaches = false
-            
-            if (urlConnection.responseCode == HttpURLConnection.HTTP_OK) {
-                val reader = BufferedReader(InputStreamReader(urlConnection.inputStream))
-                val ip = reader.readLine()
-                reader.close()
-                ip?.trim()
-            } else null
-        } catch (e: Exception) {
-            null // Returns null if the protocol (like IPv6) is unsupported or timed out
-        }
-    }
-
-    /**
-     * Helper Method: Diagnostic check to see if a system-wide VPN transport layer is active.
-     */
-    fun isVpnActive(context: Context): Boolean {
-        val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-        val activeNetwork = cm.activeNetwork ?: return false
-        val capabilities = cm.getNetworkCapabilities(activeNetwork) ?: return false
-        return capabilities.hasTransport(NetworkCapabilities.TRANSPORT_VPN)
+        return MultiNetworkIp(wifiIpv4, wifiIpv6, mobileIpv4, mobileIpv6, vpnIpv4, vpnIpv6)
     }
 }
