@@ -357,9 +357,6 @@ class MainActivity : AppCompatActivity() {
             
             val vpnOuterIpv43 = fetchIpFromWeb("https://v4.chokcap.azurewebsites.net")
             appendLog("[外网出口] 测试 IPv4 (v4.chokcap.azurewebsites.net) -> ${vpnOuterIpv43 ?: "连接失败(可能无v4网络或代理断开)"}")
-            
-            val vpnOuterIpv44 = fetchIpFromWeb("https://ipv4.google.com/generate_204")
-            appendLog("[外网出口] 测试 IPv4 (ipv4.google.com/generate_204) -> ${vpnOuterIpv44 ?: "连接失败(可能无v4网络或代理断开)"}")
 
             // 测试 VPN 的 IPv6 出口
             val vpnOuterIpv6 = fetchIpFromWeb("https://api6.ipify.org")
@@ -374,10 +371,15 @@ class MainActivity : AppCompatActivity() {
             val vpnOuterIpv63 = fetchIpFromWeb("https://v6.chokcap.azurewebsites.net")
             appendLog("[外网出口] 测试 IPv6 (v6.chokcap.azurewebsites.net) -> ${vpnOuterIpv63 ?: "连接失败(可能代理不支持v6或网络无v6)"}")
             
-            val vpnOuterIpv64 = fetchIpFromWeb("https://ipv6.google.com/generate_204")
-            appendLog("[外网出口] 测试 IPv6 (ipv6.google.com/generate_204) -> ${vpnOuterIpv64 ?: "连接失败(可能代理不支持v6或网络无v6)"}")
-            
             appendLog("[系统] === 检测结束 ===")
+        }
+        
+        lifecycleScope.launch {
+            val isV4Ok = verifyGoogleOutbound("https://ipv4.google.com/generate_204")
+            val isV6Ok = verifyGoogleOutbound("https://ipv6.google.com/generate_204")
+
+            appendLog("[Google通道] 物理/VPN IPv4 直连状态: ${if(isV4Ok) "🟢 畅通" else "🔴 阻塞"}")
+            appendLog("[Google通道] 物理/VPN IPv6 直连状态: ${if(isV6Ok) "🟢 畅通" else "🔴 阻塞"}")
         }
         
         val vpnIpManager = VpnIpManager()
@@ -387,6 +389,20 @@ class MainActivity : AppCompatActivity() {
             appendLog("[VPN网络] 成功抓取本地 VPN IPv6 地址: $localVpnIpv6")
         } else {
             appendLog("[VPN网络] 未检测到本地 VPN 的 IPv6 地址 (VPN未开启，或该VPN软件底层未分配IPv6虚拟网卡)")
+        }
+    }
+    
+    suspend fun verifyGoogleOutbound(urlString: String): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val url = URL(urlString)
+            val conn = url.openConnection() as HttpURLConnection
+            conn.connectTimeout = 4000
+            conn.readTimeout = 4000
+            conn.requestMethod = "GET"
+
+            return@withContext conn.responseCode == 204
+        } catch (e: Exception) {
+            return@withContext false
         }
     }
     
