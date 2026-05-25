@@ -230,11 +230,11 @@ class MainActivity : AppCompatActivity() {
         val ipManager = IpManager()
         lifecycleScope.launch {
             val localIp = ipManager.getAllLocalIpAddresses()
-            appendLog("[本地Wi-Fi] IPv4: ${localIp.wifiIpv4 ?: "未连接"}")
-            appendLog("[本地Wi-Fi] IPv6: ${localIp.wifiIpv6 ?: "无IPv6"}")
-            appendLog("[本地移动网] IPv4: ${localIp.mobileIpv4 ?: "未开启"}")
-            appendLog("[本地移动网] IPv6: ${localIp.mobileIpv6 ?: "无IPv6"}")
-            appendLog("[本地VPN网卡] IPv4: ${localIp.vpnIpv4 ?: "未创建"}")
+            appendLog("[本地 Wi-Fi 网卡] IPv4: ${localIp.wifiIpv4 ?: "未连接"}")
+            appendLog("[本地 Wi-Fi 网卡] IPv6: ${localIp.wifiIpv6 ?: "无IPv6"}")
+            appendLog("[本地移动网卡] IPv4: ${localIp.mobileIpv4 ?: "未开启"}")
+            appendLog("[本地移动网卡] IPv6: ${localIp.mobileIpv6 ?: "无IPv6"}")
+            appendLog("[本地 VPN 网卡] IPv4: ${localIp.vpnIpv4 ?: "未创建"}")
             
             // 测试 VPN 的 IPv4 出口
             val vpnOuterIpv4 = fetchIpFromWeb("https://api.ipify.org")
@@ -245,6 +245,37 @@ class MainActivity : AppCompatActivity() {
             appendLog("[外网出口] 测试 IPv6 (api6.ipify.org) -> ${vpnOuterIpv6 ?: "连接失败(可能代理不支持v6或网络无v6)"}")
             
             appendLog("[系统] === 检测结束 ===")
+        }
+        
+        val tester = UniversalIpTester()
+        val allTargetUrls = listOf(
+            "https://api.ipify.org",
+            "https://checkip.amazonaws.com",
+            "https://v4.ident.me",
+            "https://icanhazip.com",
+            "https://api6.ipify.org",
+            "https://v6.ident.me"
+        )
+
+        lifecycleScope.launch {
+            allTargetUrls.forEachIndexed { index, url ->
+                appendLog("\n[任务 ${index + 1}/${allTargetUrls.size}] 正在全栈轰炸: $url")
+        
+                val report = tester.diagnoseUrl(url)
+
+                if (report.ipv4Result.isSuccess) {
+                    appendLog("  ├─ 🟢 IPv4 成功 | 耗时: ${report.ipv4Result.costTime}ms | 出口IP: ${report.ipv4Result.ip}")
+                } else {
+                    appendLog("  ├─ 🔴 IPv4 失败 | 耗时: ${report.ipv4Result.costTime}ms | 原因: ${report.ipv4Result.errorMessage}")
+                }
+
+                if (report.ipv6Result.isSuccess) {
+                    appendLog("  └─ 🟢 IPv6 成功 | 耗时: ${report.ipv6Result.costTime}ms | 出口IP: ${report.ipv6Result.ip}")
+                } else {
+                    appendLog("  └─ 🔴 IPv6 失败 | 耗时: ${report.ipv6Result.costTime}ms | 原因: ${report.ipv6Result.errorMessage}")
+                }
+            }
+            appendLog("[测试] IPv4/IPv6 测试结束")
         }
         
         binding.appMainActivity.btnConnect.setOnClickListener { findHostDevice() }
