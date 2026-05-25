@@ -354,6 +354,12 @@ class MainActivity : AppCompatActivity() {
             
             val vpnOuterIpv42 = fetchIpFromWeb("https://ipv4.icanhazip.com")
             appendLog("[外网出口] 测试 IPv4 (ipv4.icanhazip.com) -> ${vpnOuterIpv42 ?: "连接失败(可能无v4网络或代理断开)"}")
+            
+            val vpnOuterIpv43 = fetchIpFromWeb("https://v4.chokcap.azurewebsites.net")
+            appendLog("[外网出口] 测试 IPv4 (v4.chokcap.azurewebsites.net) -> ${vpnOuterIpv43 ?: "连接失败(可能无v4网络或代理断开)"}")
+            
+            val vpnOuterIpv44 = fetchIpFromWeb("https://ipv4.google.com/generate_204")
+            appendLog("[外网出口] 测试 IPv4 (ipv4.google.com/generate_204) -> ${vpnOuterIpv44 ?: "连接失败(可能无v4网络或代理断开)"}")
 
             // 测试 VPN 的 IPv6 出口
             val vpnOuterIpv6 = fetchIpFromWeb("https://api6.ipify.org")
@@ -364,6 +370,12 @@ class MainActivity : AppCompatActivity() {
             
             val vpnOuterIpv62 = fetchIpFromWeb("https://ipv6.icanhazip.com")
             appendLog("[外网出口] 测试 IPv6 (ipv6.icanhazip.com) -> ${vpnOuterIpv62 ?: "连接失败(可能代理不支持v6或网络无v6)"}")
+            
+            val vpnOuterIpv63 = fetchIpFromWeb("https://v6.chokcap.azurewebsites.net")
+            appendLog("[外网出口] 测试 IPv6 (v6.chokcap.azurewebsites.net) -> ${vpnOuterIpv63 ?: "连接失败(可能代理不支持v6或网络无v6)"}")
+            
+            val vpnOuterIpv64 = fetchIpFromWeb("https://ipv6.google.com/generate_204")
+            appendLog("[外网出口] 测试 IPv6 (ipv6.google.com/generate_204) -> ${vpnOuterIpv64 ?: "连接失败(可能代理不支持v6或网络无v6)"}")
             
             appendLog("[系统] === 检测结束 ===")
         }
