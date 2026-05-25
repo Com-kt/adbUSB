@@ -239,43 +239,27 @@ class MainActivity : AppCompatActivity() {
             // 测试 VPN 的 IPv4 出口
             val vpnOuterIpv4 = fetchIpFromWeb("https://api.ipify.org")
             appendLog("[外网出口] 测试 IPv4 (api.ipify.org) -> ${vpnOuterIpv4 ?: "连接失败(可能无v4网络或代理断开)"}")
+            
+            val vpnOuterIpv41 = fetchIpFromWeb("https://v4.ident.me")
+            appendLog("[外网出口] 测试 IPv4 (v4.ident.me) -> ${vpnOuterIpv41 ?: "连接失败(可能无v4网络或代理断开)"}")
 
             // 测试 VPN 的 IPv6 出口
             val vpnOuterIpv6 = fetchIpFromWeb("https://api6.ipify.org")
             appendLog("[外网出口] 测试 IPv6 (api6.ipify.org) -> ${vpnOuterIpv6 ?: "连接失败(可能代理不支持v6或网络无v6)"}")
             
+            val vpnOuterIpv61 = fetchIpFromWeb("https://v6.ident.me")
+            appendLog("[外网出口] 测试 IPv6 (v6.ident.me) -> ${vpnOuterIpv61 ?: "连接失败(可能代理不支持v6或网络无v6)"}")
+            
             appendLog("[系统] === 检测结束 ===")
         }
         
-        val tester = UniversalIpTester()
-        val allTargetUrls = listOf(
-            "https://api.ipify.org",
-            "https://checkip.amazonaws.com",
-            "https://v4.ident.me",
-            "https://icanhazip.com",
-            "https://api6.ipify.org",
-            "https://v6.ident.me"
-        )
+        val vpnIpManager = VpnIpManager()
+        val localVpnIpv6 = vpnIpManager.getLocalVpnIpv6(applicationContext)
 
-        lifecycleScope.launch {
-            allTargetUrls.forEachIndexed { index, url ->
-                appendLog("\n[任务 ${index + 1}/${allTargetUrls.size}] 正在全栈轰炸: $url")
-        
-                val report = tester.diagnoseUrl(url)
-
-                if (report.ipv4Result.isSuccess) {
-                    appendLog("  ├─ 🟢 IPv4 成功 | 耗时: ${report.ipv4Result.costTime}ms | 出口IP: ${report.ipv4Result.ip}")
-                } else {
-                    appendLog("  ├─ 🔴 IPv4 失败 | 耗时: ${report.ipv4Result.costTime}ms | 原因: ${report.ipv4Result.errorMessage}")
-                }
-
-                if (report.ipv6Result.isSuccess) {
-                    appendLog("  └─ 🟢 IPv6 成功 | 耗时: ${report.ipv6Result.costTime}ms | 出口IP: ${report.ipv6Result.ip}")
-                } else {
-                    appendLog("  └─ 🔴 IPv6 失败 | 耗时: ${report.ipv6Result.costTime}ms | 原因: ${report.ipv6Result.errorMessage}")
-                }
-            }
-            appendLog("[测试] IPv4/IPv6 测试结束")
+        if (localVpnIpv6 != null) {
+            appendLog("[VPN网络] 成功抓取本地 VPN IPv6 地址: $localVpnIpv6")
+        } else {
+            appendLog("[VPN网络] 未检测到本地 VPN 的 IPv6 地址 (VPN未开启，或该VPN软件底层未分配IPv6虚拟网卡)")
         }
         
         binding.appMainActivity.btnConnect.setOnClickListener { findHostDevice() }
