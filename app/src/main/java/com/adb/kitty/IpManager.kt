@@ -6,6 +6,8 @@
  *
  * by: 小猫猫
  */
+package com.adb.kitty
+ 
 import java.net.Inet4Address
 import java.net.Inet6Address
 import java.net.NetworkInterface
