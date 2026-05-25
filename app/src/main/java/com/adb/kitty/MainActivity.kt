@@ -225,33 +225,28 @@ class MainActivity : AppCompatActivity() {
         
         val ipManager = IpManager()
         lifecycleScope.launch {
-            // 1. Fetch the comprehensive network profile
             val profile = ipManager.getComprehensiveIpProfile()
-    
-            // 2. Extract the local physical IPv4 (wlan0 or rmnet, ignoring VPN tunnels and loopbacks)
-            val physicalIpv4 = profile.localIpList.firstOrNull { ip ->
-                !ip.isIPv6 && !ip.isLoopback && 
-                (ip.interfaceName.contains("wlan") || ip.interfaceName.contains("rmnet") || ip.interfaceName.contains("pdp"))
-            }?.ipAddress
-
-            // 3. Extract the local physical IPv6 (Global Unicast, ignoring local-link fe80 and loopbacks)
-            val physicalIpv6 = profile.localIpList.firstOrNull { ip ->
-                ip.isIPv6 && !ip.isLinkLocal && !ip.isLoopback &&
-                (ip.interfaceName.contains("wlan") || ip.interfaceName.contains("rmnet") || ip.interfaceName.contains("pdp"))
-            }?.ipAddress
-
-            // 4. Determine VPN proxy IPs based on whether a VPN transport layer is actually active
             val isVpn = ipManager.isVpnActive(applicationContext)
-    
-            // If VPN is on, use the fetched public WAN IP. If VPN is off, display "未开启VPN"
-            val vpnProxyIpv4 = if (isVpn) profile.publicIpv4 else "未开启VPN"
+
+            // 1. Strictly extract Wi-Fi IPs (Wireless Router Connection)
+            val wifiIpv4 = profile.localIpList.firstOrNull { it.interfaceName.contains("wlan") && !it.isIPv6 }?.ipAddress
+            val wifiIpv6 = profile.localIpList.firstOrNull { it.interfaceName.contains("wlan") && it.isIPv6 && !it.isLinkLocal }?.ipAddress
+
+            // 2. Strictly extract Cellular IPs (Your China Unicom SIM Card Data)
+            val mobileIpv4 = profile.localIpList.firstOrNull { (it.interfaceName.contains("rmnet") || it.interfaceName.contains("pdp") || it.interfaceName.contains("ccmni")) && !it.isIPv6 }?.ipAddress
+            val mobileIpv6 = profile.localIpList.firstOrNull { (it.interfaceName.contains("rmnet") || it.interfaceName.contains("pdp") || it.interfaceName.contains("ccmni")) && it.isIPv6 && !it.isLinkLocal }?.ipAddress
+
+            // 3. Handle VPN Proxy Status
+            val vpnProxyIpv4 = if (isVpn) (profile.publicIpv4 ?: "获取失败") else "未开启VPN"
             val vpnProxyIpv6 = if (isVpn) (profile.publicIpv6 ?: "VPN不支持IPv6") else "未开启VPN"
 
-            // 5. Append to your logs exactly as before
-            appendLog("[系统] IPv4 (局域网/NAT): ${physicalIpv4 ?: "未连网"}")
-            appendLog("[系统] IPv6 (公网唯一): ${physicalIpv6 ?: "运营商未分配"}")
-            appendLog("[系统] 代理 IPv4: ${if (isVpn && profile.publicIpv4 == null) "获取失败" else vpnProxyIpv4}")
-            appendLog("[系统] 代理 IPv6: ${if (isVpn && profile.publicIpv6 == null && profile.publicIpv4 != null) "VPN不支持IPv6" else vpnProxyIpv6}")
+            // 4. Clean and explicit output display
+            appendLog("[系统] Wi-Fi IPv4: ${wifiIpv4 ?: "未连接Wi-Fi"}")
+            appendLog("[系统] Wi-Fi IPv6: ${wifiIpv6 ?: "Wi-Fi未分配IPv6"}")
+            appendLog("[系统] 蜂窝 IPv4 (联通内网): ${mobileIpv4 ?: "未开启移动数据"}")
+            appendLog("[系统] 蜂窝 IPv6 (联通公网): ${mobileIpv6 ?: "联通数据未分配IPv6"}")
+            appendLog("[系统] 代理 IPv4 (当前出口): $vpnProxyIpv4")
+            appendLog("[系统] 代理 IPv6 (当前出口): $vpnProxyIpv6")
         }
         
         binding.appMainActivity.btnConnect.setOnClickListener { findHostDevice() }
