@@ -225,26 +225,22 @@ class MainActivity : AppCompatActivity() {
         
         val ipManager = IpManager()
         lifecycleScope.launch {
-            val profile = ipManager.getComprehensiveIpProfile()
+            val profile = ipManager.getComprehensiveIpProfile(applicationContext)
             val isVpn = ipManager.isVpnActive(applicationContext)
 
-            // 1. Strictly extract Wi-Fi IPs (Wireless Router Connection)
-            val wifiIpv4 = profile.localIpList.firstOrNull { it.interfaceName.contains("wlan") && !it.isIPv6 }?.ipAddress
-            val wifiIpv6 = profile.localIpList.firstOrNull { it.interfaceName.contains("wlan") && it.isIPv6 && !it.isLinkLocal }?.ipAddress
+            val wifiIpv4 = profile.localIpList.firstOrNull { it.interfaceName == "wlan" && !it.isIPv6 }?.ipAddress
+            val wifiIpv6 = profile.localIpList.firstOrNull { it.interfaceName == "wlan" && it.isIPv6 && !it.isLinkLocal }?.ipAddress
 
-            // 2. Strictly extract Cellular IPs (Your China Unicom SIM Card Data)
-            val mobileIpv4 = profile.localIpList.firstOrNull { (it.interfaceName.contains("rmnet") || it.interfaceName.contains("pdp") || it.interfaceName.contains("ccmni")) && !it.isIPv6 }?.ipAddress
-            val mobileIpv6 = profile.localIpList.firstOrNull { (it.interfaceName.contains("rmnet") || it.interfaceName.contains("pdp") || it.interfaceName.contains("ccmni")) && it.isIPv6 && !it.isLinkLocal }?.ipAddress
+            val mobileIpv4 = profile.localIpList.firstOrNull { it.interfaceName == "rmnet" && !it.isIPv6 }?.ipAddress
+            val mobileIpv6 = profile.localIpList.firstOrNull { it.interfaceName == "rmnet" && it.isIPv6 && !it.isLinkLocal }?.ipAddress
 
-            // 3. Handle VPN Proxy Status
             val vpnProxyIpv4 = if (isVpn) (profile.publicIpv4 ?: "获取失败") else "未开启VPN"
             val vpnProxyIpv6 = if (isVpn) (profile.publicIpv6 ?: "VPN不支持IPv6") else "未开启VPN"
 
-            // 4. Clean and explicit output display
-            appendLog("[系统] Wi-Fi IPv4: ${wifiIpv4 ?: "未连接Wi-Fi"}")
-            appendLog("[系统] Wi-Fi IPv6: ${wifiIpv6 ?: "Wi-Fi未分配IPv6"}")
-            appendLog("[系统] 蜂窝 IPv4 (联通内网): ${mobileIpv4 ?: "未开启移动数据"}")
-            appendLog("[系统] 蜂窝 IPv6 (联通公网): ${mobileIpv6 ?: "联通数据未分配IPv6"}")
+            appendLog("[网络] Wi-Fi IPv4: ${wifiIpv4 ?: "未连接Wi-Fi"}")
+            appendLog("[网络] Wi-Fi IPv6: ${wifiIpv6 ?: "Wi-Fi未分配IPv6"}")
+            appendLog("[系统] 蜂窝 IPv4: ${mobileIpv4 ?: "未开启移动数据"}")
+            appendLog("[系统] 蜂窝 IPv6: ${mobileIpv6 ?: "蜂窝未分配IPv6"}")
             appendLog("[系统] 代理 IPv4 (当前出口): $vpnProxyIpv4")
             appendLog("[系统] 代理 IPv6 (当前出口): $vpnProxyIpv6")
         }
