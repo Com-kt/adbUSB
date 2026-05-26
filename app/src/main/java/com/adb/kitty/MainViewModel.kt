@@ -41,6 +41,7 @@ class MainViewModel : ViewModel() {
         AdbCommand("重启到 Recovery", "reboot recovery"),
         AdbCommand("重启到 Bootloader", "reboot bootloader"),
         AdbCommand("重启到 FastbootD", "reboot fastboot"),
+        AdbCommand("重启到 Edl", "reboot edl"),
         AdbCommand("纯净系统无任何用户激活 Dhizuku (需要安装Dhizuku)", "dpm set-device-owner com.rosan.dhizuku/.server.DhizukuDAReceiver"),
         AdbCommand("激活 Sence (需要安装Sence)", "sh /storage/emulated/0/Android/data/com.omarea.vtools/up.sh"),
         AdbCommand("激活 AppManager (需要安装AppManager)", "sh /storage/emulated/0/Android/data/io.github.muntashirakon.AppManager/cache/run_server.sh 60001 wasp-lurk-ripen"),
