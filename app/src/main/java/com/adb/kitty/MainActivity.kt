@@ -355,8 +355,8 @@ class MainActivity : AppCompatActivity() {
             val vpnOuterIpv42 = fetchIpFromWeb("https://ipv4.icanhazip.com")
             appendLog("[外网出口] 测试 IPv4 (ipv4.icanhazip.com) -> ${vpnOuterIpv42 ?: "连接失败(可能无v4网络或代理断开)"}")
             
-            val vpnOuterIpv43 = fetchIpFromWeb("https://ipv4.checkip.amazonaws.com")
-            appendLog("[外网出口] 测试 IPv4 (ipv4.checkip.amazonaws.com) -> ${vpnOuterIpv43 ?: "连接失败(可能无v4网络或代理断开)"}")
+            val vpnOuterIpv43 = fetchIpFromWeb("https://v4.checkip.amazonaws.com")
+            appendLog("[外网出口] 测试 IPv4 (v4.checkip.amazonaws.com) -> ${vpnOuterIpv43 ?: "连接失败(可能无v4网络或代理断开)"}")
 
             // 测试 VPN 的 IPv6 出口
             val vpnOuterIpv6 = fetchIpFromWeb("https://api6.ipify.org")
@@ -368,8 +368,8 @@ class MainActivity : AppCompatActivity() {
             val vpnOuterIpv62 = fetchIpFromWeb("https://ipv6.icanhazip.com")
             appendLog("[外网出口] 测试 IPv6 (ipv6.icanhazip.com) -> ${vpnOuterIpv62 ?: "连接失败(可能代理不支持v6或网络无v6)"}")
             
-            val vpnOuterIpv63 = fetchIpFromWeb("https://ipv6.checkip.amazonaws.com")
-            appendLog("[外网出口] 测试 IPv6 (ipv6.checkip.amazonaws.com) -> ${vpnOuterIpv63 ?: "连接失败(可能代理不支持v6或网络无v6)"}")
+            val vpnOuterIpv63 = fetchIpFromWeb("https://v6.checkip.amazonaws.com")
+            appendLog("[外网出口] 测试 IPv6 (v6.checkip.amazonaws.com) -> ${vpnOuterIpv63 ?: "连接失败(可能代理不支持v6或网络无v6)"}")
             
             appendLog("[系统] === 检测结束 ===")
         }
