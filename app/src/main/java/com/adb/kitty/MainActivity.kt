@@ -822,7 +822,7 @@ class MainActivity : AppCompatActivity() {
                         }
                         0x4e584e43 -> { 
                             isAdbAuthorized = true
-                            authFailureCount = 0
+                            isFirstTryInThisSession = true
                             refreshUiText()
                             appendLog(">>> ADB 授权成功，链路就绪 <<<")
                         }
