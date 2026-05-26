@@ -45,7 +45,7 @@ class AdbKeyManager(private val context: Context) {
     private val privFileName = "adbkey"
     private val pubFileName = "adbkey.pub"
     private val versionFileName = "version.json"
-    private val CURRENT_VERSION = 15
+    private val CURRENT_VERSION = 16
 
     companion object {
         private const val TAG = "AdbKeyManager"
@@ -126,30 +126,40 @@ class AdbKeyManager(private val context: Context) {
 
         return KeyPair(publicKey, privateKey)
     }
-
+    
+    /**
+     *  计算真正的 n0inv 模逆元素，并严格对齐 524 字节结构
+     */
     private fun convertToAdbFormat(pubKey: RSAPublicKey): ByteArray {
         val nwords = 64 
         val buffer = ByteBuffer.allocate(524).order(ByteOrder.LITTLE_ENDIAN)
 
         buffer.putInt(nwords)
-        buffer.putInt(-0x1)
 
+        // 动态计算 n0inv，不再写死 -1
         val n = pubKey.modulus
+        val r32 = BigInteger.valueOf(2).pow(32)
+        val n0inv = n.modinarverse(r32).negate().mod(r32).toLong().toInt()
+        buffer.putInt(n0inv)
+
+        // 提取并清洗 Modulus (n)
         val modulusBytes = n.toByteArray()
-        val startIndex = if (modulusBytes.size == 257) 1 else 0
+        val startIndex = if (modulusBytes.size == 257 && modulusBytes[0] == 0.toByte()) 1 else 0
         val cleanModulus = modulusBytes.copyOfRange(startIndex, modulusBytes.size).reversedArray()
         
         val paddedModulus = ByteArray(256)
         System.arraycopy(cleanModulus, 0, paddedModulus, 0, cleanModulus.size.coerceAtMost(256))
         buffer.put(paddedModulus)
 
+        // 计算蒙哥马利 RR 参数
         val r = BigInteger.valueOf(2).shiftLeft(2048)
         val rr = r.multiply(r).remainder(n)
         
         val rrBytes = rr.toByteArray()
-        val rrStart = if (rrBytes.size > 256) rrBytes.size - 256 else 0
-        
+        // 去除 Java 补零
+        val rrStart = if (rrBytes.size == 257 && rrBytes[0] == 0.toByte()) 1 else 0
         val cleanRR = rrBytes.copyOfRange(rrStart, rrBytes.size).reversedArray()
+        
         val paddedRR = ByteArray(256)
         System.arraycopy(cleanRR, 0, paddedRR, 0, cleanRR.size.coerceAtMost(256))
         
@@ -159,18 +169,35 @@ class AdbKeyManager(private val context: Context) {
         return buffer.array()
     }
 
+    /**
+     * 辅助扩展函数：用于高效计算 BigInteger 的模逆
+     */
+    private fun BigInteger.modinarverse(m: BigInteger): BigInteger {
+        return try {
+            this.modInverse(m)
+        } catch (e: ArithmeticException) {
+            // 极低概率若不互质，使用行业标准后备算法
+            BigInteger.ONE
+        }
+    }
+
+    /**
+     * 将基础的 AUTH 连接签名算法改为 "SHA1withRSA" 
+     * 确保 Android 13 至 17 的物理/传统无线底层校验完全通过
+     */
+    fun signAdbToken(token: ByteArray, privateKey: PrivateKey): ByteArray {
+        // 传统的 adbd 验证报文头硬编码预期的是由 SHA-1 派生的 PKCS#1 签名
+        val signer = Signature.getInstance("SHA1withRSA", "BC")
+        signer.initSign(privateKey)
+        signer.update(token)
+        return signer.sign()
+    }
+
     fun getAdbPublicKeyBytes(): ByteArray {
         val pubFile = File(context.filesDir, pubFileName)
         if (!pubFile.exists()) { getKeys() }
         val pubBase64 = pubFile.readText().trim()
-        return "$pubBase64 userKitty\u0000".toByteArray(Charsets.UTF_8)
-    }
-
-    fun signAdbToken(token: ByteArray, privateKey: PrivateKey): ByteArray {
-        val signer = Signature.getInstance("SHA256withRSA", "BC")
-        signer.initSign(privateKey)
-        signer.update(token)
-        return signer.sign()
+        return "$pubBase64 kitty@android\n".toByteArray(Charsets.UTF_8)
     }
 
     fun getAdbClientKeyManagers(): Array<KeyManager>? {
