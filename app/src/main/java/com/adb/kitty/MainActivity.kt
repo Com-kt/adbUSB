@@ -121,7 +121,7 @@ class MainActivity : AppCompatActivity() {
     private var isUsbAttached = false
     private var isAdbAuthorized = false
     private var isFastbootMode = false 
-    private var authFailureCount = 0
+    private var isFirstTryInThisSession = true
 
     private val responseChannel = Channel<String>(Channel.CONFLATED)
     
@@ -805,18 +805,19 @@ class MainActivity : AppCompatActivity() {
                     when (cmd) {
                         0x48545541 -> {
                             if (arg0 == 1) {
-                                if (authFailureCount < 1) {
-                                    appendLog("[Auth] 尝试私钥签名响应...")
-                                    payload?.let { token ->
+                                payload?.let { token ->
+                                    if (isFirstTryInThisSession) {
+                                        appendLog("[Auth] 尝试使用本地历史私钥进行签名响应...")
                                         val signature = keyManager.signAdbToken(token, keyPair.private)
                                         sendPacket(0x48545541, 2, 0, signature)
-                                        authFailureCount++
-                                    } ?: appendLog("[Error] 收到 AUTH TOKEN 但 payload 为空")
-                                } else {
-                                    appendLog("[Auth] 发送公钥申请授权...")
-                                    val pubPayload = keyManager.getAdbPublicKeyBytes()
-                                    sendPacket(0x48545541, 3, 0, pubPayload)
-                                }
+                                        isFirstTryInThisSession = false
+                                    } else {
+                                        appendLog("[Auth] 本地私钥未被手机接受，正在发送公钥申请弹窗授权...")
+                                        val pubPayload = keyManager.getAdbPublicKeyBytes()
+                                        sendPacket(0x48545541, 3, 0, pubPayload)
+                                        isFirstTryInThisSession = true
+                                    }
+                                } ?: appendLog("[Error] 收到 AUTH TOKEN 但 payload 为空")
                             }
                         }
                         0x4e584e43 -> { 
