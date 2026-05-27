@@ -66,23 +66,18 @@ class MainViewModel : ViewModel() {
         FbCommand("查看当前安全补丁级别", "getvar security-patch-level"),
         FbCommand("查看当前活跃的分区槽位（a 或 b)", "getvar current-slot"),
         FbCommand("查看 Bootloader 解锁状态", "getvar unlocked"),
+        FbCommand("oem info", "oem device-info"),
         FbCommand("获取设备的所有系统变量（如版本号、电池电压、Bootloader 锁状态等)", "getvar all"),
         FbCommand("尝试设置 SeLinux 为宽容模式", "oem set-gpu-preemption 0 androidboot.selinux=permissive"),
         FbCommand("设置完成", "continue"),
         FbCommand("退出 Fastboot 模式并正常重启手机", "reboot"),
         FbCommand("从 Fastboot 模式再次重启回 Fastboot 模式（用于重置连接状态)", "reboot bootloader"),
         FbCommand("进入 FastbootD 模式", "reboot fastboot"),
-        FbCommand("尝试刷入 boot.img (内核5.10及以下)", "flash boot boot.img"),
-        FbCommand("尝试刷入 init_boot.img (内核5.15+)", "flash init_boot init_boot.img"),
-        FbCommand("尝试刷入官方 vbmeta，并禁用验证(小米可能不用)", "flash vbmeta vbmeta.img --disable-verity --disable-verification"),
-        FbCommand("尝试刷入 recovery.img", "flash recovery recovery.img"),
         FbCommand("擦除缓存分区", "erase cache"),
         FbCommand("擦除用户数据分区（相当于恢复出厂设置)", "erase userdata"),
         FbCommand("一键清空：擦除用户数据和缓存（刷机前的标准“双清”)", "-w"),
         FbCommand("尝试解锁 Bootloader", "oem unlock"),
-        FbCommand("尝试解锁 Bootloader", "flashing unlock"),
-        FbCommand("重新锁定 Bootloader (回锁了就受着)", "oem lock"),
-        FbCommand("重新锁定 Bootloader (回锁了就受着)", "flashing lock")
+        FbCommand("尝试解锁 Bootloader", "flashing unlock")
     )
     
     val fbCommands: List<FbCommand> get() = _fbCommands
