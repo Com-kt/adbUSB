@@ -240,6 +240,9 @@ class MainActivity : AppCompatActivity() {
             if (isFastbootMode) {
                 lifecycleScope.launch(Dispatchers.IO) {
                     try {
+                        withContext(Dispatchers.Main) {
+                           appendLog("[发送] FB >> $cmd")
+                        }
                         executeCommandSync(cmd)
                     } catch (e: Exception) {
                         withContext(Dispatchers.Main) { appendLog("[错误] ${e.message}") }
