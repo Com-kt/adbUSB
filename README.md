@@ -15,7 +15,7 @@
     - [x] UsbManager API (Android 9+)
 - [x] Fastboot
     - [x] cmd (Android 9+)
-    - [x] flash (Android 9+)
+    - [ ] flash (Android 9+)
     - [x] 255/66/3
     - [ ] 255/68/3
 - [x] ADB
@@ -26,11 +26,9 @@
     - [x] 255/66/1
     - [ ] 6/1/1
 - [x] Application
-    - [x] TCP/IP (Android 13+)
-    - [x] GPS WiFi (Android 13+)
-    - [x] WLAN (Android 13+)
-    - [x] MTFilesProvider (Android 9+)
-    - [x] Android 12 ~ 17
+    - [x] ipv4 Test
+    - [x] ipv6 Test
+    - [x] MTFilesProvider
 
 > [!WARNING]
 > 
