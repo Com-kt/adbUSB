@@ -13,7 +13,7 @@
     <string name="action_main_2">快捷fastboot</string>
     <string name="action_main_3">无线调试</string>
     <string name="action_main_4">注意事项</string>
-    <string name="app_main_activity_xml_btnConnect">扫描 USB 设备</string>
+    <string name="app_main_activity_xml_btnConnect">扫描/识别 USB 设备</string>
     <string name="app_main_activity_xml_ipTest">测试 ipv4 / ipv6 地址</string>
     <string name="app_main_activity_xml_etCommand">输入 adb 命令 / fastboot 命令</string>
     <string name="app_main_activity_xml_btnSend">发送命令</string>
