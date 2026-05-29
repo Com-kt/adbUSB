@@ -695,10 +695,11 @@ class MainActivity : AppCompatActivity() {
 
         // 3. 传入实时回调，刷新前台 UI
         val result = waitForTerminalResponse(10000) { infoText ->
-            withContext(Dispatchers.Main) {
+            runOnUiThread {
                 appendLog("FB << (bootloader) $infoText")
             }
         }
+        
         // 4. 最终状态结算
         withContext(Dispatchers.Main) {
             if (result.status == "OKAY") {
@@ -746,7 +747,7 @@ class MainActivity : AppCompatActivity() {
             sendFastbootCommandDirect(downloadCmd)
 
             val dataResp = waitForTerminalResponse(10000) { infoText ->
-                withContext(Dispatchers.Main) { appendLog("FB << (bootloader) $infoText") }
+                runOnUiThread { appendLog("FB << (bootloader) $infoText") }
             }
             if (dataResp.status != "DATA") {
                 throw Exception("设备拒绝接收数据包 (手机端响应: ${dataResp.status} ${dataResp.payload})")
@@ -774,7 +775,7 @@ class MainActivity : AppCompatActivity() {
         
             // 校验等待
             val uploadConfirm = waitForTerminalResponse(Math.max(30000L, (fileSizeMB / 100) * 5000L)) { infoText ->
-                withContext(Dispatchers.Main) { appendLog("[主板安全校验中] $infoText") }
+                runOnUiThread { appendLog("[主板校验] $infoText") }
             }
             if (uploadConfirm.status != "OKAY") {
                 throw Exception("镜像上传完整性校验失败: ${uploadConfirm.payload}")
@@ -793,9 +794,9 @@ class MainActivity : AppCompatActivity() {
             // 捕获物理写入进度
             val flashTimeout = (fileSizeMB / 10) * 1000L + 60000L
             val flashResult = waitForTerminalResponse(flashTimeout) { infoText ->
-                withContext(Dispatchers.Main) { appendLog("[物理写入状态] $infoText") }
+                runOnUiThread { appendLog("[物理写入] $infoText") }
             }
-
+            
             // 结果收尾
             withContext(Dispatchers.Main) {
                 if (flashResult.status == "OKAY") {
