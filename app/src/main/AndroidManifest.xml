@@ -38,6 +38,9 @@
     <uses-feature 
           android:name="android.hardware.location.network"
           android:required="false" />
+    <uses-feature 
+          android:name="android.hardware.sensor.hifi_sensors"
+          android:required="false" />
     
     <!-- Android 13+ 附近 WiFi 设备 -->
     <uses-permission-sdk-23 
@@ -115,6 +118,7 @@
             android:process=":adb"
             android:directBootAware="true"
             android:showForAllUsers="false"
+            android:hardwareAccelerated="true"
             android:supportsPictureInPicture="true"
             android:windowSoftInputMode="adjustPan"
             android:canDisplayOnRemoteDevices="false"
