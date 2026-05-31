@@ -108,6 +108,7 @@ class MainActivity : AppCompatActivity() {
     private val viewModel: MainViewModel by viewModels()
     private lateinit var usbManager: UsbManager
     private lateinit var keyManager: AdbKeyManager
+    private lateinit var inspector: RefreshRateInspector
     private val ACTION_USB_PERMISSION = "com.adb.kitty.USB_PERMISSION"
 
     private var usbConn: UsbDeviceConnection? = null
@@ -227,6 +228,10 @@ class MainActivity : AppCompatActivity() {
             addAction(UsbManager.ACTION_USB_ACCESSORY_DETACHED)
         }, exportFlag)
         
+        inspector = RefreshRateInspector(this, this) { logText ->
+            appendLog(logText)
+        }
+        
         binding.appMainActivity.btnConnect.setOnClickListener { findHostDevice() }
         
         binding.appMainActivity.ipTest.setOnClickListener { IpTestWork() }
@@ -332,6 +337,14 @@ class MainActivity : AppCompatActivity() {
            }
               R.id.action_main_4 -> {
               WarngApps()
+                true
+           }
+              R.id.action_main_5 -> {
+              inspector.start()
+                true
+           }
+              R.id.action_main_6 -> {
+              inspector.stop()
                 true
            }
              else -> super.onOptionsItemSelected(item)
