@@ -22,5 +22,5 @@
     <string name="app_main_activity_xml_btnSend">发送命令</string>
     <string name="app_main_activity_xml_fbSelinux">一键设置 Selinux 宽容模式</string>
     <string name="app_main_activity_xml_tvLog">日志输出... \n</string>
-    <string name="app_main_activity_xml_bakck">USB线刷工具-自测</string>
+    <string name="app_main_activity_xml_bakck">USB-轻型命令行工具-自测</string>
 </resources>

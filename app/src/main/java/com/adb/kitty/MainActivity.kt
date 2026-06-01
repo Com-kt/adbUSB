@@ -728,7 +728,9 @@ class MainActivity : AppCompatActivity() {
         val action = parts[0].lowercase()
         // 1. 线刷工作流分流
         if (action == "flash" || action == "boot") {
-            handleFlashWorkflow(cleanCmd)
+            withContext(Dispatchers.Main) {
+                appendLog("❌ [错误] unknown command: $action (工具不支持该命令)")
+            }
             return@withContext
         }
         // 2. 严格的命令协议转换
@@ -767,105 +769,6 @@ class MainActivity : AppCompatActivity() {
             }
             // 💡 额外红利：如果你的别处代码还需要拿到全量日志做后续分析，现在依然可以这么拿到：
             // val myLogs = result.allLines
-        }
-    }
-    
-    private suspend fun handleFlashWorkflow(fullCommand: String) {
-        val parts = fullCommand.trim().split(Regex("\\s+"))
-        val action = parts[0].lowercase()
-
-        if (action == "flash" && parts.size < 3) {
-            withContext(Dispatchers.Main) { appendLog("❌ [错误] flash 格式不全。示例: flash <分区名> <文件名>") }
-            return
-        }
-        if (action == "boot" && parts.size < 2) {
-            withContext(Dispatchers.Main) { appendLog("❌ [错误] boot 格式不全。示例: boot <文件名>") }
-            return
-        }
-
-        val partition = if (action == "flash") parts[1] else "" 
-        val fileName = parts.last() 
-        val imgFile = File(flashFolder, fileName)
-
-        if (!imgFile.exists()) {
-            withContext(Dispatchers.Main) { appendLog("❌ [错误] 找不到镜像文件: $fileName") }
-            return
-        }
-
-        val fileSize = imgFile.length()
-        val fileSizeMB = fileSize / 1024 / 1024
-
-        try {
-            // ================== 第一阶段: Download ==================
-        
-            // 使用 %08X 完美解决大写十六进制握手协议问题
-            val downloadCmd = "download:${String.format("%08X", fileSize)}"
-            sendFastbootCommandDirect(downloadCmd)
-
-            val dataResp = waitForTerminalResponse(10000) { infoText ->
-                runOnUiThread { appendLog("FB << (bootloader) $infoText") }
-            }
-            if (dataResp.status != "DATA") {
-                throw Exception("设备拒绝接收数据包 (手机端响应: ${dataResp.status} ${dataResp.payload})")
-            }
-
-            // 二进制传输
-            val buffer = ByteArray(512 * 1024)
-            FileInputStream(imgFile).use { input ->
-                var totalSent = 0L
-                while (totalSent < fileSize) {
-                    val readSize = input.read(buffer)
-                    if (readSize <= 0) break
-                    val result = usbConn?.bulkTransfer(epOut, buffer, readSize, 60000)
-                    if (result == -1) throw Exception("USB 数据传输中断")
-                    totalSent += readSize
-                
-                    if (totalSent % (5 * 1024 * 1024) == 0L || totalSent == fileSize) {
-                        val progress = (totalSent * 100 / fileSize).toInt()
-                        withContext(Dispatchers.Main) { 
-                            appendLog("传输进度: $progress% (大小: $fileSizeMB MB)") 
-                        }
-                    }
-                }
-            }
-        
-            // 校验等待
-            val uploadConfirm = waitForTerminalResponse(Math.max(30000L, (fileSizeMB / 100) * 5000L)) { infoText ->
-                runOnUiThread { appendLog("[主板校验] $infoText") }
-            }
-            if (uploadConfirm.status != "OKAY") {
-                throw Exception("镜像上传完整性校验失败: ${uploadConfirm.payload}")
-            }
-
-            // ================== 第二阶段: 执行 Action ==================
-        
-            if (action == "boot") {
-                sendFastbootCommandDirect("boot")
-                withContext(Dispatchers.Main) { appendLog("数据就绪，执行临时冷引导 [boot]...") }
-            } else {
-                sendFastbootCommandDirect("flash:$partition")
-                withContext(Dispatchers.Main) { appendLog("正在写入物理分区 [$partition]，请勿断开连接...") }
-            }
-
-            // 捕获物理写入进度
-            val flashTimeout = (fileSizeMB / 10) * 1000L + 60000L
-            val flashResult = waitForTerminalResponse(flashTimeout) { infoText ->
-                runOnUiThread { appendLog("[物理写入] $infoText") }
-            }
-            
-            // 结果收尾
-            withContext(Dispatchers.Main) {
-                if (flashResult.status == "OKAY") {
-                    val successText = if (action == "boot") "引导指令已发出" else "$partition 分区物理写入完成"
-                    appendLog("✅ [完美收工] $successText")
-                } else {
-                    appendLog("❌ [写入终止] ${action.uppercase()} 动作失败: ${flashResult.payload}")
-                }
-            }
-        } catch (e: Exception) {
-            withContext(Dispatchers.Main) {
-                appendLog("⚠️ [流程终止] 错误拦截: ${e.message}")
-            }
         }
     }
 
