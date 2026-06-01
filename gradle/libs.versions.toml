@@ -25,6 +25,7 @@ mtDataFilesProvider = "1.0.0"
 
 hiddenapibypassVersion = "6.1"
 nayukiQR = "1.8.0"
+libsuVersion = "6.0.0"
 
 [libraries]
 # AndroidX 核心基础库
@@ -52,6 +53,10 @@ lsposed-hiddenapibypass = { module = "org.lsposed.hiddenapibypass:hiddenapibypas
 
 nayuki-qrcode = { group = "io.nayuki", name = "qrcodegen", version.ref = "nayukiQR" }
 
+libsu-core = { module = "com.github.topjohnwu.libsu:core", version.ref = "libsuVersion" }
+libsu-service = { module = "com.github.topjohnwu.libsu:service", version.ref = "libsuVersion" }
+libsu-io = { module = "com.github.topjohnwu.libsu:io", version.ref = "libsuVersion" }
+
 [bundles]
 # 捆绑式引入
 coroutines-runtime = [
@@ -63,6 +68,11 @@ bouncycastle = [
     "bcprov-jdk18on", 
     "bcpkix-jdk18on",
     "bctls-jdk18on"
+]
+libsu = [
+    "libsu-core",
+    "libsu-service",
+    "libsu-io"
 ]
 
 [plugins]

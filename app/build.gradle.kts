@@ -119,4 +119,5 @@ dependencies {
     implementation(libs.mt.dataFilesProvider)
     implementation(libs.lsposed.hiddenapibypass)
     implementation(libs.nayuki.qrcode)
+    implementation(libs.bundles.libsu)
 }

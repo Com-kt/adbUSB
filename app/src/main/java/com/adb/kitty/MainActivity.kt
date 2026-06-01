@@ -108,7 +108,7 @@ class MainActivity : AppCompatActivity() {
     private val viewModel: MainViewModel by viewModels()
     private lateinit var usbManager: UsbManager
     private lateinit var keyManager: AdbKeyManager
-    private lateinit var inspector: RefreshRateInspector
+    private lateinit var refreshRateInspector: RefreshRateInspector
     private val ACTION_USB_PERMISSION = "com.adb.kitty.USB_PERMISSION"
 
     private var usbConn: UsbDeviceConnection? = null
@@ -228,7 +228,7 @@ class MainActivity : AppCompatActivity() {
             addAction(UsbManager.ACTION_USB_ACCESSORY_DETACHED)
         }, exportFlag)
         
-        inspector = RefreshRateInspector(this, this) { logText ->
+        refreshRateInspector = RefreshRateInspector(this, this) { logText ->
             appendLog(logText)
         }
         
@@ -340,11 +340,27 @@ class MainActivity : AppCompatActivity() {
                 true
            }
               R.id.action_main_5 -> {
-              inspector.start()
+              if (refreshRateInspector.isRootServiceConnected()) {
+                  // 情况 A：已经授权并接通了，直接开跑
+                  refreshRateInspector.start()
+              } else {
+                  // 情况 B：首次点击，打印提示并向系统按需索要 Root 权限
+                  appendLogToConsole("[系统] 检测到首次运行，正在向系统申请 Root 特权进程...")
+                
+                  refreshRateInspector.bindRootService { success ->
+                      if (success) {
+                          // 用户允许授权且特权 Binder 接通后，回调自动开跑！
+                          appendLogToConsole("[系统] 特权服务接通成功，自动激活大阅兵！")
+                          refreshRateInspector.start()
+                      } else {
+                          appendLogToConsole("[错误] ❌ 提权失败！用户拒绝了授权，或设备未解锁 Root。")
+                      }
+                  }
+              }
                 true
            }
               R.id.action_main_6 -> {
-              inspector.stop()
+              refreshRateInspector.stop()
                 true
            }
              else -> super.onOptionsItemSelected(item)
@@ -943,5 +959,6 @@ class MainActivity : AppCompatActivity() {
         usbConn?.close()
         unregisterReceiver(usbPermissionReceiver)
         unregisterReceiver(usbStateReceiver)
+        refreshRateInspector.unbindRootService()
     }
 }

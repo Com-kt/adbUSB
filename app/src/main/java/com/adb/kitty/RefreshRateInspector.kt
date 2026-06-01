@@ -8,12 +8,17 @@
  */
 package com.adb.kitty
 
+import android.content.ComponentName
 import android.content.Context
+import android.content.Intent
+import android.content.ServiceConnection
 import android.hardware.display.DisplayManager
+import android.os.IBinder
 import android.view.Choreographer
 import android.view.Display
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.lifecycleScope
+import com.topjohnwu.superuser.ipc.RootService
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -25,17 +30,39 @@ import java.util.Locale
 class RefreshRateInspector(
     private val context: Context,
     private val lifecycleOwner: LifecycleOwner,
-    // 外部传入你的日志打印方法
+    // 外部传入的 UI TextView 日志追加回调
     private val onLogAppend: (String) -> Unit 
 ) {
     private val displayManager = context.getSystemService(Context.DISPLAY_SERVICE) as DisplayManager
     private val defaultDisplay = displayManager.getDisplay(Display.DEFAULT_DISPLAY)
     
-    // 核心：保存当前正在运行的协程句柄
     private var inspectorJob: Job? = null
     private var frameCount = 0
+    private var rootCpuBinder: ICpuBinder? = null
+    
+    // 暂存首次连接成功后的自动启动回调
+    private var onConnectedCallback: ((Boolean) -> Unit)? = null
 
-    // 编舞者回调定义
+    // 跨进程服务连接监听器
+    private val rootConnection = object : ServiceConnection {
+        override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
+            rootCpuBinder = ICpuBinder.Stub.asInterface(service)
+            onLogAppend("[系统] 🛑 RootService 管道接通，6大时钟节点解锁完成！")
+            
+            // ⚡ 核心重点：接通后立刻回调通知 MainActivity
+            onConnectedCallback?.invoke(true)
+            onConnectedCallback = null // 及时释放引用，防止内存泄漏
+        }
+
+        override fun onServiceDisconnected(name: ComponentName?) {
+            rootCpuBinder = null
+            onConnectedCallback?.invoke(false)
+            onConnectedCallback = null
+            onLogAppend("[警告] ⚠️ 远程特权服务意外断开连接！")
+        }
+    }
+
+    // 硬件屏幕刷新脉冲计数器
     private val frameCallback = object : Choreographer.FrameCallback {
         override fun doFrame(frameTimeNanos: Long) {
             frameCount++
@@ -44,72 +71,136 @@ class RefreshRateInspector(
     }
 
     /**
-     * 启动测试
+     * 判断 Root 特权管道当前是否已经接通
+     */
+    fun isRootServiceConnected(): Boolean {
+        return rootCpuBinder != null
+    }
+
+    /**
+     * 1. 异步绑定 Root 特权服务（带连接结果回调）
+     */
+    fun bindRootService(onResult: (Boolean) -> Unit) {
+        if (rootCpuBinder != null) {
+            onResult(true)
+            return
+        }
+        this.onConnectedCallback = onResult
+        val intent = Intent(context, GhzRootService::class.java)
+        // 使用 libsu 穿透 SELinux 的特权绑定 API 
+        RootService.bind(intent, rootConnection)
+    }
+
+    /**
+     * 2. 启动全链路高刷时钟矩阵监测
      */
     fun start() {
-        // 防止用户重复点击导致启动多个协程
         if (inspectorJob != null && inspectorJob!!.isActive) {
             onLogAppend("[提示] 测试已经在运行中，请勿重复启动。")
             return
         }
 
+        // 🔥 捍卫核心逻辑：启动开幕首期必须无情检测并打印硬件面板物理驱动支持的全部高刷档位！
         onLogAppend("==== 🔍 开始检测硬件面板物理档位 ====")
-        defaultDisplay.supportedModes.forEach { mode ->
-            onLogAppend(
-                String.format(
-                    Locale.getDefault(),
-                    "物理 ID: %d -> %dx%d @ %.2f Hz",
-                    mode.modeId, mode.physicalWidth, mode.physicalHeight, mode.refreshRate
+        try {
+            defaultDisplay.supportedModes.forEach { mode ->
+                onLogAppend(
+                    String.format(
+                        Locale.getDefault(),
+                        "物理 ID: %d -> %dx%d @ %.2f Hz",
+                        mode.modeId, mode.physicalWidth, mode.physicalHeight, mode.refreshRate
+                    )
                 )
-            )
+            }
+        } catch (e: Exception) {
+            onLogAppend("[错误] 无法获取硬件面板物理档位: ${e.message}")
         }
         onLogAppend("====================================\n")
 
-        // 激活硬件编舞者脉冲
+        // 激活 Choreographer 硬件编舞者监听
         frameCount = 0
         Choreographer.getInstance().postFrameCallback(frameCallback)
 
-        // 启动生命周期绑定的协程，并把句柄存入 inspectorJob
+        // 启动常驻异步协程，将密集的文件 I/O 与字符串拼接抛给线程池，绝不拖累高刷渲染
         inspectorJob = lifecycleOwner.lifecycleScope.launch(Dispatchers.Default) {
             try {
-                var lastFpsUpdateTime = System.currentTimeMillis()
                 while (isActive) {
-                    delay(1000)
+                    delay(1000) // 每秒精准采点刷新一次
 
                     val currentHardwareHz = defaultDisplay.refreshRate
                     val capturedFrames = frameCount
                     frameCount = 0 
 
-                    val logOutput = String.format(
-                        Locale.getDefault(),
-                        "[帧率监测] 屏幕物理档位: %.1f Hz | 实际画面渲染: %d FPS",
-                        currentHardwareHz, capturedFrames
+                    // 实例化 8行6列 的二维物理时钟矩阵
+                    val allMatrix = Array(8) { DoubleArray(6) }
+                    for (core in 0..7) {
+                        // 跨进程 Binder 一次性从 RootService 把该核心所有 6 指标打包端回来
+                        allMatrix[core] = rootCpuBinder?.getAllCpuFreqData(core) ?: DoubleArray(6)
+                    }
+
+                    // 准备矩阵方阵对齐标签
+                    val nodeLabels = arrayOf(
+                        "cpuinfo_cur_freq ",
+                        "cpuinfo_max_freq ",
+                        "cpuinfo_min_freq ",
+                        "scaling_max_freq ",
+                        "scaling_min_freq ",
+                        "scaling_cur_freq "
                     )
 
+                    val logBuilder = StringBuilder()
+                    // 组装头部行：实时刷新率与渲染帧率
+                    logBuilder.append(String.format(Locale.getDefault(), "[监测] 屏幕: %.1fHz (实际: %dFPS)\n", currentHardwareHz, capturedFrames))
+
+                    // 垂直循环 6 个文件分类
+                    for (fileIndex in 0..5) {
+                        logBuilder.append("  └─ ").append(nodeLabels[fileIndex]).append(" ->  ")
+                        
+                        // 横向拼装 8 个 CPU 核心在该指标下的实时 GHz
+                        for (core in 0..7) {
+                            val freq = allMatrix[core][fileIndex]
+                            logBuilder.append(String.format(Locale.getDefault(), "cpu%d: %.2fGHz", core, freq))
+                            if (core < 7) logBuilder.append(" | ")
+                        }
+                        if (fileIndex < 5) logBuilder.append("\n")
+                    }
+
+                    val finalLogOutput = logBuilder.toString()
+
+                    // 安全切回 Android 主线程，轰炸式更新 TextView 面板
                     withContext(Dispatchers.Main) {
-                        onLogAppend(logOutput)
+                        onLogAppend(finalLogOutput)
                     }
                 }
             } finally {
-                // 无论是手动 cancel 还是 Activity 销毁，都会走进这个资源释放大本营
+                // 无论是手动 stop 还是 Activity 销毁引发的协程取消，都安全释放脉冲监听
                 withContext(Dispatchers.Main) {
                     Choreographer.getInstance().removeFrameCallback(frameCallback)
-                    onLogAppend("==== 🛑 帧率测试已安全释放/停止 ====")
+                    onLogAppend("==== 🛑 帧率与全时钟参数监听已安全停止 ====")
                 }
             }
         }
     }
 
     /**
-     * 手动停止并释放所有资源
+     * 3. 手动停止监测任务
      */
     fun stop() {
         if (inspectorJob != null && inspectorJob!!.isActive) {
-            // 极其暴力的直接掐断协程，内部的 while(isActive) 会瞬间演变为 false 并触发 finally 块
             inspectorJob?.cancel() 
             inspectorJob = null
         } else {
             onLogAppend("[提示] 当前没有正在运行的测试任务。")
+        }
+    }
+
+    /**
+     * 4. 彻底解绑服务（防孤岛进程引发内存泄漏）
+     */
+    fun unbindRootService() {
+        if (rootCpuBinder != null) {
+            RootService.unbind(rootConnection)
+            rootCpuBinder = null
         }
     }
 }
