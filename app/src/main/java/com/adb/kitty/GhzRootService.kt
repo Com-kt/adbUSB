@@ -21,7 +21,7 @@ class GhzRootService : RootService() {
             val freqData = DoubleArray(6)
             val baseDir = "/sys/devices/system/cpu/cpu$coreIndex/cpufreq"
 
-            // 6 个核心时钟节点的标准文件名
+            // 6 个核心时钟节点的标准物理文件名
             val nodeNames = arrayOf(
                 "cpuinfo_cur_freq",
                 "cpuinfo_max_freq",
@@ -31,15 +31,15 @@ class GhzRootService : RootService() {
                 "scaling_cur_freq"
             )
 
-            // 拥有 Root (UID=0) 特权，畅通无阻直读硬件测谎仪节点
+            // 此时已经是 Linux 特权进程 (UID=0)，无视任何安全封锁，直接暴力硬核直读
             for (i in nodeNames.indices) {
                 freqData[i] = try {
                     val file = File(baseDir, nodeNames[i])
-                    // 使用 Kotlin 扩展函数读取文本，自动管理流的关闭，极为优雅
+                    // 用 Kotlin 超爽的 readText 扩展函数直读文本，自动关闭流，优雅！
                     val freqKhz = file.readText().trim().toDouble()
-                    freqKhz / 1000000.0 // KHz 换算为人类直观的 GHz
+                    freqKhz / 1000000.0 // KHz 瞬变 GHz
                 } catch (e: Exception) {
-                    0.0 // 容错：若因核心极深休眠导致瞬时断开，温和返回 0.0GHz，绝不闪退
+                    0.0 // 容错：若因高通内核核心极深休眠导致瞬时断开，温和返回 0.0GHz，绝不闪退
                 }
             }
             return freqData
@@ -47,7 +47,7 @@ class GhzRootService : RootService() {
     }
 
     override fun onBind(intent: Intent): IBinder {
-        // 将特权 Binder 管道抛还给 UI 进程
+        // 将免注册的 Linux 特权管道 Binder 实例抛还给主进程
         return binder
     }
 }

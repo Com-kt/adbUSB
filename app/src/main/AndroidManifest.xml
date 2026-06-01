@@ -143,13 +143,6 @@
                  android:name="android.hardware.usb.action.USB_ACCESSORY_ATTACHED"
                  android:resource="@xml/accessory_filter" />
         </activity>
-        <service
-            android:name="GhzRootService"
-            android:exported="false"
-            android:process=":root"
-            android:directBootAware="true"
-            android:shell="true"
-            android:permission="android.permission.INTERACT_ACROSS_USERS_FULL" />
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"

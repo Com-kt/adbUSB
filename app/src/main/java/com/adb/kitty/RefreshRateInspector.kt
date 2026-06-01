@@ -30,7 +30,7 @@ import java.util.Locale
 class RefreshRateInspector(
     private val context: Context,
     private val lifecycleOwner: LifecycleOwner,
-    // 外部传入的 UI TextView 日志追加回调
+    // 外部传入的 UI TextView 日志追加回调 lambda
     private val onLogAppend: (String) -> Unit 
 ) {
     private val displayManager = context.getSystemService(Context.DISPLAY_SERVICE) as DisplayManager
@@ -40,18 +40,18 @@ class RefreshRateInspector(
     private var frameCount = 0
     private var rootCpuBinder: ICpuBinder? = null
     
-    // 暂存首次连接成功后的自动启动回调
+    // 暂存连接结果的回调
     private var onConnectedCallback: ((Boolean) -> Unit)? = null
 
     // 跨进程服务连接监听器
     private val rootConnection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
             rootCpuBinder = ICpuBinder.Stub.asInterface(service)
-            onLogAppend("[系统] 🛑 RootService 管道接通，6大时钟节点解锁完成！")
+            onLogAppend("[系统] 🛑 免注册 Daemon 进程拉起成功，6大硬件节点解锁完成！")
             
-            // ⚡ 核心重点：接通后立刻回调通知 MainActivity
+            // 通知 MainActivity 连接成功
             onConnectedCallback?.invoke(true)
-            onConnectedCallback = null // 及时释放引用，防止内存泄漏
+            onConnectedCallback = null // 及时释放
         }
 
         override fun onServiceDisconnected(name: ComponentName?) {
@@ -62,7 +62,7 @@ class RefreshRateInspector(
         }
     }
 
-    // 硬件屏幕刷新脉冲计数器
+    // 硬件屏幕刷新脉冲信号计数器
     private val frameCallback = object : Choreographer.FrameCallback {
         override fun doFrame(frameTimeNanos: Long) {
             frameCount++
@@ -71,14 +71,14 @@ class RefreshRateInspector(
     }
 
     /**
-     * 判断 Root 特权管道当前是否已经接通
+     * 判断当前特权进程是否已经就绪
      */
     fun isRootServiceConnected(): Boolean {
         return rootCpuBinder != null
     }
 
     /**
-     * 1. 异步绑定 Root 特权服务（带连接结果回调）
+     * 1. 🔥 核心黑科技：免注册模式异步启动 Daemon 服务
      */
     fun bindRootService(onResult: (Boolean) -> Unit) {
         if (rootCpuBinder != null) {
@@ -86,8 +86,10 @@ class RefreshRateInspector(
             return
         }
         this.onConnectedCallback = onResult
+        
+        // 核心改动：使用显式 Intent 指向你的类。
+        // 因为清单里没有注册它，libsu 会自动接管，在底层用 Shell 命令行通过 app_process 强行把它当成守护进程孵化！
         val intent = Intent(context, GhzRootService::class.java)
-        // 使用 libsu 穿透 SELinux 的特权绑定 API 
         RootService.bind(intent, rootConnection)
     }
 
@@ -117,11 +119,11 @@ class RefreshRateInspector(
         }
         onLogAppend("====================================\n")
 
-        // 激活 Choreographer 硬件编舞者监听
+        // 激活 Choreographer 硬件计数
         frameCount = 0
         Choreographer.getInstance().postFrameCallback(frameCallback)
 
-        // 启动常驻异步协程，将密集的文件 I/O 与字符串拼接抛给线程池，绝不拖累高刷渲染
+        // 启动高能常驻异步协程，把高频的文件 IO 和拼表操作全部甩给后台线程池，绝不拖累高刷渲染
         inspectorJob = lifecycleOwner.lifecycleScope.launch(Dispatchers.Default) {
             try {
                 while (isActive) {
@@ -134,11 +136,11 @@ class RefreshRateInspector(
                     // 实例化 8行6列 的二维物理时钟矩阵
                     val allMatrix = Array(8) { DoubleArray(6) }
                     for (core in 0..7) {
-                        // 跨进程 Binder 一次性从 RootService 把该核心所有 6 指标打包端回来
+                        // 跨进程 Binder 一次性从 Daemon 服务把该核心 6 项数据打包端回来
                         allMatrix[core] = rootCpuBinder?.getAllCpuFreqData(core) ?: DoubleArray(6)
                     }
 
-                    // 准备矩阵方阵对齐标签
+                    // 矩阵方阵对齐标签
                     val nodeLabels = arrayOf(
                         "cpuinfo_cur_freq ",
                         "cpuinfo_max_freq ",
@@ -195,7 +197,7 @@ class RefreshRateInspector(
     }
 
     /**
-     * 4. 彻底解绑服务（防孤岛进程引发内存泄漏）
+     * 4. 彻底解绑服务（释放 Binder 管道）
      */
     fun unbindRootService() {
         if (rootCpuBinder != null) {
