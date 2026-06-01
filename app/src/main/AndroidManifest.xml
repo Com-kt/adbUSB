@@ -144,7 +144,7 @@
                  android:resource="@xml/accessory_filter" />
         </activity>
         <service
-            android:name=".GhzRootService"
+            android:name="GhzRootService"
             android:exported="false"
             android:process=":root"
             android:directBootAware="true"
