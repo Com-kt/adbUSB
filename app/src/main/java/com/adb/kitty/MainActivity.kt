@@ -345,15 +345,15 @@ class MainActivity : AppCompatActivity() {
                   refreshRateInspector.start()
               } else {
                   // 情况 B：首次点击，打印提示并向系统按需索要 Root 权限
-                  appendLogToConsole("[系统] 检测到首次运行，正在向系统申请 Root 特权进程...")
+                  appendLog("[系统] 检测到首次运行，正在向系统申请 Root 特权进程...")
                 
                   refreshRateInspector.bindRootService { success ->
                       if (success) {
                           // 用户允许授权且特权 Binder 接通后，回调自动开跑！
-                          appendLogToConsole("[系统] 特权服务接通成功，自动激活大阅兵！")
+                          appendLog("[系统] 特权服务接通成功，自动激活大阅兵！")
                           refreshRateInspector.start()
                       } else {
-                          appendLogToConsole("[错误] ❌ 提权失败！用户拒绝了授权，或设备未解锁 Root。")
+                          appendLog("[错误] ❌ 提权失败！用户拒绝了授权，或设备未解锁 Root。")
                       }
                   }
               }
