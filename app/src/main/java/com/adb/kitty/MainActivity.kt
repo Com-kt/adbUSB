@@ -72,6 +72,7 @@ import kotlinx.coroutines.currentCoroutineContext
 import kotlin.ExperimentalUnsignedTypes
 import kotlin.coroutines.resume
 import java.io.File
+import java.io.FileWriter
 import java.io.FileInputStream
 import java.io.FileOutputStream
 import java.io.FileDescriptor
@@ -363,7 +364,33 @@ class MainActivity : AppCompatActivity() {
               refreshRateInspector.stop()
                 true
            }
+              R.id.action_main_7 -> {
+              exportLogToFlashFolder()
+                true
+           }
              else -> super.onOptionsItemSelected(item)
+        }
+    }
+    
+    private fun exportLogToFlashFolder() {
+        val logContent = binding.appMainActivity.tvLog.text.toString().trim()
+        if (logContent.isEmpty() || logContent == "日志输出…") {
+            appendLog("[提示] 当前控制台日志空空如也")
+            return
+        }
+
+        val formatter = DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss")
+        val timeStamp = LocalDateTime.now().format(formatter)
+        val fileName = "Log_$timeStamp.txt"
+        val targetFile = File(flashFolder, fileName)
+
+        try {
+            FileWriter(targetFile).use { writer ->
+                writer.write(logContent)
+            }
+            appendLog("[系统] 🎉 日志已成功安全写入文件：${targetFile.absolutePath}")
+        } catch (e: Exception) {
+            appendLog("[错误] ❌ 写入文件时发生异常: ${e.message}")
         }
     }
     
