@@ -161,7 +161,7 @@ class RefreshRateInspector(
                         // 横向拼装 8 个 CPU 核心在该指标下的实时 GHz
                         for (core in 0..7) {
                             val freq = allMatrix[core][fileIndex]
-                            logBuilder.append(String.format(Locale.getDefault(), "cpu%d: %.2fGHz", core, freq))
+                            logBuilder.append(String.format(Locale.getDefault(), "cpu%d: %.3fGHz", core, freq))
                             if (core < 7) logBuilder.append(" | ")
                         }
                         if (fileIndex < 5) logBuilder.append("\n")
