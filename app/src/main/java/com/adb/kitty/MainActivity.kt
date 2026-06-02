@@ -126,9 +126,9 @@ class MainActivity : AppCompatActivity() {
     private var isAdbAuthorized = false
     private var isFastbootMode = false 
     private var isFirstTryInThisSession = true
-    private var modeId144Hz: Int? = null
 
     private val responseChannel = Channel<String>(Channel.CONFLATED)
+    private val speedController by lazy { SpeedModeController(this) }
     
     private val flashFolder by lazy { File(getExternalFilesDir(null), "flash") }
     
@@ -212,12 +212,6 @@ class MainActivity : AppCompatActivity() {
              val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
              v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
              insets
-        }
-        
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            modeId144Hz = this.display?.supportedModes?.firstOrNull { 
-                it.refreshRate.roundToInt() == 144 
-            }?.modeId
         }
         
         ensureFlashDirExists()
@@ -378,50 +372,17 @@ class MainActivity : AppCompatActivity() {
                 true
            }
               R.id.action_main_8 -> {
-              enableExtreme144HzMode()
+              speedController.setExtremeSpeedMode(true)
                 true
            }
               R.id.action_main_9 -> {
-              disableExtremeMode()
+              speedController.setExtremeSpeedMode(false)
                 true
            }
              else -> super.onOptionsItemSelected(item)
         }
     }
-    /**
-     * 🔥 开启狂暴 144Hz 极速模式（Android 17 API 37 专属原生优化）
-     */
-    fun enableExtreme144HzMode() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && modeId144Hz != null) {
-            val lp = window.attributes
-            // 1. 实时注入 144Hz 物理模式标志
-            lp.preferredDisplayModeId = modeId144Hz!!
-            
-            // 2. 💡 适配 Android 17 原生高刷调度逻辑：
-            // 明确指定 WindowManager.LayoutParams 下的属性与常量
-            if (Build.VERSION.SDK_INT >= 35) { 
-                // 显式配置 Android 17 拥有的窗口级自适应高刷新率偏好提示
-                lp.preferredFrameRateCategory = android.view.WindowManager.LayoutParams.FRAME_RATE_CATEGORY_HIGH
-            }
-            
-            // 3. 💡 关键：向系统提交更新，屏幕会瞬间热切换到 144Hz
-            window.attributes = lp
-            appendLog("⚡ [极速模式] 屏幕刷新率已强行热飙至 144Hz！")
-        }
-    }
-    /**
-     * 🍃 关闭极速模式，还政于系统（恢复智能动态刷新）
-     */
-    fun disableExtremeMode() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            val lp = window.attributes
-            // 💡 传 0 代表放弃优先权，把刷新率解释权还给澎湃OS系统智能调度
-            lp.preferredDisplayModeId = 0 
-            window.attributes = lp
-            appendLog("🍃 [极速模式] 已解除锁帧，交回系统托管省电。")
-        }
-    }
-    
+
     private fun exportLogToFlashFolder() {
         val logContent = binding.appMainActivity.tvLog.text.toString().trim()
         if (logContent.isEmpty() || logContent == "日志输出…") {
@@ -940,5 +901,6 @@ class MainActivity : AppCompatActivity() {
         unregisterReceiver(usbPermissionReceiver)
         unregisterReceiver(usbStateReceiver)
         refreshRateInspector.unbindRootService()
+        speedController.setExtremeSpeedMode(false)
     }
 }
