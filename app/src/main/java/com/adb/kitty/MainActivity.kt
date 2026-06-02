@@ -26,6 +26,7 @@ import android.view.Menu
 import android.view.MenuItem
 import android.view.WindowInsets
 import android.view.WindowInsetsController
+import android.view.WindowManager
 import android.hardware.usb.UsbConstants
 import android.hardware.usb.UsbDevice
 import android.hardware.usb.UsbDeviceConnection
@@ -71,6 +72,7 @@ import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.currentCoroutineContext
 import kotlin.ExperimentalUnsignedTypes
 import kotlin.coroutines.resume
+import kotlin.math.roundToInt
 import java.io.File
 import java.io.FileWriter
 import java.io.FileInputStream
@@ -124,6 +126,7 @@ class MainActivity : AppCompatActivity() {
     private var isAdbAuthorized = false
     private var isFastbootMode = false 
     private var isFirstTryInThisSession = true
+    private var modeId144Hz: Int? = null
 
     private val responseChannel = Channel<String>(Channel.CONFLATED)
     
@@ -209,6 +212,12 @@ class MainActivity : AppCompatActivity() {
              val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
              v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
              insets
+        }
+        
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            modeId144Hz = this.display?.supportedModes?.firstOrNull { 
+                it.refreshRate.roundToInt() == 144 
+            }?.modeId
         }
         
         ensureFlashDirExists()
@@ -368,7 +377,43 @@ class MainActivity : AppCompatActivity() {
               exportLogToFlashFolder()
                 true
            }
+              R.id.action_main_8 -> {
+              enableExtreme144HzMode()
+                true
+           }
+              R.id.action_main_9 -> {
+              disableExtremeMode()
+                true
+           }
              else -> super.onOptionsItemSelected(item)
+        }
+    }
+    /**
+     * 🔥 开启狂暴 144Hz 极速模式（随时随地可调用）
+     */
+    fun enableExtreme144HzMode() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && modeId144Hz != null) {
+            val lp = window.attributes
+            // 实时注入 144Hz 标志
+            lp.preferredDisplayModeId = modeId144Hz!!
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                lp.changesFrameRateAgnostic = true
+            }
+            // 💡 关键：向系统提交更新，屏幕会瞬间热切换到 144Hz
+            window.attributes = lp
+            appendLog("⚡ [极速模式] 屏幕刷新率已强行热飙至 144Hz！")
+        }
+    }
+    /**
+     * 🍃 关闭极速模式，还政于系统（恢复智能动态刷新）
+     */
+    fun disableExtremeMode() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            val lp = window.attributes
+            // 💡 传 0 代表放弃优先权，把刷新率解释权还给澎湃OS系统智能调度
+            lp.preferredDisplayModeId = 0 
+            window.attributes = lp
+            appendLog("🍃 [极速模式] 已解除锁帧，交回系统托管省电。")
         }
     }
     

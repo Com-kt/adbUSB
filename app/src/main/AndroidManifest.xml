@@ -123,7 +123,7 @@
             android:windowSoftInputMode="adjustPan"
             android:canDisplayOnRemoteDevices="false"
             android:requireContentUriPermissionFromCaller="4"
-            android:launchMode="singleTop"
+            android:launchMode="singleInstancePerTask"
             android:persistableMode="persistNever"
             android:exported="true">
             <!-- USB主机模式 -->

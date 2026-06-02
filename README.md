@@ -5,8 +5,7 @@
 > 
 > THIS PROJECT IS NOT MAINTAINED ANYMORE.
 
-# Work
-因工作原因，不得不暂时放下这一切，可能一个月，可能两个月，可能三个月，暂时放下等同于给自己一条生路，我会归档这个项目，下一次解除归档不知道是什么时候，你也可以开分叉，试着自己去实现，希望你永远不要有碰这个项目的代码的想法
+# Work #
 
 # Concrete realization
 - [x] USB mode
@@ -28,7 +27,9 @@
 - [x] Application
     - [x] ipv4 Test
     - [x] ipv6 Test
+    - [x] display Test (RootService)
     - [x] MTFilesProvider
+    - [x] Extreme speed mode (up to 144Hz) (Android 12+)
 
 > [!WARNING]
 > 

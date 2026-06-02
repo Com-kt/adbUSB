@@ -16,6 +16,8 @@
     <string name="action_main_5">测试帧率[启动][root]</string>
     <string name="action_main_6">测试帧率[停止][root]</string>
     <string name="action_main_7">打印已输出的日志</string>
+    <string name="action_main_8">极速模式[最高144Hz]</string>
+    <string name="action_main_9">还原正常模式</string>
     <string name="app_main_activity_xml_btnConnect">扫描/识别 USB 设备</string>
     <string name="app_main_activity_xml_ipTest">测试 ipv4 / ipv6 地址</string>
     <string name="app_main_activity_xml_etCommand">输入 adb 命令 / fastboot 命令</string>
