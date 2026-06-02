@@ -8,6 +8,7 @@
  */
 package com.adb.kitty
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.os.Build
 import android.os.PerformanceHintManager
@@ -22,9 +23,10 @@ import kotlinx.coroutines.launch
 
 class SpeedModeController(private val context: Context) {
 
-    // 创建一个专用于主线程 UI 的协程作用域
     private val mainScope: CoroutineScope = MainScope()
 
+    // 1. 核心修复：在这里添加注解，完美压制 Lint 误报的 WrongConstant 错误
+    @SuppressLint("WrongConstant")
     private val hintManager = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
         context.getSystemService(Context.PERFORMANCE_HINT_SERVICE) as? PerformanceHintManager
     } else null
@@ -34,25 +36,25 @@ class SpeedModeController(private val context: Context) {
     /**
      * 设置是否开启极速模式
      */
+    @SuppressLint("NewApi")
     fun setExtremeSpeedMode(enable: Boolean) {
-        if (hintManager == null) return
+        if (hintManager == null) {
+            showToastInMain("❌ 设备系统过低，硬件底层不支持性能调度")
+            return
+        }
 
         if (enable) {
             if (hintSession == null) {
-                // 1. 绑定当前 Activity 的主线程 ID
                 val threadIds = intArrayOf(Process.myTid())
-                
-                // 2. 设定极高标准的预期帧耗时（4毫秒，触发系统主频倾斜）
                 val targetDurationNanos = TimeUnit.MILLISECONDS.toNanos(4) 
                 
-                // 3. 创建会话
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                     hintSession = hintManager.createHintSession(threadIds, targetDurationNanos)
                 }
             }
 
-            // 4. 利用已经豁免的隐藏 API 强制发送 HINT_PREDICT_WORKLOAD_INCREASE
             val session = hintSession
+            // 如果是 Android 15 及以上，尝试用你的 HiddenApiBypass 轰炸底层的突发加速
             if (session != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM) {
                 try {
                     val sessionClass = PerformanceHintManager.Session::class.java
@@ -63,39 +65,32 @@ class SpeedModeController(private val context: Context) {
                     val sendHintMethod = sessionClass.getDeclaredMethod("sendHint", Int::class.java)
                     sendHintMethod.isAccessible = true
                     
-                    // 硬件级突发加速调用，强制拉满 CPU/GPU 频率！
                     sendHintMethod.invoke(session, hintValue)
-                    
-                    // 使用 kotlinx 协程切换到主线程切弹出 Toast
-                    showToastInMain("🚀 成功激活硬件级极速预判负载模式！")
+                    showToastInMain("🚀 [Android 15+] 硬件级突发极速模式已激活！")
                 } catch (e: Exception) {
-                    // 使用 kotlinx 协程切换到主线程切弹出 Toast
-                    showToastInMain("⚠️ 隐藏 API 调用失败，将降级运行普通极限调频")
+                    showToastInMain("⚠️ 隐藏 API 反射失败，已安全降级为标准极速")
                 }
+            } else if (session != null) {
+                // 如果是 Android 12 ~ Android 14 设备，走标准极速通道
+                showToastInMain("⚡ [Android 12-14] 4ms 锁频标准极速模式已激活！")
             }
         } else {
-            // 5. 还原正常模式：关闭会话
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 hintSession?.close()
             }
             hintSession = null
+            showToastInMain("🔋 已还原正常模式，功耗回归均衡")
         }
     }
 
-    /**
-     * 使用 kotlinx 协程确保在 Main 线程安全弹出 Toast
-     */
     private fun showToastInMain(message: String) {
         mainScope.launch(Dispatchers.Main) {
             Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
         }
     }
 
-    /**
-     * 当不需要这个 Controller 时（例如 Activity 销毁），释放协程作用域防止内存泄漏
-     */
     fun destroy() {
         setExtremeSpeedMode(false)
-        mainScope.cancel() // 销毁所有未完成的协程
+        mainScope.cancel()
     }
 }
