@@ -128,7 +128,7 @@ class MainActivity : AppCompatActivity() {
     private var isFirstTryInThisSession = true
 
     private val responseChannel = Channel<String>(Channel.CONFLATED)
-    private val speedController by lazy { SpeedModeController(this) }
+    private val turbo by lazy { PerformanceTurbo(this) }
     
     private val flashFolder by lazy { File(getExternalFilesDir(null), "flash") }
     
@@ -372,11 +372,11 @@ class MainActivity : AppCompatActivity() {
                 true
            }
               R.id.action_main_8 -> {
-              speedController.setExtremeSpeedMode(true)
+              turbo.enterTurboMode()
                 true
            }
               R.id.action_main_9 -> {
-              speedController.setExtremeSpeedMode(false)
+              turbo.exitTurboMode()
                 true
            }
              else -> super.onOptionsItemSelected(item)
@@ -901,6 +901,6 @@ class MainActivity : AppCompatActivity() {
         unregisterReceiver(usbPermissionReceiver)
         unregisterReceiver(usbStateReceiver)
         refreshRateInspector.unbindRootService()
-        speedController.destroy()
+        turbo.exitTurboMode()
     }
 }
