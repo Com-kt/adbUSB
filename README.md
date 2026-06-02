@@ -29,7 +29,7 @@
     - [x] ipv6 Test
     - [x] display Test (RootService)
     - [x] MTFilesProvider
-    - [x] Extreme speed mode (up to 144Hz) (Android 15+)
+    - [x] Extreme speed mode (up to 144Hz) (Android 11+)
 
 > [!WARNING]
 > 
