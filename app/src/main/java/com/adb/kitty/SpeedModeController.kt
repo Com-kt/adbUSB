@@ -44,12 +44,10 @@ class SpeedModeController(context: Context) {
             }
             
             // 4. 发送突发高负载提示 (针对 Android 15 / API 35 及以上环境)
-            // 注意：HINT_PREDICT_WORKLOAD_INCREASE 常量属于 PerformanceHintManager.Session 类
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM) {
-                hintSession?.let { session ->
-                    // 显式显式调用 session 的 sendHint，并使用 Session. 的常数作用域
-                    session.sendHint(PerformanceHintManager.Session.HINT_PREDICT_WORKLOAD_INCREASE)
-                }
+            // 显式本地变量判空，彻底消除 Kotlin 处理高级语法糖时的 'Cannot infer type for type parameter R' 报错
+            val session = hintSession
+            if (session != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM) {
+                session.sendHint(PerformanceHintManager.Session.HINT_PREDICT_WORKLOAD_INCREASE)
             }
         } else {
             // 5. 还原正常模式：关闭会话
