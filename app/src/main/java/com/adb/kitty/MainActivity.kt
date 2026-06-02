@@ -905,6 +905,5 @@ class MainActivity : AppCompatActivity() {
         unregisterReceiver(usbPermissionReceiver)
         unregisterReceiver(usbStateReceiver)
         refreshRateInspector.unbindRootService()
-        turbo.exitTurboMode()
     }
 }
