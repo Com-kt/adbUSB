@@ -11,6 +11,7 @@ package com.adb.kitty
 import android.os.Build
 import android.os.PerformanceHintManager
 import android.os.Process
+import android.content.Context
 
 class PerformanceTurbo(private val context: Context) {
 
