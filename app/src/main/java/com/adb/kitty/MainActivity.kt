@@ -397,9 +397,9 @@ class MainActivity : AppCompatActivity() {
             // 实时注入 144Hz 标志
             lp.preferredDisplayModeId = modeId144Hz!!
             
-            // 💡 修复编译错误：Android 12+ (API 31+) 对应的极速调度属性
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                // 强制高刷新率分类（让系统优先选择最高档性能，无视省电限制）
+            // 💡 修正：只有 Android 15 (API 35) 及以上系统才支持此高刷分类属性
+            if (Build.VERSION.SDK_INT >= 35) {
+                // 强制高刷新率分类（系统会优先榨干性能，无视省电限制调度）
                 lp.preferredFrameRateCategory = WindowManager.LayoutParams.PREFERRED_FRAME_RATE_CATEGORY_HIGH
             }
             
