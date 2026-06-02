@@ -15,6 +15,8 @@ import android.os.Process
 import java.util.concurrent.TimeUnit
 
 class SpeedModeController(context: Context) {
+    
+    // 只有 API 31 (Android 12) 以上才支持性能提示管理器
     private val hintManager = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
         context.getSystemService(Context.PERFORMANCE_HINT_SERVICE) as? PerformanceHintManager
     } else null
@@ -29,23 +31,31 @@ class SpeedModeController(context: Context) {
 
         if (enable) {
             if (hintSession == null) {
-                // 1. 将主线程(UI线程)的ID绑定到会话中
+                // 1. 获取当前主线程 ID
                 val threadIds = intArrayOf(Process.myTid())
                 
-                // 2. 设定极高标准的预期帧耗时（例如 4ms/帧，故意设得非常低，逼系统拉满频率）
+                // 2. 设定极高标准的预期帧耗时（4毫秒，逼迫系统迅速提升核心频率）
                 val targetDurationNanos = TimeUnit.MILLISECONDS.toNanos(4) 
                 
-                // 3. 创建会话，这一步执行后，Activity 就会开始享受系统频率倾斜
-                hintSession = hintManager.createHintSession(threadIds, targetDurationNanos)
+                // 3. 创建会话
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    hintSession = hintManager.createHintSession(threadIds, targetDurationNanos)
+                }
             }
             
-            // 4. 发送“突发负载增加”的预警，瞬间将 CPU 大核和 GPU 唤醒并强制拉满主频
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM) { // Android 15+
-                hintSession?.sendHint(PerformanceHintManager.Session.HINT_PREDICT_WORKLOAD_INCREASE)
+            // 4. 发送突发高负载提示 (针对 Android 15 / API 35 及以上环境)
+            // 注意：HINT_PREDICT_WORKLOAD_INCREASE 常量属于 PerformanceHintManager.Session 类
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM) {
+                hintSession?.let { session ->
+                    // 显式显式调用 session 的 sendHint，并使用 Session. 的常数作用域
+                    session.sendHint(PerformanceHintManager.Session.HINT_PREDICT_WORKLOAD_INCREASE)
+                }
             }
         } else {
-            // 5. 还原正常模式：直接释放会话。系统会立刻收回调度倾斜，恢复均衡模式
-            hintSession?.close()
+            // 5. 还原正常模式：关闭会话
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                hintSession?.close()
+            }
             hintSession = null
         }
     }
