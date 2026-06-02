@@ -56,7 +56,7 @@ class SpeedModeController(private val context: Context) {
                 }
             }
 
-            // 2. 【渲染窗口层】切回主线程，通过反射绕过编译限制，强行锁定最高显示刷新率
+            // 2. 【渲染窗口层】切回主线程，强制干预系统高刷
             mainScope.launch(Dispatchers.Main) {
                 applyWindowRefreshRate(enable = true)
             }
@@ -84,8 +84,8 @@ class SpeedModeController(private val context: Context) {
         }
     }
 
-    /**
-     * 强行干预 Android Window 渲染流水线，突破系统的帧率控制策略
+        /**
+     * 强行干预 Android Window 渲染流水线，全列表扫描匹配最高刷新率模式
      */
     private fun applyWindowRefreshRate(enable: Boolean) {
         val activity = context as? Activity ?: return
@@ -97,53 +97,69 @@ class SpeedModeController(private val context: Context) {
 
             if (enable) {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) { // Android 11+
-                    // 💡 0 instructs SurfaceFlinger to pick the highest physical frame rate available (e.g. 144Hz)
-                    layoutParams.preferredDisplayModeId = 0 
-                }
-                
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) { // Android 12+
-                    try {
-                        // 💡 Reflection Patch: Safely extract and assign hidden frame rate parameters using your HiddenApiBypass
-                        val layoutParamsClass = WindowManager.LayoutParams::class.java
-                        
-                        // Find the hidden constant field FRAME_RATE_SELECTION_BEHAVIOR_OVERRIDE_SEAMLESS (value typically equals 1)
-                        val behaviorField = layoutParamsClass.getDeclaredField("FRAME_RATE_SELECTION_BEHAVIOR_OVERRIDE_SEAMLESS")
-                        behaviorField.isAccessible = true
-                        val behaviorValue = behaviorField.get(null) as Int
+                    // 1. 获取当前屏幕设备支持的所有显示模式列表
+                    val display = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                        activity.display
+                    } else {
+                        @Suppress("DEPRECATION")
+                        activity.windowManager.defaultDisplay
+                    }
+                    
+                    val supportedModes = display?.supportedModes
+                    if (!supportedModes.isNullOrEmpty()) {
+                        var maxRefreshRateModeId = -1
+                        var highestRate = 0f
 
-                        // Find the hidden property field frameRateSelectionBehavior
-                        val selectionBehaviorProperty = layoutParamsClass.getDeclaredField("frameRateSelectionBehavior")
-                        selectionBehaviorProperty.isAccessible = true
-                        
-                        // Overwrite the property on our active window layoutParams instance
-                        selectionBehaviorProperty.setInt(layoutParams, behaviorValue)
-                    } catch (e: Exception) {
-                        // 💡 核心修改：Window 隐藏 API 反射失败时弹出 Toast 并打印具体异常
-                        showToastInMain("⚠️ 帧率行为控制反射失败: ${e.localizedMessage}")
+                        // 2. 暴力遍历：找出驱动里注册的帧率最高的那一个 Mode（无论是物理的还是虚拟插帧的）
+                        for (mode in supportedModes) {
+                            if (mode.refreshRate > highestRate) {
+                                highestRate = mode.refreshRate
+                                maxRefreshRateModeId = mode.modeId
+                            }
+                        }
+
+                        // 3. 如果找到了最高帧率档位（比如那个伪装或插帧的 144Hz），强行锁定
+                        if (maxRefreshRateModeId != -1) {
+                            layoutParams.preferredDisplayModeId = maxRefreshRateModeId
+                            // 弹出 Toast 让你清晰知道代码最终强锁在了多少 Hz
+                            showToastInMain("🏎️ 已强制匹配硬件驱动最高档：${highestRate.toInt()}Hz")
+                        } else {
+                            layoutParams.preferredDisplayModeId = 0
+                        }
+                    } else {
+                        layoutParams.preferredDisplayModeId = 0 
                     }
                 }
                 
-                window.attributes = layoutParams
-                showToastInMain("🏎️ 屏幕物理 144Hz/120Hz 极限刷新率已强制锁定！")
-            } else {
-                // 还原系统默认调度
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                    layoutParams.preferredDisplayModeId = -1 // -1 restores default automatic refresh rates
-                }
-                
+                // 4. Android 12+ 强制覆盖系统出于“省电目的”做出的任何降帧判断
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                     try {
                         val layoutParamsClass = WindowManager.LayoutParams::class.java
                         val selectionBehaviorProperty = layoutParamsClass.getDeclaredField("frameRateSelectionBehavior")
                         selectionBehaviorProperty.isAccessible = true
-                        selectionBehaviorProperty.setInt(layoutParams, 0) // 0 resets behavior to default configuration
-                    } catch (e: Exception) { /* Ignore fallback errors */ }
+                        selectionBehaviorProperty.setInt(layoutParams, 1) // 1 = OVERRIDE_SEAMLESS
+                    } catch (e: Exception) {
+                        showToastInMain("⚠️ 帧率控制属性反射失败: ${e.localizedMessage}")
+                    }
                 }
                 
                 window.attributes = layoutParams
+            } else {
+                // 还原系统默认调度
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    layoutParams.preferredDisplayModeId = -1 
+                }
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    try {
+                        val layoutParamsClass = WindowManager.LayoutParams::class.java
+                        val selectionBehaviorProperty = layoutParamsClass.getDeclaredField("frameRateSelectionBehavior")
+                        selectionBehaviorProperty.isAccessible = true
+                        selectionBehaviorProperty.setInt(layoutParams, 0)
+                    } catch (e: Exception) { /* 忽略 */ }
+                }
+                window.attributes = layoutParams
             }
         } catch (e: Exception) {
-            // Anti-crash layer for heavily skinned custom ROM distributions
             showToastInMain("💥 窗口刷新率应用遭遇全局异常: ${e.localizedMessage}")
         }
     }
