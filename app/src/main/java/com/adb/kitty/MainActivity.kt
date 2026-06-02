@@ -901,6 +901,6 @@ class MainActivity : AppCompatActivity() {
         unregisterReceiver(usbPermissionReceiver)
         unregisterReceiver(usbStateReceiver)
         refreshRateInspector.unbindRootService()
-        speedController.setExtremeSpeedMode(false)
+        speedController.destroy()
     }
 }

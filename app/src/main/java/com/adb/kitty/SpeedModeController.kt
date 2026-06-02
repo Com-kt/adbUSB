@@ -12,12 +12,18 @@ import android.content.Context
 import android.os.Build
 import android.os.PerformanceHintManager
 import android.os.Process
-import android.os.Handler
-import android.os.Looper
 import android.widget.Toast
 import java.util.concurrent.TimeUnit
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.MainScope
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 
 class SpeedModeController(private val context: Context) {
+
+    // 创建一个专用于主线程 UI 的协程作用域
+    private val mainScope: CoroutineScope = MainScope()
 
     private val hintManager = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
         context.getSystemService(Context.PERFORMANCE_HINT_SERVICE) as? PerformanceHintManager
@@ -60,11 +66,11 @@ class SpeedModeController(private val context: Context) {
                     // 硬件级突发加速调用，强制拉满 CPU/GPU 频率！
                     sendHintMethod.invoke(session, hintValue)
                     
-                    // 将 Log.d 改为 Toast 提示
-                    showToast("🚀 成功激活硬件级极速预判负载模式！")
+                    // 使用 kotlinx 协程切换到主线程切弹出 Toast
+                    showToastInMain("🚀 成功激活硬件级极速预判负载模式！")
                 } catch (e: Exception) {
-                    // 将 Log.e 改为 Toast 提示
-                    showToast("⚠️ 隐藏 API 调用失败，降级运行普通极限调频")
+                    // 使用 kotlinx 协程切换到主线程切弹出 Toast
+                    showToastInMain("⚠️ 隐藏 API 调用失败，将降级运行普通极限调频")
                 }
             }
         } else {
@@ -77,15 +83,19 @@ class SpeedModeController(private val context: Context) {
     }
 
     /**
-     * 辅助方法：确保在主线程弹出 Toast
+     * 使用 kotlinx 协程确保在 Main 线程安全弹出 Toast
      */
-    private fun showToast(message: String) {
-        if (Looper.myLooper() == Looper.getMainLooper()) {
+    private fun showToastInMain(message: String) {
+        mainScope.launch(Dispatchers.Main) {
             Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
-        } else {
-            Handler(Looper.getMainLooper()).post {
-                Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
-            }
         }
+    }
+
+    /**
+     * 当不需要这个 Controller 时（例如 Activity 销毁），释放协程作用域防止内存泄漏
+     */
+    fun destroy() {
+        setExtremeSpeedMode(false)
+        mainScope.cancel() // 销毁所有未完成的协程
     }
 }
