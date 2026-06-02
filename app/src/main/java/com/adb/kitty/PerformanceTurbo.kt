@@ -12,6 +12,7 @@ import android.os.Build
 import android.os.PerformanceHintManager
 import android.os.Process
 import android.content.Context
+import androidx.core.content.getSystemService
 
 class PerformanceTurbo(private val context: Context) {
 
@@ -23,7 +24,7 @@ class PerformanceTurbo(private val context: Context) {
     fun enterTurboMode() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) { // Android 12+
             try {
-                val hintManager = context.getSystemService(Context.PERFORMANCE_HINT_SERVICE) as? PerformanceHintManager
+                val hintManager = context.getSystemService<PerformanceHintManager>()
                 if (hintManager != null) {
                     // 1. 获取当前 :adb 子进程的主线程 ID (TID)
                     val myTid = Process.myTid()
