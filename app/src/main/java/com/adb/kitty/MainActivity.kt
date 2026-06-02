@@ -397,7 +397,7 @@ class MainActivity : AppCompatActivity() {
             // 实时注入 144Hz 标志
             lp.preferredDisplayModeId = modeId144Hz!!
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                lp.changesFrameRateAgnostic = true
+                lp.changeFrameRateAgnostic = true
             }
             // 💡 关键：向系统提交更新，屏幕会瞬间热切换到 144Hz
             window.attributes = lp
