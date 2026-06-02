@@ -372,11 +372,15 @@ class MainActivity : AppCompatActivity() {
                 true
            }
               R.id.action_main_8 -> {
-              turbo.enterTurboMode()
+              lifecycleScope.launch(Dispatchers.IO) {
+                  turbo.enterTurboMode()
+              }
                 true
            }
               R.id.action_main_9 -> {
-              turbo.exitTurboMode()
+              lifecycleScope.launch(Dispatchers.IO) {
+                  turbo.exitTurboMode()
+              }
                 true
            }
              else -> super.onOptionsItemSelected(item)
