@@ -12,10 +12,12 @@ import android.content.Context
 import android.os.Build
 import android.os.PerformanceHintManager
 import android.os.Process
-import android.util.Log
+import android.os.Handler
+import android.os.Looper
+import android.widget.Toast
 import java.util.concurrent.TimeUnit
 
-class SpeedModeController(context: Context) {
+class SpeedModeController(private val context: Context) {
 
     private val hintManager = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
         context.getSystemService(Context.PERFORMANCE_HINT_SERVICE) as? PerformanceHintManager
@@ -43,26 +45,26 @@ class SpeedModeController(context: Context) {
                 }
             }
 
-            // 4. 利用已经豁免的隐藏 API 强制发送 HINT_PREDICT_WORKLOAD_INCREASE (值通常为 0 或 1)
-            // 既然有 HiddenApiBypass，直接用反射突破 `@hide`
+            // 4. 利用已经豁免的隐藏 API 强制发送 HINT_PREDICT_WORKLOAD_INCREASE
             val session = hintSession
             if (session != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM) {
                 try {
-                    // 反射获取隐藏的内部常量 HINT_PREDICT_WORKLOAD_INCREASE 的实际整型值
                     val sessionClass = PerformanceHintManager.Session::class.java
                     val hintConstantField = sessionClass.getDeclaredField("HINT_PREDICT_WORKLOAD_INCREASE")
                     hintConstantField.isAccessible = true
                     val hintValue = hintConstantField.get(null) as Int
 
-                    // 反射获取隐藏的方法 sendHint(int hint)
                     val sendHintMethod = sessionClass.getDeclaredMethod("sendHint", Int::class.java)
                     sendHintMethod.isAccessible = true
                     
                     // 硬件级突发加速调用，强制拉满 CPU/GPU 频率！
                     sendHintMethod.invoke(session, hintValue)
-                    Log.d("SpeedMode", "成功通过隐藏 API 激活硬件级极速预判负载模式！")
+                    
+                    // 将 Log.d 改为 Toast 提示
+                    showToast("🚀 成功激活硬件级极速预判负载模式！")
                 } catch (e: Exception) {
-                    Log.e("SpeedMode", "隐藏 API 调用失败（可能是ROM定制导致常量缺失），降级运行普通极限调频：", e)
+                    // 将 Log.e 改为 Toast 提示
+                    showToast("⚠️ 隐藏 API 调用失败，降级运行普通极限调频")
                 }
             }
         } else {
@@ -71,6 +73,19 @@ class SpeedModeController(context: Context) {
                 hintSession?.close()
             }
             hintSession = null
+        }
+    }
+
+    /**
+     * 辅助方法：确保在主线程弹出 Toast
+     */
+    private fun showToast(message: String) {
+        if (Looper.myLooper() == Looper.getMainLooper()) {
+            Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+        } else {
+            Handler(Looper.getMainLooper()).post {
+                Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+            }
         }
     }
 }
