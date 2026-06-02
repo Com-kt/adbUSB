@@ -11,81 +11,83 @@ package com.adb.kitty
 import android.annotation.SuppressLint
 import android.content.Context
 import android.os.Build
-import android.os.PerformanceHintManager
-import android.os.Process
 import android.widget.Toast
-import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class SpeedModeController(private val context: Context) {
 
     private val mainScope: CoroutineScope = MainScope()
-
-    // 1. 核心修复：在这里添加注解，完美压制 Lint 误报的 WrongConstant 错误
-    @SuppressLint("WrongConstant")
-    private val hintManager = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-        context.getSystemService(Context.PERFORMANCE_HINT_SERVICE) as? PerformanceHintManager
-    } else null
-
-    private var hintSession: PerformanceHintManager.Session? = null
+    private var qcomPerfInstance: Any? = null
 
     /**
-     * 设置是否开启极速模式
+     * 设置是否开启极速模式（高通平台专属锁频）
      */
-    @SuppressLint("NewApi")
     fun setExtremeSpeedMode(enable: Boolean) {
-        if (hintManager == null) {
-            showToastInMain("❌ 设备系统过低，硬件底层不支持性能调度")
-            return
-        }
-
         if (enable) {
-            if (hintSession == null) {
-                val threadIds = intArrayOf(Process.myTid())
-                val targetDurationNanos = TimeUnit.MILLISECONDS.toNanos(4) 
-                
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                    hintSession = hintManager.createHintSession(threadIds, targetDurationNanos)
-                }
-            }
-
-            val session = hintSession
-            // 如果是 Android 15 及以上，尝试用你的 HiddenApiBypass 轰炸底层的突发加速
-            if (session != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM) {
+            if (qcomPerfInstance != null) return // 避免重复开启
+            
+            // 1. 在后台异步线程进行高通隐藏 API 的反射处理
+            mainScope.launch(Dispatchers.Default) {
                 try {
-                    val sessionClass = PerformanceHintManager.Session::class.java
-                    val hintConstantField = sessionClass.getDeclaredField("HINT_PREDICT_WORKLOAD_INCREASE")
-                    hintConstantField.isAccessible = true
-                    val hintValue = hintConstantField.get(null) as Int
-
-                    val sendHintMethod = sessionClass.getDeclaredMethod("sendHint", Int::class.java)
-                    sendHintMethod.isAccessible = true
+                    // 利用 HiddenApiBypass 绕过限制，加载高通核心性能类
+                    val perfClass = Class.forName("android.util.BoostFramework")
+                    val constructor = perfClass.getConstructor()
+                    val instance = constructor.newInstance()
                     
-                    sendHintMethod.invoke(session, hintValue)
-                    showToastInMain("🚀 [Android 15+] 硬件级突发极速模式已激活！")
+                    // 获取核心锁频函数：perfLockAcquire(int duration, int[] list)
+                    val perfLockMethod = perfClass.getMethod("perfLockAcquire", Int::class.java, IntArray::class.java)
+                    
+                    // 配置提频魔数参数（强制大核高频运转 60 秒）
+                    val durationMs = 60000 
+                    val boostList = intArrayOf(
+                        0x00404000, 0,    // 强制将 CPU 大核的最小频率拉满
+                        0x00400000, 1     // 锁定大核心防止由于省电进入休眠
+                    )
+                    
+                    // 执行底层硬件锁频
+                    perfLockMethod.invoke(instance, durationMs, boostList)
+                    qcomPerfInstance = instance
+                    
+                    // 2. 反射成功后，切回主线程弹出 Toast 提示
+                    showToastInMain("🚀 高通底层硬件级极速模式已激活！")
+                    
                 } catch (e: Exception) {
-                    showToastInMain("⚠️ 隐藏 API 反射失败，已安全降级为标准极速")
+                    // 失败后切换回主线程提示（可能由于非高通芯片或ROM彻底移除该私有类）
+                    showToastInMain("❌ 极速激活失败：非高通骁龙设备或该ROM不支持")
                 }
-            } else if (session != null) {
-                // 如果是 Android 12 ~ Android 14 设备，走标准极速通道
-                showToastInMain("⚡ [Android 12-14] 4ms 锁频标准极速模式已激活！")
             }
         } else {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                hintSession?.close()
+            // 还原正常模式
+            val instance = qcomPerfInstance
+            if (instance != null) {
+                mainScope.launch(Dispatchers.Default) {
+                    try {
+                        val releaseMethod = instance::class.java.getMethod("perfLockRelease")
+                        releaseMethod.invoke(instance)
+                        qcomPerfInstance = null
+                        
+                        showToastInMain("🔋 高通性能锁已释放，功耗回归正常")
+                    } catch (e: Exception) {
+                        qcomPerfInstance = null
+                        showToastInMain("⚠️ 释放异常，性能锁已强制清空")
+                    }
+                }
             }
-            hintSession = null
-            showToastInMain("🔋 已还原正常模式，功耗回归均衡")
         }
     }
 
+    /**
+     * 利用 kotlinx 协程强制在主线程安全弹出 Toast 提示
+     */
     private fun showToastInMain(message: String) {
         mainScope.launch(Dispatchers.Main) {
-            Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+            // 💡 优化点：使用 applicationContext 避免某些特定 Activity 场景下 Toast 被系统拦截
+            Toast.makeText(context.applicationContext, message, Toast.LENGTH_SHORT).show()
         }
     }
 
