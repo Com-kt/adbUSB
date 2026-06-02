@@ -394,14 +394,17 @@ class MainActivity : AppCompatActivity() {
     fun enableExtreme144HzMode() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && modeId144Hz != null) {
             val lp = window.attributes
+            // 实时注入 144Hz 标志
             lp.preferredDisplayModeId = modeId144Hz!!
+            window.attributes = lp
             
-            if (Build.VERSION.SDK_INT >= 35) { 
-                lp.preferredFrameRateCategory = WindowManager.LayoutParams.FRAME_RATE_CATEGORY_HIGH
+            // 💡 适配 Android 15/17 (API 35+) 正确的高刷调度 API 属性
+            if (Build.VERSION.SDK_INT >= 35) {
+                // 通过窗口的底层视图(DecorView)强制赋予高帧率调度类型
+                // 常量存在于 Surface 类中：Surface.FRAME_RATE_CATEGORY_HIGH
+                window.decorView.requestedFrameRateCategory = android.view.Surface.FRAME_RATE_CATEGORY_HIGH
             }
             
-            // 💡 关键：向系统提交更新，屏幕会瞬间热切换到 144Hz
-            window.attributes = lp
             appendLog("⚡ [极速模式] 屏幕刷新率已强行热飙至 144Hz！")
         }
     }
