@@ -394,13 +394,10 @@ class MainActivity : AppCompatActivity() {
     fun enableExtreme144HzMode() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && modeId144Hz != null) {
             val lp = window.attributes
-            // 实时注入 144Hz 标志
             lp.preferredDisplayModeId = modeId144Hz!!
             
-            // 💡 修正：只有 Android 15 (API 35) 及以上系统才支持此高刷分类属性
-            if (Build.VERSION.SDK_INT >= 35) {
-                // 强制高刷新率分类（系统会优先榨干性能，无视省电限制调度）
-                lp.preferredFrameRateCategory = WindowManager.LayoutParams.PREFERRED_FRAME_RATE_CATEGORY_HIGH
+            if (Build.VERSION.SDK_INT >= 35) { 
+                lp.preferredFrameRateCategory = WindowManager.LayoutParams.FRAME_RATE_CATEGORY_HIGH
             }
             
             // 💡 关键：向系统提交更新，屏幕会瞬间热切换到 144Hz
