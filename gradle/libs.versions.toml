@@ -26,6 +26,7 @@ mtDataFilesProvider = "1.0.0"
 hiddenapibypassVersion = "6.1"
 nayukiQR = "1.8.0"
 libsuVersion = "6.0.0"
+lifecycle = "2.10.0"
 
 [libraries]
 # AndroidX 核心基础库
@@ -34,6 +35,15 @@ androidx-constraintlayout = { group = "androidx.constraintlayout", name = "const
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 androidx-activity-ktx = { group = "androidx.activity", name = "activity-ktx", version.ref = "activityKtx" }
 androidx-annotation = { group = "androidx.annotation", name = "annotation", version.ref = "annotation" }
+
+# Lifecycle 组件
+androidx-lifecycle-livedata-ktx = { group = "androidx.lifecycle", name = "lifecycle-livedata-ktx", version.ref = "lifecycle" }
+androidx-lifecycle-viewmodel-ktx = { group = "androidx.lifecycle", name = "lifecycle-viewmodel-ktx", version.ref = "lifecycle" }
+androidx-lifecycle-process = { group = "androidx.lifecycle", name = "lifecycle-process", version.ref = "lifecycle" }
+androidx-lifecycle-runtime-ktx = { group = "androidx.lifecycle", name = "lifecycle-runtime-ktx", version.ref = "lifecycle" }
+androidx-lifecycle-reactivestreams-ktx = { group = "androidx.lifecycle", name = "lifecycle-reactivestreams-ktx", version.ref = "lifecycle" }
+androidx-lifecycle-service = { group = "androidx.lifecycle", name = "lifecycle-service", version.ref = "lifecycle" }
+
 
 # Google & 第三方库
 material = { group = "com.google.android.material", name = "material", version.ref = "material" }
@@ -63,6 +73,14 @@ coroutines-runtime = [
     "kotlinx-coroutines-core-jvm",
     "kotlinx-coroutines-core",
     "kotlinx-coroutines-android"
+]
+lifecycle = [
+    "androidx-lifecycle-livedata-ktx",
+    "androidx-lifecycle-viewmodel-ktx",
+    "androidx-lifecycle-process",
+    "androidx-lifecycle-runtime-ktx",
+    "androidx-lifecycle-reactivestreams-ktx",
+    "androidx-lifecycle-service"
 ]
 bouncycastle = [
     "bcprov-jdk18on", 

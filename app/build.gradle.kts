@@ -120,4 +120,5 @@ dependencies {
     implementation(libs.lsposed.hiddenapibypass)
     implementation(libs.nayuki.qrcode)
     implementation(libs.bundles.libsu)
+    implementation(libs.bundles.lifecycle)
 }

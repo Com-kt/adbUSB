@@ -232,8 +232,8 @@ class MainActivity : AppCompatActivity() {
             addAction(UsbManager.ACTION_USB_ACCESSORY_DETACHED)
         }, exportFlag)
         
-        inspector = RefreshRateInspector(this, this) { formattedMatrixText ->
-            appendLog(formattedMatrixText)
+        inspector = RefreshRateInspector(this) { logText ->
+            appendLog(logText)
         }
         
         binding.appMainActivity.btnConnect.setOnClickListener { findHostDevice() }
