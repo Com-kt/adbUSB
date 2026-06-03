@@ -11,18 +11,58 @@ package com.adb.kitty
 import android.content.Intent
 import android.os.IBinder
 import com.topjohnwu.superuser.ipc.RootService
+import kotlinx.coroutines.*
 import java.io.File
+import java.util.concurrent.ConcurrentHashMap
 
 class GhzRootService : RootService() {
 
-    // 动态存储全系统抓取到的所有物理热敏探头节点与别名
     private val validThermalZones = ArrayList<Pair<String, File>>()
     private var gpuFreqPath: File? = null
     private var gpuTempPath: File? = null
+    
+    // 全局异步生命周期作用域
+    private val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    
+    // 🧬 核心科技：全线程安全物理数据内存缓冲区（把探头索引作为 key，实时温度作为 value）
+    private val thermalBuffer = ConcurrentHashMap<Int, Double>()
 
     override fun onCreate() {
         super.onCreate()
         probeAllPhysicalHardwareNodes()
+        
+        // 🚀 核心点火：后台特权传送带立刻全速开动，死循环无死角收割硬件
+        startThermalPipeline()
+    }
+
+    /**
+     * 🔄【后台纯异步传送带】有多少吃多少，排队也要全部吃完，绝不熔断！
+     */
+    private fun startThermalPipeline() {
+        serviceScope.launch {
+            val size = validThermalZones.size
+            while (isActive) {
+                // 利用多线程高并发同时轰炸这 100 多个节点
+                val jobs = List(size) { index ->
+                    launch {
+                        try {
+                            // 坚决不加 Timeout 熔断！哪怕耗时，也必须全量捞出数据！
+                            val raw = validThermalZones[index].second.readText().trim().toDouble()
+                            val finalTemp = if (raw > 1000) raw / 1000.0 else raw
+                            // 塞入内存缓冲区
+                            thermalBuffer[index] = finalTemp
+                        } catch (e: Exception) {
+                            thermalBuffer[index] = 0.0
+                        }
+                    }
+                }
+                // 排队死等全量探头安全生还
+                jobs.joinAll()
+                
+                // 刷完一轮后，稍微喘口气（休息 100 毫秒），立刻开启下一轮无死角物理大普查
+                delay(100)
+            }
+        }
     }
 
     override fun onBind(intent: Intent): IBinder {
@@ -39,32 +79,24 @@ class GhzRootService : RootService() {
                         val path = "/sys/devices/system/cpu/cpu$core/cpufreq/${nodeLabels[i]}"
                         val rawVal = File(path).readText().trim().toDouble()
                         data[i] = if (rawVal > 10000) rawVal / 1000000.0 else rawVal
-                    } catch (e: Exception) {
-                        data[i] = 0.0
-                    }
+                    } catch (e: Exception) { data[i] = 0.0 }
                 }
                 return data
             }
 
             override fun getHardwareSnapshots(): DoubleArray {
-                val data = DoubleArray(3) { 0.0 } // 电池温, GPU频, GPU温
+                val data = DoubleArray(3) { 0.0 }
                 try {
-                    // 1. 电池物理温度
                     val batRaw = File("/sys/class/power_supply/battery/temp").readText().trim().toDouble()
                     data[0] = if (batRaw > 1000) batRaw / 1000.0 else (if (batRaw > 100) batRaw / 10.0 else batRaw)
 
-                    // 2. GPU 实时频率
                     if (gpuFreqPath != null && gpuFreqPath!!.exists()) {
-                        val gpuClkRaw = gpuFreqPath!!.readText().trim().toDouble()
-                        data[1] = gpuClkRaw / 1000000000.0
+                        data[1] = gpuFreqPath!!.readText().trim().toDouble() / 1000000000.0
                     }
-
-                    // 3. GPU 专属物理温度
                     if (gpuTempPath != null && gpuTempPath!!.exists()) {
                         val gpuTempRaw = gpuTempPath!!.readText().trim().toDouble()
                         data[2] = if (gpuTempRaw > 1000) gpuTempRaw / 1000.0 else gpuTempRaw
                     } else {
-                        // 没捞到专属GPU探头，用 zone0 盲批兜底
                         val zone0Raw = File("/sys/class/thermal/thermal_zone0/temp").readText().trim().toDouble()
                         data[2] = if (zone0Raw > 1000) zone0Raw / 1000.0 else zone0Raw
                     }
@@ -72,15 +104,15 @@ class GhzRootService : RootService() {
                 return data
             }
 
+            /**
+             * ⏱️【0延迟高刷反击】前台来要数据时，直接从内存缓冲区吐出最新快照，耗时为 0ms！
+             */
             override fun getRawThermalTemps(): DoubleArray {
-                val temps = DoubleArray(validThermalZones.size)
-                for (i in validThermalZones.indices) {
-                    try {
-                        val raw = validThermalZones[i].second.readText().trim().toDouble()
-                        temps[i] = if (raw > 1000) raw / 1000.0 else raw
-                    } catch (e: Exception) {
-                        temps[i] = 0.0
-                    }
+                val size = validThermalZones.size
+                val temps = DoubleArray(size)
+                for (i in 0 until size) {
+                    // 如果由于冷启动某节点还没刷出来，默认返回 0.0，刷出来后实时更新
+                    temps[i] = thermalBuffer[i] ?: 0.0
                 }
                 return temps
             }
@@ -91,16 +123,11 @@ class GhzRootService : RootService() {
         }
     }
 
-    /**
-     * 🚀【暴力盲扫描算法】直接全盘清剿底层 Linux 物理热链路，不管它怎么伪装
-     */
     private fun probeAllPhysicalHardwareNodes() {
         try {
             validThermalZones.clear()
             val thermalDir = File("/sys/class/thermal")
             val zones = thermalDir.listFiles { _, name -> name.startsWith("thermal_zone") } ?: return
-            
-            // 按 zone 编号数字升序（zone0, zone1...）排序，保证输出不变形
             zones.sortBy { it.name.replace("thermal_zone", "").toIntOrNull() ?: 0 }
 
             for (zone in zones) {
@@ -108,11 +135,8 @@ class GhzRootService : RootService() {
                 val tempFile = File(zone, "temp")
                 if (typeFile.exists() && tempFile.exists()) {
                     val rawType = typeFile.readText().trim()
-                    // 过滤掉无关紧要的、或者没有数据的死探头
                     if (rawType.isNotEmpty() && rawType != "unknown") {
                         validThermalZones.add(Pair(rawType, tempFile))
-                        
-                        // 顺便锁定物理 GPU 温度探头
                         val lowerType = rawType.lowercase()
                         if (gpuTempPath == null && (lowerType.contains("gpu") || lowerType.contains("kgsl") || lowerType.contains("msm_gpu"))) {
                             gpuTempPath = tempFile
@@ -121,19 +145,21 @@ class GhzRootService : RootService() {
                 }
             }
 
-            // 锁定物理 GPU 实时主频节点
             val commonGpuFreqPaths = arrayOf(
                 "/sys/class/kgsl/kgsl-3d0/gpuclk",
-                "/sys/class/kgsl/kgsl-3d0/devfreq/cur_freq",
-                "/sys/devices/platform/soc/valhall.gpu/devfreq/valhall.gpu/cur_freq"
+                "/sys/class/kgsl/kgsl-3d0/devfreq/cur_freq"
             )
             for (path in commonGpuFreqPaths) {
-                val f = File(path)
-                if (f.exists()) {
-                    gpuFreqPath = f
+                if (File(path).exists()) {
+                    gpuFreqPath = File(path)
                     break
                 }
             }
         } catch (e: Exception) {}
+    }
+
+    override fun onDestroy() {
+        serviceScope.cancel() 
+        super.onDestroy()
     }
 }
