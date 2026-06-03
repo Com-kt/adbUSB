@@ -80,7 +80,27 @@ class RefreshRateInspector(
     }
 
     fun start() {
-        if (inspectorJob != null && inspectorJob!!.isActive) return
+        if (inspectorJob != null && inspectorJob!!.isActive) {
+            onLogAppend("[提示] 测试已经在运行中，请勿重复启动。")
+            return
+        }
+
+        // 🌟【硬核归位】硬件面板物理高刷档位大普查，厂商封印的物理参数都在这
+        onLogAppend("==== 🔍 开始检测硬件面板物理档位 ====")
+        try {
+            defaultDisplay.supportedModes.forEach { mode ->
+                onLogAppend(
+                    String.format(
+                        Locale.getDefault(),
+                        "物理 ID: %d -> %dx%d @ %.2f Hz",
+                        mode.modeId, mode.physicalWidth, mode.physicalHeight, mode.refreshRate
+                    )
+                )
+            }
+        } catch (e: Exception) {
+            onLogAppend("[错误] 无法获取硬件面板物理档位: ${e.message}")
+        }
+        onLogAppend("====================================\n")
 
         frameCount = 0
         shouldThrottleFrames = false
@@ -129,7 +149,7 @@ class RefreshRateInspector(
                         )
                     )
 
-                    // 🚀 前 6 行：正规军 cpu0 到 cpu7 主频大阵（保持原样 14 字符宽度像素级对齐）
+                    // 🚀 前 6 行：cpu0 到 cpu7 主频矩阵（14 字符宽度像素级对齐）
                     for (fileIndex in 0..5) {
                         logBuilder.append("  └─ ").append(nodeLabels[fileIndex]).append(" ->  ")
                         for (core in 0..7) {
@@ -141,7 +161,7 @@ class RefreshRateInspector(
                         logBuilder.append("\n")
                     }
 
-                    // 🚀 第 7 行起：全量物理热敏探头阵列（修改为满 5 个自动换行）
+                    // 🚀 第 7 行起：全量物理热敏探头阵列（满 5 个自动换行）
                     logBuilder.append("  └─ 🔘 Linux 原始热链路大普查 (全量物理探头平铺展示) ->\n     ")
                     
                     var columnCount = 0
@@ -149,17 +169,14 @@ class RefreshRateInspector(
                         val type = rawTypes.getOrNull(i) ?: "unknown"
                         val temp = rawTemps[i]
                         
-                        // 格式化探头输出：[Type名称: 温度]
                         val thermalContent = String.format(Locale.getDefault(), "[%s: %.1f°C]", type, temp)
-                        
-                        // 🌟 为适配 5 列布局，微调每个小格子的宽度为 %-26s，既紧凑又保证名字长的探头不跑偏
-                        logBuilder.append(String.format(Locale.getDefault(), "%-26s", thermalContent))
+                        logBuilder.append(String.format(Locale.getDefault(), "%-28s", thermalContent))
                         
                         if (i < rawTemps.size - 1) {
                             logBuilder.append(" | ")
                             columnCount++
                             
-                            // 🌟 核心改动：当列计数器累加到 5 时，强行塞入换行符并重置计数器
+                            // 当列计数器累加到 5 时，强行塞入换行符并重置
                             if (columnCount >= 5) {
                                 logBuilder.append("\n     ")
                                 columnCount = 0
@@ -184,8 +201,10 @@ class RefreshRateInspector(
     }
 
     fun stop() {
-        inspectorJob?.cancel()
-        inspectorJob = null
+        if (inspectorJob != null && inspectorJob!!.isActive) {
+            inspectorJob?.cancel()
+            inspectorJob = null
+        }
     }
 
     fun unbindRootService() {
