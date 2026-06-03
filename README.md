@@ -30,6 +30,22 @@
     - [x] display Test (RootService)
     - [x] MTFilesProvider
     - [x] Kernel frequency raising (Android 12+)
+- [x] CPU
+    - [x] SM8475：
+        - [x] 第一代骁龙 8+ (Snapdragon 8+ Gen 1)
+        - [x] 1+3+4
+    - [x] SM8550：
+        - [x] 第二代骁龙 8 (Snapdragon 8 Gen 2)
+        - [x] 1+(2+2)+3
+    - [x] SM8650：
+        - [x] 第三代骁龙 8 (Snapdragon 8 Gen 3)
+        - [x] 1+5+2
+    - [x] SM8750：
+        - [x] 骁龙 8 至尊版 (Snapdragon 8 Elite / 8e)
+        - [x] 2+6
+    - [x] SM8850：
+        - [x] 第五代骁龙 8 至尊版 (Snapdragon 8 Elite Gen 5 / 8e5)
+        - [x] 2+6
 
 > [!WARNING]
 > 

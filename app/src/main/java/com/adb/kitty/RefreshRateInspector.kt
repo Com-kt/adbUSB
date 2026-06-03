@@ -40,10 +40,13 @@ class RefreshRateInspector(
     private var rootCpuBinder: ICpuBinder? = null
     private var onConnectedCallback: ((Boolean) -> Unit)? = null
 
+    @Volatile
+    private var shouldThrottleFrames = false
+
     private val rootConnection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
             rootCpuBinder = ICpuBinder.Stub.asInterface(service)
-            onLogAppend("[系统] 🛑 免注册通用高通监控 Daemon 进程就绪，全系物理矩阵解锁！")
+            onLogAppend("[系统] 🛑 纯血 Linux 物理节点盲扫引擎准备就绪！")
             onConnectedCallback?.invoke(true)
             onConnectedCallback = null 
         }
@@ -52,19 +55,18 @@ class RefreshRateInspector(
             rootCpuBinder = null
             onConnectedCallback?.invoke(false)
             onConnectedCallback = null
-            onLogAppend("[警告] ⚠️ 远程特权服务意外断开连接！")
         }
     }
 
     private val frameCallback = object : Choreographer.FrameCallback {
         override fun doFrame(frameTimeNanos: Long) {
+            if (shouldThrottleFrames && frameCount >= defaultDisplay.refreshRate.toInt()) {
+                Choreographer.getInstance().postFrameCallback(this)
+                return
+            }
             frameCount++
             Choreographer.getInstance().postFrameCallback(this)
         }
-    }
-
-    fun isRootServiceConnected(): Boolean {
-        return rootCpuBinder != null
     }
 
     fun bindRootService(onResult: (Boolean) -> Unit) {
@@ -77,57 +79,38 @@ class RefreshRateInspector(
         RootService.bind(intent, rootConnection)
     }
 
-    /**
-     * 🔥 核心启动：每秒异步打包同步，收割 8行7列 超维硬件热力学大阵
-     */
     fun start() {
-        if (inspectorJob != null && inspectorJob!!.isActive) {
-            onLogAppend("[提示] 测试已经在运行中，请勿重复启动。")
-            return
-        }
-
-        onLogAppend("==== 🔍 开始检测硬件面板物理档位 ====")
-        try {
-            defaultDisplay.supportedModes.forEach { mode ->
-                onLogAppend(
-                    String.format(
-                        Locale.getDefault(),
-                        "物理 ID: %d -> %dx%d @ %.2f Hz",
-                        mode.modeId, mode.physicalWidth, mode.physicalHeight, mode.refreshRate
-                    )
-                )
-            }
-        } catch (e: Exception) {
-            onLogAppend("[错误] 无法获取硬件面板物理档位: ${e.message}")
-        }
-        onLogAppend("====================================\n")
+        if (inspectorJob != null && inspectorJob!!.isActive) return
 
         frameCount = 0
+        shouldThrottleFrames = false
         Choreographer.getInstance().postFrameCallback(frameCallback)
 
-        // 强力常驻后台异步工作流，绝不拖累高刷前台渲染
         inspectorJob = lifecycleOwner.lifecycleScope.launch(Dispatchers.Default) {
             try {
                 while (isActive) {
-                    delay(1000) // 每秒精准全谱采点一次
+                    delay(1000)
 
                     val currentHardwareHz = defaultDisplay.refreshRate
                     val capturedFrames = frameCount
                     frameCount = 0 
 
-                    // 1. 跨进程收割大件多维硬件快照（完美合并电池、GPU频率、GPU温度）
-                    val sysData = rootCpuBinder?.getSystemTemperatures() ?: DoubleArray(4)
-                    val batTemp = sysData[1]
-                    val gpuTemp = sysData[2]
-                    val gpuFreq = sysData[3]
+                    shouldThrottleFrames = capturedFrames > (currentHardwareHz.toInt() + 2)
 
-                    // 2. 跨进程提取全自适应拓扑出来的 8核心物理独立核心温度
-                    val coreTemps = rootCpuBinder?.allCpuCoreTemps ?: DoubleArray(8)
+                    // 1. 收割大件快照
+                    val snapshots = rootCpuBinder?.hardwareSnapshots ?: DoubleArray(3)
+                    val batTemp = snapshots[0]
+                    val gpuFreq = snapshots[1]
+                    val gpuTemp = snapshots[2]
 
-                    // 3. 提取 8核心×6维度的频率矩阵数据
-                    val allMatrix = Array(8) { DoubleArray(6) }
+                    // 2. 暴力收割全系统所有物理热敏原始阵列
+                    val rawTemps = rootCpuBinder?.rawThermalTemps ?: DoubleArray(0)
+                    val rawTypes = rootCpuBinder?.rawThermalTypes ?: arrayOf()
+
+                    // 3. 稳稳抓取 cpu0..cpu7 真实主频方阵
+                    val freqMatrix = Array(8) { DoubleArray(6) }
                     for (core in 0..7) {
-                        allMatrix[core] = rootCpuBinder?.getAllCpuFreqData(core) ?: DoubleArray(6)
+                        freqMatrix[core] = rootCpuBinder?.getAllCpuFreqData(core) ?: DoubleArray(6)
                     }
 
                     val nodeLabels = arrayOf(
@@ -137,7 +120,7 @@ class RefreshRateInspector(
 
                     val logBuilder = StringBuilder()
                     
-                    // 🚀【头部行全大一统合并】屏幕高刷、实际FPS、电池温度、GPU实时主频、GPU物理核心温度
+                    // 🚀【顶部全维大件面板】
                     logBuilder.append(
                         String.format(
                             Locale.getDefault(),
@@ -146,11 +129,11 @@ class RefreshRateInspector(
                         )
                     )
 
-                    // 4. 渲染前 6 行：主频控制方阵（使用 %-14s 强行卡位防止抖动）
+                    // 🚀【前 6 行：正规军 cpu0 到 cpu7 主频大阵】使用 %-14s 像素级焊死对齐
                     for (fileIndex in 0..5) {
                         logBuilder.append("  └─ ").append(nodeLabels[fileIndex]).append(" ->  ")
                         for (core in 0..7) {
-                            val freq = allMatrix[core][fileIndex]
+                            val freq = freqMatrix[core][fileIndex]
                             val content = String.format(Locale.getDefault(), "cpu%d: %.3fGHz", core, freq)
                             logBuilder.append(String.format(Locale.getDefault(), "%-14s", content))
                             if (core < 7) logBuilder.append(" | ")
@@ -158,35 +141,48 @@ class RefreshRateInspector(
                         logBuilder.append("\n")
                     }
 
-                    // 🚀【并列并线第 7 行指标】8大独立物理核心的精确热量弹幕
-                    logBuilder.append("  └─ core_temperature ->  ")
-                    for (core in 0..7) {
-                        val tempContent = String.format(Locale.getDefault(), "cpu%d: %.1f°C", core, coreTemps[core])
-                        logBuilder.append(String.format(Locale.getDefault(), "%-14s", tempContent))
-                        if (core < 7) logBuilder.append(" | ")
+                    // 🚀【第 7 行起：全量物理热敏探头弹幕墙】有多少展示多少，彻底扒掉系统底裤
+                    logBuilder.append("  └─ 🔘 Linux 原始热链路大普查 (全量物理探头平铺展示) ->\n     ")
+                    
+                    var columnCount = 0
+                    for (i in rawTemps.indices) {
+                        val type = rawTypes.getOrNull(i) ?: "unknown"
+                        val temp = rawTemps[i]
+                        
+                        // 格式化探头输出：[Type名称: 温度]
+                        val thermalContent = String.format(Locale.getDefault(), "[%s: %.1f°C]", type, temp)
+                        // 使用 %-28s 保证每个温度探头格子横向完美对齐，每行满 4 个探头自动换行换列
+                        logBuilder.append(String.format(Locale.getDefault(), "%-28s", thermalContent))
+                        
+                        if (i < rawTemps.size - 1) {
+                            logBuilder.append(" | ")
+                            columnCount++
+                            if (columnCount >= 4) {
+                                logBuilder.append("\n     ")
+                                columnCount = 0
+                            }
+                        }
                     }
+                    logBuilder.append("\n")
 
                     val finalLogOutput = logBuilder.toString()
 
-                    // 安全切回 Android 主线程，把完全对齐的超大方阵直接拍给 TextView
                     withContext(Dispatchers.Main) {
                         onLogAppend(finalLogOutput)
                     }
                 }
             } finally {
                 withContext(Dispatchers.Main) {
+                    shouldThrottleFrames = false
                     Choreographer.getInstance().removeFrameCallback(frameCallback)
-                    onLogAppend("==== 🛑 帧率与全时钟热力学矩阵监听已安全停止 ====")
                 }
             }
         }
     }
 
     fun stop() {
-        if (inspectorJob != null && inspectorJob!!.isActive) {
-            inspectorJob?.cancel() 
-            inspectorJob = null
-        }
+        inspectorJob?.cancel()
+        inspectorJob = null
     }
 
     fun unbindRootService() {

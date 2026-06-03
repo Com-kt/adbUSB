@@ -9,12 +9,15 @@
 package com.adb.kitty;
 
 interface ICpuBinder {
-    // 一次性收割特定核心的 6 项频率指标数据
+    // 暴力收割特定核心的 6 项主频指标
     double[] getAllCpuFreqData(int core);
     
-    // 一次性收割全大件多维硬件快照 [0]=CPU综合, [1]=电池温度, [2]=GPU温度, [3]=GPU实时主频(GHz)
-    double[] getSystemTemperatures();
+    // 收割大件快照：[0]=电池温度, [1]=GPU实时主频(GHz), [2]=GPU真实物理温度
+    double[] getHardwareSnapshots();
     
-    // 一次性收割全系自适应拓扑出来的 8 个物理核心实时高精温度
-    double[] getAllCpuCoreTemps();
+    // 【核心大改动】全盘捞出系统内所有合法的物理热敏探头实时温度
+    double[] getRawThermalTemps();
+    
+    // 【核心大改动】全盘捞出系统内所有热敏探头的底层硬件 Type 别名
+    String[] getRawThermalTypes();
 }
