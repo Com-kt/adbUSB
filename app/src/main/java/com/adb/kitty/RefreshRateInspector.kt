@@ -170,7 +170,7 @@ class RefreshRateInspector(
                         val temp = rawTemps[i]
                         
                         val thermalContent = String.format(Locale.getDefault(), "[%s: %.1f°C]", type, temp)
-                        logBuilder.append(String.format(Locale.getDefault(), "%-28s", thermalContent))
+                        logBuilder.append(String.format(Locale.getDefault(), "%-32s", thermalContent))
                         
                         if (i < rawTemps.size - 1) {
                             logBuilder.append(" | ")

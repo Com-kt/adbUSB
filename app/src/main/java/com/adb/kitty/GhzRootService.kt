@@ -14,6 +14,7 @@ import com.topjohnwu.superuser.ipc.RootService
 import kotlinx.coroutines.*
 import java.io.File
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.Executors
 
 class GhzRootService : RootService() {
 
@@ -21,46 +22,37 @@ class GhzRootService : RootService() {
     private var gpuFreqPath: File? = null
     private var gpuTempPath: File? = null
     
-    // 全局异步生命周期作用域
-    private val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    // 🧬 专属定制：直接建立一个专门用于硬件盲扫的线程池，确保 100 多个探头并发时线程绝对够用
+    private val thermalExecutor = Executors.newCachedThreadPool()
+    private val thermalDispatcher = thermalExecutor.asCoroutineDispatcher()
+    private val serviceScope = CoroutineScope(thermalDispatcher + SupervisorJob())
     
-    // 🧬 核心科技：全线程安全物理数据内存缓冲区（把探头索引作为 key，实时温度作为 value）
     private val thermalBuffer = ConcurrentHashMap<Int, Double>()
 
     override fun onCreate() {
         super.onCreate()
         probeAllPhysicalHardwareNodes()
-        
-        // 🚀 核心点火：后台特权传送带立刻全速开动，死循环无死角收割硬件
         startThermalPipeline()
     }
 
-    /**
-     * 🔄【后台纯异步传送带】有多少吃多少，排队也要全部吃完，绝不熔断！
-     */
     private fun startThermalPipeline() {
         serviceScope.launch {
             val size = validThermalZones.size
             while (isActive) {
-                // 利用多线程高并发同时轰炸这 100 多个节点
+                // 在专属的独立线程池里并发轰炸，绝不占用公共 IO 线程池
                 val jobs = List(size) { index ->
                     launch {
                         try {
-                            // 坚决不加 Timeout 熔断！哪怕耗时，也必须全量捞出数据！
                             val raw = validThermalZones[index].second.readText().trim().toDouble()
-                            val finalTemp = if (raw > 1000) raw / 1000.0 else raw
-                            // 塞入内存缓冲区
-                            thermalBuffer[index] = finalTemp
+                            thermalBuffer[index] = if (raw > 1000) raw / 1000.0 else raw
                         } catch (e: Exception) {
                             thermalBuffer[index] = 0.0
                         }
                     }
                 }
-                // 排队死等全量探头安全生还
-                jobs.joinAll()
+                jobs.joinAll() // 一个都不能少，全部排队死等收割完毕
                 
-                // 刷完一轮后，稍微喘口气（休息 100 毫秒），立刻开启下一轮无死角物理大普查
-                delay(100)
+                delay(100) // 歇 100ms 立刻开始下一轮普查
             }
         }
     }
@@ -78,7 +70,7 @@ class GhzRootService : RootService() {
                     try {
                         val path = "/sys/devices/system/cpu/cpu$core/cpufreq/${nodeLabels[i]}"
                         val rawVal = File(path).readText().trim().toDouble()
-                        data[i] = if (rawVal > 10000) rawVal / 1000000.0 else rawVal
+                        data[i] = if (rawVal > 1000) rawVal / 1000000.0 else rawVal
                     } catch (e: Exception) { data[i] = 0.0 }
                 }
                 return data
@@ -104,14 +96,10 @@ class GhzRootService : RootService() {
                 return data
             }
 
-            /**
-             * ⏱️【0延迟高刷反击】前台来要数据时，直接从内存缓冲区吐出最新快照，耗时为 0ms！
-             */
             override fun getRawThermalTemps(): DoubleArray {
                 val size = validThermalZones.size
                 val temps = DoubleArray(size)
                 for (i in 0 until size) {
-                    // 如果由于冷启动某节点还没刷出来，默认返回 0.0，刷出来后实时更新
                     temps[i] = thermalBuffer[i] ?: 0.0
                 }
                 return temps
@@ -159,7 +147,8 @@ class GhzRootService : RootService() {
     }
 
     override fun onDestroy() {
-        serviceScope.cancel() 
+        serviceScope.cancel()
+        thermalExecutor.shutdown() // 彻底释放线程池
         super.onDestroy()
     }
 }
