@@ -14,18 +14,22 @@ import android.content.Intent
 import android.content.ServiceConnection
 import android.hardware.display.DisplayManager
 import android.os.IBinder
-import android.os.PowerManager
 import android.view.Choreographer
 import android.view.Display
-import androidx.lifecycle.ProcessLifecycleOwner
+import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.lifecycleScope
 import com.topjohnwu.superuser.ipc.RootService
-import kotlinx.coroutines.*
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.util.Locale
-import java.util.concurrent.Executors
 
 class RefreshRateInspector(
     private val context: Context,
+    private val lifecycleOwner: LifecycleOwner,
     private val onLogAppend: (String) -> Unit 
 ) {
     private val displayManager = context.getSystemService(Context.DISPLAY_SERVICE) as DisplayManager
@@ -36,14 +40,8 @@ class RefreshRateInspector(
     private var rootCpuBinder: ICpuBinder? = null
     private var onConnectedCallback: ((Boolean) -> Unit)? = null
 
-    private val powerManager = context.getSystemService(Context.POWER_SERVICE) as PowerManager
-    private var wakeLock: PowerManager.WakeLock? = null
-
     @Volatile
     private var shouldThrottleFrames = false
-
-    // 🚀 专属高优先级单线程，专门用来应付高热状态下的文本拼接，拒绝和主线程一起死锁
-    private val inspectorDispatcher = Executors.newSingleThreadExecutor().asCoroutineDispatcher()
 
     private val rootConnection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
@@ -52,6 +50,7 @@ class RefreshRateInspector(
             onConnectedCallback?.invoke(true)
             onConnectedCallback = null 
         }
+
         override fun onServiceDisconnected(name: ComponentName?) {
             rootCpuBinder = null
             onConnectedCallback?.invoke(false)
@@ -81,34 +80,36 @@ class RefreshRateInspector(
     }
 
     fun start() {
-        if (inspectorJob != null && inspectorJob!!.isActive) return
+        if (inspectorJob != null && inspectorJob!!.isActive) {
+            onLogAppend("[提示] 测试已经在运行中，请勿重复启动。")
+            return
+        }
 
+        // 🌟【硬核归位】硬件面板物理高刷档位大普查，厂商封印的物理参数都在这
+        onLogAppend("==== 🔍 开始检测硬件面板物理档位 ====")
         try {
-            wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "Kitsunebi:ThermalInspector").apply {
-                acquire(30 * 60 * 1000L) // 直接续命 30 分钟后台不死金身
+            defaultDisplay.supportedModes.forEach { mode ->
+                onLogAppend(
+                    String.format(
+                        Locale.getDefault(),
+                        "物理 ID: %d -> %dx%d @ %.2f Hz",
+                        mode.modeId, mode.physicalWidth, mode.physicalHeight, mode.refreshRate
+                    )
+                )
             }
-        } catch (e: Exception) {}
+        } catch (e: Exception) {
+            onLogAppend("[错误] 无法获取硬件面板物理档位: ${e.message}")
+        }
+        onLogAppend("====================================\n")
 
         frameCount = 0
         shouldThrottleFrames = false
-        
-        try {
-            Choreographer.getInstance().postFrameCallback(frameCallback)
-        } catch (e: Exception) {}
+        Choreographer.getInstance().postFrameCallback(frameCallback)
 
-        // 🌟 核心绑定：使用全局进程生命周期，切后台也死磕到底
-        inspectorJob = ProcessLifecycleOwner.get().lifecycleScope.launch(inspectorDispatcher) {
+        inspectorJob = lifecycleOwner.lifecycleScope.launch(Dispatchers.Default) {
             try {
-                var nextExecutionTime = System.currentTimeMillis()
-
                 while (isActive) {
-                    nextExecutionTime += 1000
-                    val sleepTime = nextExecutionTime - System.currentTimeMillis()
-                    if (sleepTime > 0) {
-                        delay(sleepTime)
-                    } else {
-                        nextExecutionTime = System.currentTimeMillis() // 强制对齐时钟
-                    }
+                    delay(1000)
 
                     val currentHardwareHz = defaultDisplay.refreshRate
                     val capturedFrames = frameCount
@@ -116,60 +117,66 @@ class RefreshRateInspector(
 
                     shouldThrottleFrames = capturedFrames > (currentHardwareHz.toInt() + 2)
 
-                    // 🛡️ 后台重新向 Choreographer 索要心跳，防止因前台不可见导致的底层队列断流
-                    withContext(Dispatchers.Main) {
-                        try {
-                            Choreographer.getInstance().removeFrameCallback(frameCallback)
-                            Choreographer.getInstance().postFrameCallback(frameCallback)
-                        } catch (e: Exception) {}
-                    }
-
-                    // 1. 秒取内存缓冲区快照（耗时 0ms）
+                    // 1. 收割大件快照
                     val snapshots = rootCpuBinder?.hardwareSnapshots ?: DoubleArray(3)
+                    val batTemp = snapshots[0]
+                    val gpuFreq = snapshots[1]
+                    val gpuTemp = snapshots[2]
+
+                    // 2. 暴力收割全系统所有物理热敏原始阵列
                     val rawTemps = rootCpuBinder?.rawThermalTemps ?: DoubleArray(0)
                     val rawTypes = rootCpuBinder?.rawThermalTypes ?: arrayOf()
 
+                    // 3. 稳稳抓取 cpu0..cpu7 真实主频方阵
                     val freqMatrix = Array(8) { DoubleArray(6) }
                     for (core in 0..7) {
                         freqMatrix[core] = rootCpuBinder?.getAllCpuFreqData(core) ?: DoubleArray(6)
                     }
-
-                    // 2. 纯粹、无情的全量数据物理直出（剥离多余判定）
-                    val logBuilder = StringBuilder()
-                    val timeStamp = java.text.SimpleDateFormat("yyyy.MM.dd HH:mm:ss", Locale.getDefault()).format(java.util.Date())
-                    
-                    logBuilder.append(
-                        String.format(
-                            Locale.getDefault(),
-                            "%s [监测] 屏幕: %.1fHz (实际: %dFPS) | 🔋 电池: %.1f°C | 🎮 GPU: %.3fGHz @ %.1f°C\n",
-                            timeStamp, currentHardwareHz, capturedFrames, snapshots[0], snapshots[1], snapshots[2]
-                        )
-                    )
 
                     val nodeLabels = arrayOf(
                         "cpuinfo_cur_freq ", "cpuinfo_max_freq ", "cpuinfo_min_freq ",
                         "scaling_max_freq ", "scaling_min_freq ", "scaling_cur_freq "
                     )
 
+                    val logBuilder = StringBuilder()
+                    
+                    // 🚀 顶部全维大件面板
+                    logBuilder.append(
+                        String.format(
+                            Locale.getDefault(),
+                            "[监测] 屏幕: %.1fHz (实际: %dFPS) | 🔋 电池: %.1f°C | 🎮 GPU: %.3fGHz @ %.1f°C\n",
+                            currentHardwareHz, capturedFrames, batTemp, gpuFreq, gpuTemp
+                        )
+                    )
+
+                    // 🚀 前 6 行：cpu0 到 cpu7 主频矩阵（14 字符宽度像素级对齐）
                     for (fileIndex in 0..5) {
                         logBuilder.append("  └─ ").append(nodeLabels[fileIndex]).append(" ->  ")
                         for (core in 0..7) {
-                            val content = String.format(Locale.getDefault(), "cpu%d: %.3fGHz", core, freqMatrix[core][fileIndex])
+                            val freq = freqMatrix[core][fileIndex]
+                            val content = String.format(Locale.getDefault(), "cpu%d: %.3fGHz", core, freq)
                             logBuilder.append(String.format(Locale.getDefault(), "%-14s", content))
                             if (core < 7) logBuilder.append(" | ")
                         }
                         logBuilder.append("\n")
                     }
 
+                    // 🚀 第 7 行起：全量物理热敏探头阵列（满 5 个自动换行）
                     logBuilder.append("  └─ 🔘 Linux 原始热链路大普查 (全量物理探头平铺展示) ->\n     ")
+                    
                     var columnCount = 0
                     for (i in rawTemps.indices) {
                         val type = rawTypes.getOrNull(i) ?: "unknown"
-                        val thermalContent = String.format(Locale.getDefault(), "[%s: %.1f°C]", type, rawTemps[i])
+                        val temp = rawTemps[i]
+                        
+                        val thermalContent = String.format(Locale.getDefault(), "[%s: %.1f°C]", type, temp)
                         logBuilder.append(String.format(Locale.getDefault(), "%-32s", thermalContent))
+                        
                         if (i < rawTemps.size - 1) {
                             logBuilder.append(" | ")
                             columnCount++
+                            
+                            // 当列计数器累加到 5 时，强行塞入换行符并重置
                             if (columnCount >= 5) {
                                 logBuilder.append("\n     ")
                                 columnCount = 0
@@ -180,7 +187,6 @@ class RefreshRateInspector(
 
                     val finalLogOutput = logBuilder.toString()
 
-                    // 3. 唯有在最后输出时，才利用 Main 线程贴图，绝不在主线程做耗时计算
                     withContext(Dispatchers.Main) {
                         onLogAppend(finalLogOutput)
                     }
@@ -188,20 +194,17 @@ class RefreshRateInspector(
             } finally {
                 withContext(Dispatchers.Main) {
                     shouldThrottleFrames = false
-                    try {
-                        Choreographer.getInstance().removeFrameCallback(frameCallback)
-                    } catch (e: Exception) {}
-                    try {
-                        if (wakeLock?.isHeld == true) wakeLock?.release()
-                    } catch (e: Exception) {}
+                    Choreographer.getInstance().removeFrameCallback(frameCallback)
                 }
             }
         }
     }
 
     fun stop() {
-        inspectorJob?.cancel()
-        inspectorJob = null
+        if (inspectorJob != null && inspectorJob!!.isActive) {
+            inspectorJob?.cancel()
+            inspectorJob = null
+        }
     }
 
     fun unbindRootService() {

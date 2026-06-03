@@ -232,7 +232,7 @@ class MainActivity : AppCompatActivity() {
             addAction(UsbManager.ACTION_USB_ACCESSORY_DETACHED)
         }, exportFlag)
         
-        inspector = RefreshRateInspector(this) { logText ->
+        inspector = RefreshRateInspector(this, this) { logText ->
             appendLog(logText)
         }
         
