@@ -120,7 +120,7 @@ class RefreshRateInspector(
 
                     val logBuilder = StringBuilder()
                     
-                    // 🚀【顶部全维大件面板】
+                    // 🚀 顶部全维大件面板
                     logBuilder.append(
                         String.format(
                             Locale.getDefault(),
@@ -129,7 +129,7 @@ class RefreshRateInspector(
                         )
                     )
 
-                    // 🚀【前 6 行：正规军 cpu0 到 cpu7 主频大阵】使用 %-14s 像素级焊死对齐
+                    // 🚀 前 6 行：正规军 cpu0 到 cpu7 主频大阵（保持原样 14 字符宽度像素级对齐）
                     for (fileIndex in 0..5) {
                         logBuilder.append("  └─ ").append(nodeLabels[fileIndex]).append(" ->  ")
                         for (core in 0..7) {
@@ -141,7 +141,7 @@ class RefreshRateInspector(
                         logBuilder.append("\n")
                     }
 
-                    // 🚀【第 7 行起：全量物理热敏探头弹幕墙】有多少展示多少，彻底扒掉系统底裤
+                    // 🚀 第 7 行起：全量物理热敏探头阵列（修改为满 5 个自动换行）
                     logBuilder.append("  └─ 🔘 Linux 原始热链路大普查 (全量物理探头平铺展示) ->\n     ")
                     
                     var columnCount = 0
@@ -151,13 +151,16 @@ class RefreshRateInspector(
                         
                         // 格式化探头输出：[Type名称: 温度]
                         val thermalContent = String.format(Locale.getDefault(), "[%s: %.1f°C]", type, temp)
-                        // 使用 %-28s 保证每个温度探头格子横向完美对齐，每行满 4 个探头自动换行换列
-                        logBuilder.append(String.format(Locale.getDefault(), "%-28s", thermalContent))
+                        
+                        // 🌟 为适配 5 列布局，微调每个小格子的宽度为 %-26s，既紧凑又保证名字长的探头不跑偏
+                        logBuilder.append(String.format(Locale.getDefault(), "%-26s", thermalContent))
                         
                         if (i < rawTemps.size - 1) {
                             logBuilder.append(" | ")
                             columnCount++
-                            if (columnCount >= 4) {
+                            
+                            // 🌟 核心改动：当列计数器累加到 5 时，强行塞入换行符并重置计数器
+                            if (columnCount >= 5) {
                                 logBuilder.append("\n     ")
                                 columnCount = 0
                             }
