@@ -30,13 +30,13 @@ class PerformanceTurbo(private val context: Context) {
                 val hintManager = context.getSystemService<PerformanceHintManager>()
                 if (hintManager != null) {
                     val myTid = Process.myTid()
-                    val targetDurationNanos = 10_000_000L // 10ms
+                    // 智斗心理战：预期时间：7ms
+                    val targetDurationNanos = 7_000_000L
                     hintSession = hintManager.createHintSession(intArrayOf(myTid), targetDurationNanos)
                     
-                    // 内核心理战提频
-                    hintSession?.reportActualWorkDuration(1_000_000L) 
+                    // 智斗心理战提频：实际时间：0.8ms
+                    hintSession?.reportActualWorkDuration(800_000L) 
                     
-                    // 🟩 用协程切回主线程弹 Toast
                     withContext(Dispatchers.Main) {
                         Toast.makeText(context.applicationContext, "🚀 狂暴性能策略已激活！", Toast.LENGTH_SHORT).show()
                     }
@@ -52,7 +52,6 @@ class PerformanceTurbo(private val context: Context) {
             hintSession?.close()
             hintSession = null
             
-            // 🟩 用协程切回主线程弹 Toast
             withContext(Dispatchers.Main) {
                 Toast.makeText(context.applicationContext, "🍃 性能策略已恢复省电模式", Toast.LENGTH_SHORT).show()
             }

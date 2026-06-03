@@ -13,7 +13,7 @@ import android.content.Context
 import org.lsposed.hiddenapibypass.HiddenApiBypass
 import android.os.Build
 
-class Application : Application() {
+class BypassApi : Application() {
     override fun attachBaseContext(base: Context?) {
         super.attachBaseContext(base)
         // Android P (9.0, API 28) +++

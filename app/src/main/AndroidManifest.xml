@@ -10,21 +10,27 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
     android:installLocation="auto">
+    <!-- OpenGL ES -->
     <uses-feature 
           android:glEsVersion="0x00030002"
           android:required="false" />
-    <!-- USB 主机模式功能 -->
+    <!-- OpenGL ES 硬件功能 -->
+    <uses-feature 
+          android:name="android.hardware.opengles.aep"
+          android:required="false" />
+    <!-- USB 主机功能 -->
     <uses-feature 
           android:name="android.hardware.usb.host"
           android:required="true" />
-    <!-- USB 配件模式功能 -->
+    <!-- USB 配件功能 -->
     <uses-feature 
           android:name="android.hardware.usb.accessory"
           android:required="false" />
-    <!-- WiFi 硬件功能 -->
+    <!-- Wi-Fi 硬件功能 -->
     <uses-feature 
           android:name="android.hardware.wifi"
           android:required="false" />
+    <!-- Wi-Fi 直连 / WiFi P2P -->
     <uses-feature 
           android:name="android.hardware.wifi.direct"
           android:required="false" />
@@ -32,14 +38,45 @@
     <uses-feature 
           android:name="android.hardware.location"
           android:required="false" />
+    <!-- GPS 定位 -->
     <uses-feature 
           android:name="android.hardware.location.gps"
           android:required="false" />
+    <!-- 网络定位 -->
     <uses-feature 
           android:name="android.hardware.location.network"
           android:required="false" />
+    <!-- Mega-Feature -->
     <uses-feature 
           android:name="android.hardware.sensor.hifi_sensors"
+          android:required="false" />
+    <!-- 加速度传感器 -->
+    <uses-feature 
+          android:name="android.hardware.sensor.accelerometer"
+          android:required="false" />
+    <!-- 环境温度计 -->
+    <uses-feature 
+          android:name="android.hardware.sensor.ambient_temperature"
+          android:required="false" />
+    <!-- 地磁传感器 -->
+    <uses-feature 
+          android:name="android.hardware.sensor.compass"
+          android:required="false" />
+    <!-- 角速度传感器 -->
+    <uses-feature 
+          android:name="android.hardware.sensor.gyroscope"
+          android:required="false" />
+    <!-- 环境光传感器 -->
+    <uses-feature 
+          android:name="android.hardware.sensor.light"
+          android:required="false" />
+    <!-- 距离传感器 -->
+    <uses-feature 
+          android:name="android.hardware.sensor.proximity"
+          android:required="false" />
+    <!-- 相对湿度计 -->
+    <uses-feature 
+          android:name="android.hardware.sensor.relative_humidity"
           android:required="false" />
     
     <!-- Android 13+ 附近 WiFi 设备 -->
@@ -79,10 +116,11 @@
     <uses-permission-sdk-23 android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
     <!-- 运行「connectedDevice」类型的前台服务 -->
     <uses-permission-sdk-23 android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
-    <!-- uses-permission-sdk-23 强行要求应用程序必须在运行的情况下才能使用权限，不管是不是普通权限 -->
+    <!-- 允许振动 -->
+    <uses-permission-sdk-23 android:name="android.permission.VIBRATE" />
     <application
-        android:process=":adb"
-        android:name=".Application"
+        android:process=":cpu"
+        android:name="BypassApi"
         android:allowBackup="true"
         android:directBootAware="true"
         android:usesNonSdkApi="true"
@@ -115,7 +153,7 @@
         </activity-alias>
         <activity 
             android:name="MainActivity"
-            android:process=":adb"
+            android:process=":cpu"
             android:directBootAware="true"
             android:showForAllUsers="false"
             android:hardwareAccelerated="true"
@@ -146,7 +184,7 @@
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"
-            android:process=":adb"
+            android:process=":cpu"
             android:exported="false"
             android:grantUriPermissions="true">
             <meta-data
