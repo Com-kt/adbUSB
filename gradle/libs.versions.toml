@@ -10,9 +10,9 @@
 # https://docs.gradle.org/current/userguide/version_catalogs.html#sec::toml-dependencies-format
 [versions]
 agp = "8.13.2"
-kotlin = "2.3.21"
+kotlin = "2.4.0"
 
-kotlinxCoroutines = "1.10.2"
+kotlinxCoroutines = "1.11.0"
 constraintlayout = "2.2.1"
 appcompat = "1.7.1"
 material = "1.13.0"
