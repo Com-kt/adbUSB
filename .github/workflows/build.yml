@@ -72,8 +72,3 @@ jobs:
           name: release-apks
           path: app/build/outputs/apk/release/*
           archive: true
-      
-      - name: Deploy 🚀
-        uses: JamesIves/github-pages-deploy-action@v4
-        with:
-          folder: build

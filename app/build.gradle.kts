@@ -23,14 +23,17 @@ val propVersionCode = providers.gradleProperty("VERSION_CODE").get().toInt()
 
 val buildDate = SimpleDateFormat("yyyyMMdd").format(Date())
 val versionPrefix = providers.gradleProperty("VERSION_PREFIX").get()
+val propNdk = providers.gradleProperty("NDK_VERSION").get()
 
 android {
     namespace = "com.adb.kitty"
     compileSdk = propCompileSdk
+    ndkVersion = "$propNdk"
     
     packaging {
         jniLibs {
-            useLegacyPackaging = false
+            keepDebugSymbols.add("**/libfastboot.so")
+            useLegacyPackaging = true
         }
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
@@ -42,16 +45,30 @@ android {
         minSdk = propMinSdk
         targetSdk = propTargetSdk
         versionCode = propVersionCode
-        versionName = "$versionPrefix-$buildDate-xiaomi-version"
+        versionName = "$versionPrefix-$buildDate-android"
         
         vectorDrawables { 
             useSupportLibrary = true
+        }
+        ndk {
+            abiFilters.addAll(setOf("arm64-v8a", "armeabi-v7a", "x86", "x86_64", "riscv64"))
+        }
+        externalNativeBuild {
+            cmake {
+                abiFilters("arm64-v8a", "armeabi-v7a", "x86", "x86_64", "riscv64")
+            }
         }
     }
     
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_25
         targetCompatibility = JavaVersion.VERSION_25
+    }
+    
+    externalNativeBuild {
+        cmake {
+            path("src/main/cpp/CMakeLists.txt")
+        }
     }
     
     signingConfigs {
@@ -66,6 +83,12 @@ android {
             enableV2Signing = true
             enableV3Signing = true
             enableV4Signing = true
+        }
+    }
+    
+    sourceSets {
+        getByName("main") {
+            jniLibs.srcDirs("src/main/jniLibs")
         }
     }
 
