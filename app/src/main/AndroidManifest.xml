@@ -124,7 +124,6 @@
         android:allowBackup="true"
         android:directBootAware="true"
         android:usesNonSdkApi="true"
-        android:extractNativeLibs="true"
         android:usesCleartextTraffic="true"
         android:resizeableActivity="true"
         android:appCategory="productivity"
