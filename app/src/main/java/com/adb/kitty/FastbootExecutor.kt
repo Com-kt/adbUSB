@@ -16,7 +16,6 @@ import java.io.File
 import java.io.InputStreamReader
 
 object FastbootExecutor {
-
     /**
      * 异步执行 fastboot 命令，并将日志实时回调
      * @param context 上下文
@@ -34,7 +33,7 @@ object FastbootExecutor {
 
         if (!fastbootFile.exists()) {
             withContext(Dispatchers.Main) {
-                onLog("❌ 错误：未找到 libfastboot.so 文件，请检查 jniLibs 配置。\n")
+                onLog("❌ 错误：未找到 libfastboot.so 文件，请检查 jniLibs 配置。")
             }
             return@withContext
         }
@@ -46,7 +45,7 @@ object FastbootExecutor {
 
         // 打印即将执行的完整命令
         withContext(Dispatchers.Main) {
-            onLog("🚀 执行命令: fastboot ${args.joinToString(" ")}\n")
+            onLog("🚀 执行命令: fastboot ${args.joinToString(" ")}")
         }
 
         try {
@@ -63,20 +62,20 @@ object FastbootExecutor {
                 if (currentLine != null) {
                     // 切回主线程，把这一行日志抛给 MainActivity
                     withContext(Dispatchers.Main) {
-                        onLog("$currentLine\n")
+                        onLog("$currentLine")
                     }
                 }
             }
 
             val exitCode = process.waitFor()
             withContext(Dispatchers.Main) {
-                onLog("🏁 进程已结束，退出码: $exitCode\n\n")
+                onLog("🏁 进程已结束，退出码: $exitCode\n")
             }
 
         } catch (e: Exception) {
             e.printStackTrace()
             withContext(Dispatchers.Main) {
-                onLog("💥 发生异常: ${e.message}\n\n")
+                onLog("💥 发生异常: ${e.message}\n")
             }
         }
     }
