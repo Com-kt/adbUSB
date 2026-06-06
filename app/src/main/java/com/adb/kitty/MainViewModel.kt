@@ -63,6 +63,8 @@ class MainViewModel : ViewModel() {
     val adbCommands: List<AdbCommand> get() = _adbCommands
     
     private val _fbCommands = listOf(
+        FbCommand("fastboot 使用帮助", "-help"),
+        FbCommand("当前连接的 fastboot 设备", "devices"),
         FbCommand("查看当前安全补丁级别", "getvar security-patch-level"),
         FbCommand("查看当前活跃的分区槽位（a 或 b)", "getvar current-slot"),
         FbCommand("查看 Bootloader 解锁状态", "getvar unlocked"),
