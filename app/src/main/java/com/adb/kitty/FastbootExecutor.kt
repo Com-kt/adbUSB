@@ -9,60 +9,75 @@
 package com.adb.kitty
 
 import android.content.Context
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.io.BufferedReader
 import java.io.File
 import java.io.InputStreamReader
-import java.io.OutputStream
 
 object FastbootExecutor {
 
     /**
-     * 执行 fastboot 命令
+     * 异步执行 fastboot 命令，并将日志实时回调
      * @param context 上下文
-     * @param args fastboot 的参数列表，例如：listOf("devices") 或 listOf("flash", "boot", "/sdcard/boot.img")
-     * @return 命令行输出的字符串结果
+     * @param args 参数列表
+     * @param onLog 日志回调函数（运行在主线程，可直接更新 UI）
      */
-    fun execute(context: Context, args: List<String>): String {
-        // 1. 获取系统解压 Native 库的绝对路径 (通常是 /data/app/~~.../lib/arm64)
+    suspend fun execute(
+        context: Context, 
+        args: List<String>, 
+        onLog: (String) -> Unit
+    ) = withContext(Dispatchers.IO) { // 切换到 IO 线程执行，防止界面卡死
+
         val nativeDir = context.applicationInfo.nativeLibraryDir
         val fastbootFile = File(nativeDir, "libfastboot.so")
 
-        // 2. 检查文件是否存在
         if (!fastbootFile.exists()) {
-            return "错误：未找到 libfastboot.so 文件，请检查 jniLibs 配置。"
+            withContext(Dispatchers.Main) {
+                onLog("❌ 错误：未找到 libfastboot.so 文件，请检查 jniLibs 配置。\n")
+            }
+            return@withContext
         }
 
-        // 3. 拼接完整的命令。 第一项必须是可执行文件的绝对路径
-        val command = mutableListOf<String>()
-        command.add(fastbootFile.absolutePath)
-        command.addAll(args)
+        val command = mutableListOf<String>().apply {
+            add(fastbootFile.absolutePath)
+            addAll(args)
+        }
 
-        val output = StringBuilder()
+        // 打印即将执行的完整命令
+        withContext(Dispatchers.Main) {
+            onLog("🚀 执行命令: fastboot ${args.joinToString(" ")}\n")
+        }
 
         try {
-            // 4. 使用 ProcessBuilder 启动进程
             val processBuilder = ProcessBuilder(command)
-            // 将标准错误流（stderr）和标准输出流（stdout）合并，方便一起读取 fastboot 的提示信息
-            processBuilder.redirectErrorStream(true) 
-            
+            processBuilder.redirectErrorStream(true) // 合并标准错误和标准输出
             val process = processBuilder.start()
 
-            // 5. 读取 fastboot 执行后返回的文本
             val reader = BufferedReader(InputStreamReader(process.inputStream))
             var line: String?
+
+            // 实时循环读取单行输出
             while (reader.readLine().also { line = it } != null) {
-                output.append(line).append("\n")
+                val currentLine = line // 局部变量捕获
+                if (currentLine != null) {
+                    // 切回主线程，把这一行日志抛给 MainActivity
+                    withContext(Dispatchers.Main) {
+                        onLog("$currentLine\n")
+                    }
+                }
             }
 
-            // 6. 等待进程执行结束，并获取退出码（0 代表成功）
             val exitCode = process.waitFor()
-            output.append("[进程已结束，退出码: $exitCode]")
+            withContext(Dispatchers.Main) {
+                onLog("🏁 进程已结束，退出码: $exitCode\n\n")
+            }
 
         } catch (e: Exception) {
             e.printStackTrace()
-            return "执行期间发生异常: ${e.message}"
+            withContext(Dispatchers.Main) {
+                onLog("💥 发生异常: ${e.message}\n\n")
+            }
         }
-
-        return output.toString()
     }
 }

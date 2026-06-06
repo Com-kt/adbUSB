@@ -238,7 +238,7 @@ class MainActivity : AppCompatActivity() {
         
         binding.appMainActivity.btnConnect.setOnClickListener { 
           findHostDevice()
-          val resultDevices = FastbootExecutor.execute(this, listOf("-help"))
+          runFastbootCommand()
         }
         
         binding.appMainActivity.ipTest.setOnClickListener { IpTestWork() }
@@ -377,6 +377,24 @@ class MainActivity : AppCompatActivity() {
                 true
            }
              else -> super.onOptionsItemSelected(item)
+        }
+    }
+    
+    private fun runFastbootCommand() {
+        lifecycleScope.launch {
+            
+            appendLog("--- 开始准备执行 Fastboot ---\n")
+            
+            // 调用工具类，并将自己的 appendLog 方法作为 lambda 传进去
+            FastbootExecutor.execute(
+                context = this@MainActivity,
+                args = listOf("-help")
+            ) { logLine ->
+                // 每当 fastboot 输出一行，就会执行这里
+                appendLog(logLine)
+            }
+            
+            appendLog("--- Fastboot 流程执行完毕 ---\n")
         }
     }
 
