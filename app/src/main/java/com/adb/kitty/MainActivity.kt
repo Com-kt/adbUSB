@@ -236,7 +236,10 @@ class MainActivity : AppCompatActivity() {
             appendLog(logText)
         }
         
-        binding.appMainActivity.btnConnect.setOnClickListener { findHostDevice() }
+        binding.appMainActivity.btnConnect.setOnClickListener { 
+          findHostDevice()
+          val resultDevices = FastbootExecutor.execute(this, listOf("-help"))
+        }
         
         binding.appMainActivity.ipTest.setOnClickListener { IpTestWork() }
         
