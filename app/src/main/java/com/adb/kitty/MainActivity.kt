@@ -236,10 +236,7 @@ class MainActivity : AppCompatActivity() {
             appendLog(logText)
         }
         
-        binding.appMainActivity.btnConnect.setOnClickListener { 
-          findHostDevice()
-          runFastbootCommand()
-        }
+        binding.appMainActivity.btnConnect.setOnClickListener { findHostDevice() }
         
         binding.appMainActivity.ipTest.setOnClickListener { IpTestWork() }
         
@@ -380,24 +377,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
     
-    private fun runFastbootCommand() {
-        lifecycleScope.launch {
-            
-            appendLog("--- 开始准备执行 Fastboot ---\n")
-            
-            // 调用工具类，并将自己的 appendLog 方法作为 lambda 传进去
-            FastbootExecutor.execute(
-                context = this@MainActivity,
-                args = listOf("-help")
-            ) { logLine ->
-                // 每当 fastboot 输出一行，就会执行这里
-                appendLog(logLine)
-            }
-            
-            appendLog("--- Fastboot 流程执行完毕 ---\n")
-        }
-    }
-
     private fun exportLogToFlashFolder() {
         val logContent = binding.appMainActivity.tvLog.text.toString().trim()
         if (logContent.isEmpty() || logContent == "日志输出…") {
@@ -746,26 +725,41 @@ class MainActivity : AppCompatActivity() {
         val data = command.toByteArray()
         usbConn?.bulkTransfer(epOut, data, data.size, 1000)
     }
-    
+    /**
+     * 核心融合方法：执行任意 Fastboot 命令
+     */
     suspend fun executeCommandSync(command: String) = withContext(Dispatchers.IO) {
+        // 清理并拆分命令
         val cleanCmd = command.removePrefix("fastboot ").trim()
         if (cleanCmd.isEmpty()) return@withContext
         val parts = cleanCmd.split(Regex("\\s+"))
         val action = parts[0].lowercase()
-        // 1. 线刷工作流分流
-        if (action == "flash" || action == "boot") {
-            withContext(Dispatchers.Main) {
-                appendLog("❌ [错误] unknown command: $action (工具不支持该命令)")
-            }
+
+        // 🌟 1. 【核心路由分流】判断是否需要通过 libfastboot.so 可执行文件来完成
+        val requiresBinary = when {
+            // 情况 A：参数以 "-" 开头（例如 -help, --version, -s 等参数），直接走二进制文件
+            action.startsWith("-") -> true
+            
+            // 情况 B：你已经完美适配好协议的纯文本直连指令，走物理 USB 通道
+            action == "getvar" || action == "oem" || action == "erase" -> false
+            
+            // 情况 C：其余复杂的刷机、文件操作或未适配的命令（flash, boot, reboot, devices ），默认全部走二进制文件
+            else -> true
+        }
+
+        if (requiresBinary) {
+            // 🚀 【走二进制可执行文件独立进程分支】
+            executeViaFastbootBinary(parts)
             return@withContext
         }
-        // 2. 严格的命令协议转换
+
+        // 🔌 2. 【走原生的 USB 协议转换直连分支】（保持你原有的精良设计）
         val protocolCmd = when (action) {
             "getvar" -> {
                 if (parts.size >= 2) "${parts[0]}:${parts.drop(1).joinToString(" ")}" else parts[0]
             }
             "oem" -> {
-                cleanCmd // 保持空格不变，彻底根治 unknown command
+                cleanCmd 
             }
             "erase" -> {
                 if (parts.size >= 2) "${parts[0]}:${parts.drop(1).joinToString(" ")}" else parts[0]
@@ -775,26 +769,88 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
+        withContext(Dispatchers.Main) {
+            appendLog("🚀 [USB直连] 发送指令: $protocolCmd")
+        }
+
         sendFastbootCommandDirect(protocolCmd)
 
         // 3. 传入实时回调，刷新前台 UI
         val result = waitForTerminalResponse(10000) { infoText ->
-            runOnUiThread {
-                appendLog("FB << (bootloader) $infoText")
-            }
+            appendLog("FB << (bootloader) $infoText")
         }
         
-        // 4. 最终状态结算
+        // 4. 原生通道最终状态结算
         withContext(Dispatchers.Main) {
-            if (result.status == "OKAY") {
-                appendLog("FB << OKAY [执行成功] ${result.payload}")
-            } else if (result.status == "FAIL") {
-                appendLog("❌ [错误] 手机拒绝了该指令: ${result.payload}")
-            } else if (result.status == "TIMEOUT") {
-                appendLog("⚠️ [超时] ${result.payload}")
+            when (result.status) {
+                "OKAY" -> appendLog("FB << OKAY [执行成功] ${result.payload}")
+                "FAIL" -> appendLog("❌ [错误] 手机拒绝了该指令: ${result.payload}")
+                "TIMEOUT" -> appendLog("⚠️ [超时] ${result.payload}")
             }
-            // 💡 额外红利：如果你的别处代码还需要拿到全量日志做后续分析，现在依然可以这么拿到：
-            // val myLogs = result.allLines
+        }
+    }
+    /**
+     * 🌟 混合驱动核心：调用打包在 jniLibs 中的 libfastboot.so 执行未适配或复杂的命令
+     */
+    private suspend fun executeViaFastbootBinary(args: List<String>) = withContext(Dispatchers.IO) {
+        val nativeDir = applicationInfo.nativeLibraryDir
+        val fastbootFile = File(nativeDir, "libfastboot.so")
+
+        // 安全检查
+        if (!fastbootFile.exists()) {
+            withContext(Dispatchers.Main) {
+                appendLog("❌ 错误：未找到 libfastboot.so 可执行文件。")
+            }
+            return@withContext
+        }
+
+        // 再次确保工作目录是安全的
+        ensureFlashDirExists()
+
+        // 组装要在 Linux 进程里跑的命令
+        val command = mutableListOf<String>().apply {
+            add(fastbootFile.absolutePath)
+            addAll(args)
+        }
+
+        withContext(Dispatchers.Main) {
+            appendLog("📂 [工作目录]: ${flashFolder.absolutePath}")
+            appendLog("🚀 [独立进程] 执行命令: fastboot ${args.joinToString(" ")}")
+        }
+
+        try {
+            val processBuilder = ProcessBuilder(command)
+            processBuilder.directory(flashFolder)
+            processBuilder.redirectErrorStream(true)
+            
+            val process = processBuilder.start()
+            val reader = BufferedReader(InputStreamReader(process.inputStream))
+            var line: String?
+
+            // 实时读取进程产生的每一行输出并回传给 UI 界面
+            while (reader.readLine().also { line = it } != null) {
+                val currentLine = line
+                if (currentLine != null) {
+                    withContext(Dispatchers.Main) {
+                        appendLog("FB(Bin) << $currentLine")
+                    }
+                }
+            }
+
+            // 阻塞等待进程彻底完成并获取退出状态码
+            val exitCode = process.waitFor()
+            withContext(Dispatchers.Main) {
+                if (exitCode == 0) {
+                    appendLog("🏁 [进程结束] 执行成功 (code: $exitCode)")
+                } else {
+                    appendLog("⚠️ [进程结束] 执行可能失败或被中断 (code: $exitCode)")
+                }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            withContext(Dispatchers.Main) {
+                appendLog("💥 [独立进程异常]: ${e.message}")
+            }
         }
     }
 
