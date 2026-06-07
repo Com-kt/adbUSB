@@ -941,7 +941,7 @@ class MainActivity : AppCompatActivity() {
             }
 
         } catch (e: CancellationException) {
-            withContext(Dispatchers.NonCancellable) {
+            withContext(NonCancellable) {
                 logPipeline.send("⚠️ [生命周期安全介入]: 线刷任务已被外部物理切断。")
             }
         } catch (e: Exception) {
