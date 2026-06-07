@@ -77,7 +77,7 @@ class MainViewModel : ViewModel() {
         FbCommand("进入 FastbootD 模式", "reboot fastboot"),
         FbCommand("擦除缓存分区", "erase cache"),
         FbCommand("擦除用户数据分区（相当于恢复出厂设置)", "erase userdata"),
-        FbCommand("一键清空：擦除用户数据和缓存（刷机前的标准“双清”)", "-w"),
+        FbCommand("擦除出厂重置保护(谷歌锁)", "erase frp"),
         FbCommand("尝试解锁 Bootloader", "oem unlock"),
         FbCommand("尝试解锁 Bootloader", "flashing unlock")
     )

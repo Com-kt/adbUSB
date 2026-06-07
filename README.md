@@ -7,29 +7,43 @@
 
 # Work #
 
-# Concrete realization
+# Code
 - [x] USB mode
     - [x] Host (Android 9+)
     - [ ] accessory (Android 12+)
     - [x] UsbManager API (Android 9+)
 - [x] Fastboot
     - [x] cmd (Android 9+)
-    - [ ] flash (Android 9+)
-    - [x] 255/66/3
-    - [ ] 255/68/3
+    - [x] flash (Android 9+)
+    - [x] interface
+        - [x] 255/66/3
+        - [ ] 255/68/3
 - [x] ADB
     - [x] shell (Android 9+)
     - [ ] pull (Android 9+)
+        - [ ] Sync
+        - [ ] adb Shell
     - [ ] push (Android 9+)
+        - [ ] Sync
+        - [ ] adb Shell
     - [ ] pair (Android 13+)
-    - [x] 255/66/1
-    - [ ] 6/1/1
+        - [ ] QR (Android 13+)
+        - [ ] IPC/TCP (Android 9+)
+    - [x] interface
+        - [x] 255/66/1
+        - [ ] 6/1/1
 - [x] Application
     - [x] ipv4 Test
     - [x] ipv6 Test
     - [x] display Test (RootService)
     - [x] MTFilesProvider
     - [x] Kernel frequency raising (Android 12+)
+    - [x] Library
+        - [x] arm64-v8a
+        - [x] armeabi-v7a
+        - [x] x86
+        - [x] x86_64
+        - [x] riscv64
 - [x] CPU
     - [x] SM8475：
         - [x] 第一代骁龙 8+ (Snapdragon 8+ Gen 1)
@@ -49,7 +63,7 @@
 
 > [!WARNING]
 > 
-> FASTBOOT COMMUNICATION LINK SELF-TEST
+> MTK UNSUPPORTED
 
 # 其他 ADB 工具
 - 如果您不想使用此GitHub仓库实现的ADB工具，那么您也可以使用其他GitHub仓库实现的ADB工具

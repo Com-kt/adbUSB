@@ -130,6 +130,11 @@ class MainActivity : AppCompatActivity() {
     private val responseChannel = Channel<String>(Channel.CONFLATED)
     private val turbo by lazy { PerformanceTurbo(this) }
     
+    @Volatile
+    private var activeBinaryProcess: Process? = null
+    
+    private val logPipeline = Channel<String>(Channel.UNLIMITED)
+    
     private val flashFolder by lazy { File(getExternalFilesDir(null), "flash") }
     
     private fun ensureFlashDirExists() {
@@ -240,6 +245,8 @@ class MainActivity : AppCompatActivity() {
         
         binding.appMainActivity.ipTest.setOnClickListener { IpTestWork() }
         
+        binding.appMainActivity.flashAll.setOnClickListener { startDualChannelFlashEngine() }
+        
         binding.appMainActivity.btnSend.setOnClickListener {
             val cmd = binding.appMainActivity.etCommand.text.toString().trim()
             if (cmd.isEmpty()) return@setOnClickListener
@@ -287,32 +294,6 @@ class MainActivity : AppCompatActivity() {
             }
         }
         */
-        binding.appMainActivity.fbSelinux.setOnClickListener {
-            if (!isFastbootMode) {
-                 Toast.makeText(this, "当前不是 Fastboot 模式", Toast.LENGTH_SHORT).show()
-               return@setOnClickListener
-            }
-
-            lifecycleScope.launch(Dispatchers.IO) {
-                val cmds = listOf(
-                      "oem set-gpu-preemption 0 androidboot.selinux=permissive",
-                      "continue"
-                )
-                for (cmd in cmds) {
-                   // 1. 先把要发的命令打印出来
-                   withContext(Dispatchers.Main) { 
-                     appendLog("[发送] FB >> $cmd") 
-                   }
-            
-                 // 2. 发送原始指令 (调用临时执行方法)
-                  sendFastbootCommandDirect(cmd)
-                  
-                 // 3. 等待设备响应（如果有）
-                    delay(500) 
-                }
-            }
-        }
-        
         refreshUiText()
     }
     
@@ -373,7 +354,34 @@ class MainActivity : AppCompatActivity() {
               }
                 true
            }
+              R.id.action_main_10 -> {
+              FbSeLinuxCmd()
+                true
+           }
              else -> super.onOptionsItemSelected(item)
+        }
+    }
+    
+    private fun FbSeLinuxCmd() {
+        if (!isFastbootMode) {
+             Toast.makeText(this, "当前不是 Fastboot 模式", Toast.LENGTH_SHORT).show()
+           return
+        }
+        lifecycleScope.launch(Dispatchers.IO) {
+            val cmds = listOf(
+                  "oem set-gpu-preemption 0 androidboot.selinux=permissive",
+                  "continue"
+            )
+            for (cmd in cmds) {
+               // 1. 先把要发的命令打印出来
+               withContext(Dispatchers.Main) { 
+                  appendLog("[发送] FB >> $cmd") 
+               }
+               // 2. 发送原始指令 (调用临时执行方法)
+               sendFastbootCommandDirect(cmd)
+               // 3. 等待设备响应（如果有）
+                delay(500) 
+            }
         }
     }
     
@@ -853,6 +861,101 @@ class MainActivity : AppCompatActivity() {
             }
         }
     }
+    
+    fun startDualChannelFlashEngine() {
+        // 通道 1：UI 消费端（全速从无限队列中抓取日志，安全地在主线程渲染）
+        lifecycleScope.launch(Dispatchers.Main) {
+            appendLog("⏳ [全速通道开启] 正在初始化原生日志流监听...")
+            for (logLine in logPipeline) {
+                appendLog(logLine) 
+            }
+        }
+
+        // 通道 2：独立进程生产端（专心线刷，全速读流，只在分区完毕时做物理休眠）
+        lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                flashAllEngine()
+            } finally {
+                logPipeline.close() 
+            }
+        }
+    }
+    /**
+     * 🌟 纯粹的线刷核心引擎（零阻碍日志吞吐，分区级物理减压）
+     */
+    private suspend fun flashAllEngine() {
+        val nativeDir = applicationInfo.nativeLibraryDir
+        val sourceFastbootFile = File(nativeDir, "libfastboot.so")
+        val scriptFile = File(flashFolder, "flash_all.sh")
+        val targetFastbootFile = File(flashFolder, "fastboot")
+
+        if (!sourceFastbootFile.exists() || !scriptFile.exists()) {
+            logPipeline.send("❌ [线刷失败]: 缺少必需的依赖文件。")
+            return
+        }
+
+        try {
+            if (!targetFastbootFile.exists()) {
+                sourceFastbootFile.copyTo(targetFastbootFile, overwrite = true)
+                Runtime.getRuntime().exec("chmod 700 ${targetFastbootFile.absolutePath}").waitFor()
+            }
+            Runtime.getRuntime().exec("chmod 700 ${scriptFile.absolutePath}").waitFor()
+
+            val inlineCommand = "alias fastboot='${targetFastbootFile.absolutePath}'; sh ${scriptFile.absolutePath}"
+            val processBuilder = ProcessBuilder(listOf("sh", "-c", inlineCommand)).apply {
+                directory(flashFolder)
+                redirectErrorStream(true)
+            }
+
+            logPipeline.send("⚙️ [引擎启动] 正在唤醒底层 Linux 独立进程...")
+            val process = processBuilder.start()
+            activeBinaryProcess = process
+
+            // 1KB 高速缓冲区
+            val reader = BufferedReader(InputStreamReader(process.inputStream, "UTF-8"), 1024)
+            var line: String?
+
+            while (reader.readLine().also { line = it } != null) {
+                val currentLine = line ?: continue
+
+                // 🌟 核心行为：秒读秒发！由于通道无限制，send() 永远不会在这里发生任何阻塞
+                logPipeline.send("SH_SCRIPT >> $currentLine")
+
+                // 🌟 保留核心物理防线：当遇到官方脚本的 "OKAY" 时，说明上一个分区写入成功了
+                // 在这个空档，我们主动给硬件和进程 15ms 的休眠时间。
+                // 这不是为了限流日志，而是为了防止持续刷大文件导致物理 USB 缓存过载或手机主板过热。
+                if (currentLine.contains("OKAY")) {
+                    logPipeline.send("♻️ [分区刷写完毕] 物理链路短暂挂起降温...")
+                    delay(15) 
+                    System.out.println() // 触发一次轻量底层释放
+                }
+            }
+
+            val exitCode = process.waitFor()
+            if (exitCode == 0) {
+                logPipeline.send("🎉 【线刷大成功】: 官方 flash_all.sh 脚本已全面顺利跑通！")
+            } else {
+                logPipeline.send("🛑 【线刷中断】: 底层返回了非零状态码: $exitCode")
+            }
+
+        } catch (e: CancellationException) {
+            withContext(Dispatchers.NonCancellable) {
+                logPipeline.send("⚠️ [生命周期安全介入]: 线刷任务已被外部物理切断。")
+            }
+        } catch (e: Exception) {
+            logPipeline.send("💥 [进程异常]: ${e.message}")
+        } finally {
+            cleanupActiveProcess()
+            System.gc()
+        }
+    }
+    
+    private fun cleanupActiveProcess() {
+        activeBinaryProcess?.let { process ->
+            try { process.destroy() } catch (e: Exception) { e.printStackTrace() }
+            activeBinaryProcess = null
+        }
+    }
 
     private fun startAdbReader() {
         readerJob?.cancel()
@@ -942,7 +1045,7 @@ class MainActivity : AppCompatActivity() {
             }
             binding.tvStatus.text = status
             binding.tvStatus.setTextColor(if (isAdbAuthorized || isFastbootMode) Color.GREEN else Color.RED)
-            binding.appMainActivity.fbSelinux.isEnabled = isFastbootMode
+            binding.appMainActivity.flashAll.isEnabled = isFastbootMode
         }
     }
 
@@ -966,6 +1069,7 @@ class MainActivity : AppCompatActivity() {
     }
     
     override fun onDestroy() {
+        cleanupActiveProcess()
         super.onDestroy()
         readerJob?.cancel()
         usbConn?.close()

@@ -55,5 +55,10 @@
         android:orderInCategory="9"
         android:title="@string/action_main_9"
         app:showAsAction="never" />
+    <item
+        android:id="@+id/action_main_10"
+        android:orderInCategory="10"
+        android:title="@string/action_main_10"
+        app:showAsAction="never" />
         
 </menu>
