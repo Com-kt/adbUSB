@@ -82,7 +82,8 @@
     <!-- Android 13+ 附近 WiFi 设备 -->
     <uses-permission-sdk-23 
         android:name="android.permission.NEARBY_WIFI_DEVICES" 
-        android:usesPermissionFlags="neverForLocation" />
+        android:usesPermissionFlags="neverForLocation"
+        tools:ignore="UnusedAttribute" />
     <!-- 使用证书 -->
     <uses-permission-sdk-23 android:name="android.permission.USE_CREDENTIALS" />
     <uses-permission-sdk-23 android:name="android.permission.USB_PERMISSION" />

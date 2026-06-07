@@ -61,7 +61,7 @@ class GhzRootService : RootService() {
         return object : ICpuBinder.Stub() {
             
             override fun getAllCpuFreqData(core: Int): DoubleArray {
-                val data = DoubleArray(6) { 0.0 }
+                val data = DoubleArray(6)
                 val nodeLabels = arrayOf(
                     "cpuinfo_cur_freq", "cpuinfo_max_freq", "cpuinfo_min_freq",
                     "scaling_max_freq", "scaling_min_freq", "scaling_cur_freq"
@@ -77,7 +77,7 @@ class GhzRootService : RootService() {
             }
 
             override fun getHardwareSnapshots(): DoubleArray {
-                val data = DoubleArray(3) { 0.0 }
+                val data = DoubleArray(3)
                 try {
                     val batRaw = File("/sys/class/power_supply/battery/temp").readText().trim().toDouble()
                     data[0] = if (batRaw > 1000) batRaw / 1000.0 else (if (batRaw > 100) batRaw / 10.0 else batRaw)

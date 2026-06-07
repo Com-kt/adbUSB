@@ -44,6 +44,7 @@
         android:id="@+id/etCommand"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:importantForAutofill="no"
         android:hint="@string/app_main_activity_xml_etCommand"
         android:layout_marginEnd="@dimen/activity_xml_layout_marginEnd"
         android:layout_marginStart="@dimen/activity_xml_layout_marginStart"
@@ -96,7 +97,7 @@
 
         <TextView
             android:id="@+id/tvLog"
-            android:layout_width="match_parent"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:padding="@dimen/dialog_simple_xml_layout_margin"
             android:fontFamily="monospace"

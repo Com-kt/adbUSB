@@ -16,10 +16,7 @@ import android.os.Build
 class BypassApi : Application() {
     override fun attachBaseContext(base: Context?) {
         super.attachBaseContext(base)
-        // Android P (9.0, API 28) +++
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            HiddenApiBypass.addHiddenApiExemptions("L")
-        }
+        HiddenApiBypass.addHiddenApiExemptions("L")
     }
     override fun onCreate() {
         super.onCreate()
