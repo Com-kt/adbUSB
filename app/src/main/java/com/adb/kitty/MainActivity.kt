@@ -104,7 +104,7 @@ import java.time.format.DateTimeFormatter
 import javax.net.ssl.SSLContext
 import javax.net.ssl.SSLSocket
 import okio.Buffer
-import com.flyfishxu.kadb.KadbConnection
+import com.flyfishxu.kadb.Kadb
 
 data class AdbCommand(val description: String, val command: String)
 
@@ -129,7 +129,7 @@ class MainActivity : AppCompatActivity() {
     private var readerJob: Job? = null
     private var mLocalId = 1
     private var accessoryPfd: ParcelFileDescriptor? = null
-    private var kadbConnection: KadbConnection? = null
+    private var kadbInstance: Kadb? = null
 
     private var isUsbAttached = false
     private var isAdbAuthorized = false
@@ -658,7 +658,7 @@ class MainActivity : AppCompatActivity() {
         }
         updateStatus("发现设备但无 ADB/Fastboot 接口")
     }
-
+    
     private fun connectToInterface(device: UsbDevice) {
         val protocolTarget = if (isFastbootMode) 3 else 1
         val intf = (0 until device.interfaceCount).map { device.getInterface(it) }
@@ -680,27 +680,22 @@ class MainActivity : AppCompatActivity() {
             appendLog("[系统] Fastboot 链路已就绪")
         } else {
             isAdbAuthorized = false
-            appendLog("[系统] 正在通过 KADB 初始化有线物理多路复用信道...")
+            appendLog("[系统] 正在通过新版 KADB 初始化有线物理通道...")
 
             lifecycleScope.launch(Dispatchers.IO) {
                 try {
-                    // 1. 将物理 Bulk 端点套进我们刚才实现的 Okio 桥接管道中
+                    // 1. 将物理端点套进针对新架构重写的桥接通道中
                     val bridgeChannel = KadbUsbBridgeChannel(conn, epIn!!, epOut!!)
-
-                    // 2. 一键创建 KADB 有线连接
-                    // 它会自动使用上面 AdbKeyManager 初始化好的全局私钥与公钥单例
-                    kadbConnection = KadbConnection.create(bridgeChannel)
 
                     withContext(Dispatchers.Main) {
                         appendLog("[Auth] 正在向远端设备轰入 CNXN 物理握手验证信号...")
                     }
 
-                    // 3. 轰入物理连接进程！
-                    // 这行核心指令会在后台自动完成你之前在 startAdbReader 里编写的所有任务：
-                    // 发送 Banner -> 拦截并捕获 AUTH 挑战 -> 签名通过 -> 若私钥被拒，自动转码明文公钥促使电视端弹出授权弹窗！
-                    kadbConnection?.connect()
+                    // 2. 🔥🔥🔥 见证奇迹：调用最新 2.x 版的创建函数
+                    // 它会自动从全局配置就绪的 KadbCert 里提取私钥公钥处理 AUTH 状态机
+                    kadbInstance = Kadb.create(channel = bridgeChannel)
 
-                    // 4. 当流程推进到这一步，意味着 AUTH 完全击穿，握手全线成功！
+                    // 3. 授权完全击穿，握手成功
                     withContext(Dispatchers.Main) {
                         isAdbAuthorized = true
                         refreshUiText()
@@ -709,7 +704,7 @@ class MainActivity : AppCompatActivity() {
 
                 } catch (e: Exception) {
                     withContext(Dispatchers.Main) {
-                        appendLog("[Error] KADB 物理握手发生塌方断裂: ${e.message}")
+                        appendLog("[Error] KADB 物理握手断裂: ${e.message}")
                     }
                 }
             }
@@ -996,18 +991,17 @@ class MainActivity : AppCompatActivity() {
         
         lifecycleScope.launch(Dispatchers.IO) {
             try {
-                val conn = kadbConnection ?: throw IllegalStateException("物理有线链路尚未握手就绪")
+                val kadb = kadbInstance ?: throw IllegalStateException("物理链路尚未就绪")
                 
-                // 打开一条独占的高级虚拟多路复用 Shell 流
-                val stream = conn.openShell(cleanCmd)
+                // 🌟 最新 2.x 版接口一键开启 Shell 流（对应代码树中的 AdbShellStream.kt）
+                val shellStream = kadb.openShell(cleanCmd)
                 
-                // 循环榨干远端设备吐回来的全量明文数据流
-                stream.source.use { source ->
+                shellStream.source.use { source ->
                     val buffer = Buffer()
                     while (source.read(buffer, 8192) != -1L) {
                         val outputChunk = buffer.readUtf8()
                         withContext(Dispatchers.Main) {
-                            appendLog(outputChunk) // 实时冲刷出远端 Shell 回传的数据
+                            appendLog(outputChunk) // 实时冲刷终端数据
                         }
                     }
                 }
@@ -1017,7 +1011,44 @@ class MainActivity : AppCompatActivity() {
                 }
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
-                    appendLog("[Shell 异常] 传输受阻: ${e.message}")
+                    appendLog("[Shell 异常] ${e.message}")
+                }
+            }
+        }
+    }
+    
+    private fun performUsbFileSync() {
+        appendLog("[Sync] 正在物理层唤醒新版 AOSP 文件同步模块...")
+        
+        lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                val kadb = kadbInstance ?: throw IllegalStateException("链路未建立")
+                
+                // 🌟 打开最新 2.x 版的物理同步流 
+                val syncStream = kadb.openSync()
+
+                val localFile = File(filesDir, "update_payload.apk")
+                if (!localFile.exists()) {
+                    withContext(Dispatchers.Main) { appendLog("[Sync] 本地测试文件不存在！") }
+                    syncStream.close()
+                    return@launch
+                }
+
+                appendLog("[Sync] 正在通过有线总线压入大文件...")
+                // 调用新版一键 Push
+                syncStream.push(localFile, "/data/local/tmp/target_test.apk", 0x1ED)
+                withContext(Dispatchers.Main) { appendLog("[Sync] Push 成功！") }
+
+                val localResultFile = File(filesDir, "pulled_remote_log.txt")
+                // 调用新版一键 Pull
+                syncStream.pull("/data/local/tmp/error.log", localResultFile)
+                withContext(Dispatchers.Main) { appendLog("[Sync] Pull 成功！") }
+
+                syncStream.close()
+
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    appendLog("[Sync 异常]: ${e.message}")
                 }
             }
         }

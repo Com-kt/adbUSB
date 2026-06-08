@@ -82,3 +82,9 @@
 - *
 - * by: 小猫猫
 - */
+
+## Acknowledgements
+
+- [Kadb](https://github.com/flyfishxu/Kadb)
+- [android-sdk](https://github.com/HomuHomu833/android-sdk-custom)
+- [RootService](https://github.com/topjohnwu/libsu)

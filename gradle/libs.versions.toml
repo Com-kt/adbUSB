@@ -20,7 +20,6 @@ annotation = "1.10.0"
 coreKtx = "1.18.0"
 activityKtx = "1.13.0"
 
-bouncycastle = "1.84"
 mtDataFilesProvider = "1.0.0"
 
 hiddenapibypassVersion = "6.1"
@@ -53,10 +52,6 @@ kotlinx-coroutines-core = { group = "org.jetbrains.kotlinx", name = "kotlinx-cor
 kotlinx-coroutines-core-jvm = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-core-jvm", version.ref = "kotlinxCoroutines" }
 kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "kotlinxCoroutines" }
 
-# BouncyCastle 库
-bcpkix-jdk18on = { group = "org.bouncycastle", name = "bcpkix-jdk18on", version.ref = "bouncycastle" }
-bcprov-jdk18on = { group = "org.bouncycastle", name = "bcprov-jdk18on", version.ref = "bouncycastle" }
-
 # MT 文件提供者
 mt-dataFilesProvider = { group = "com.github.L-JINBIN", name = "MTDataFilesProvider", version.ref = "mtDataFilesProvider" }
 
@@ -85,10 +80,6 @@ coroutines-runtime = [
     "kotlinx-coroutines-core-jvm",
     "kotlinx-coroutines-core",
     "kotlinx-coroutines-android"
-]
-bouncycastle = [
-    "bcprov-jdk18on", 
-    "bcpkix-jdk18on"
 ]
 libsu = [
     "libsu-core",
