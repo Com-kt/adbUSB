@@ -8,6 +8,7 @@
  */
 package com.adb.kitty
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.util.Base64
 import android.util.Log
