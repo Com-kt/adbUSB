@@ -986,21 +986,35 @@ class MainActivity : AppCompatActivity() {
     private fun getCurrentWifiSsid(): String {
         try {
             val connectivityManager = applicationContext.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+            // 🌟 1. Android 10+ (API 29+) 现代标准非废弃写法
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 val activeNetwork = connectivityManager.activeNetwork
                 val capabilities = connectivityManager.getNetworkCapabilities(activeNetwork)
+            
                 if (capabilities != null && capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)) {
+                    // 直接从网络能力承载体中安全提取网络传输信息
                     val wifiInfo = capabilities.transportInfo as? WifiInfo
                     if (wifiInfo != null) {
                         val ssid = wifiInfo.ssid.replace("\"", "")
-                        if (ssid != "<unknown ssid>" && ssid.isNotEmpty()) return ssid
+                        if (ssid != "<unknown ssid>" && ssid.isNotEmpty()) {
+                            return ssid
+                        }
                     }
                 }
             }
-            val wifiManager = applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
-            val ssid = wifiManager.connectionInfo.ssid.replace("\"", "")
-            if (ssid != "<unknown ssid>" && ssid.isNotEmpty()) return ssid
-        } catch (e: Exception) { Log.e("adbKitty", "获取无线SSID受限", e) }
+            @Suppress("DEPRECATION")
+            val wifiManager = applicationContext.getSystemService(Context.WIFI_SERVICE) as android.net.wifi.WifiManager
+            @Suppress("DEPRECATION")
+            val info = wifiManager.connectionInfo
+            if (info != null) {
+                val ssid = info.ssid.replace("\"", "")
+                if (ssid != "<unknown ssid>" && ssid.isNotEmpty()) {
+                    return ssid
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("adbKitty", "获取无线SSID受限", e)
+        }
         return "DEFAULT_WIFI"
     }
 
