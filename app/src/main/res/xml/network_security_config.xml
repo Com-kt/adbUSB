@@ -14,30 +14,6 @@
             <certificates src="user" />
         </trust-anchors>
     </base-config>
-
-    <domain-config cleartextTrafficPermitted="true">
-        <domain includeSubdomains="true">local</domain>
-        <domain includeSubdomains="true">localhost</domain>
-        <domain includeSubdomains="true">github.com</domain>
-        <domain includeSubdomains="true">google.com</domain>
-        <domain includeSubdomains="true">play.google.com</domain>
-        <domain includeSubdomains="true">android.com</domain>
-        <domain includeSubdomains="true">ipv6.google.com</domain>
-        <domain includeSubdomains="true">ipv4.google.com</domain>
-        <domain includeSubdomains="true">api-ipv6.ip.sb</domain>
-        <domain includeSubdomains="true">ipv6.icanhazip.com</domain>
-        <domain includeSubdomains="true">v6.ident.me</domain>
-        <domain includeSubdomains="true">api6.ipify.org</domain>
-        <domain includeSubdomains="true">api-ipv4.ip.sb</domain>
-        <domain includeSubdomains="true">myip.dnsomatic.com</domain>
-        <domain includeSubdomains="true">ipv4.icanhazip.com</domain>
-        <domain includeSubdomains="true">ident.me</domain>
-        <domain includeSubdomains="true">api.ipify.org</domain>
-        <trust-anchors>
-            <certificates src="system" overridePins="true" />
-            <certificates src="user" overridePins="true" />
-        </trust-anchors>
-    </domain-config>
     
     <debug-overrides>
         <trust-anchors>
