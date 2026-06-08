@@ -715,8 +715,10 @@ class MainActivity : AppCompatActivity() {
             }
         }
     }
-    
-    private fun sendAdbShell(command: String) {
+    /**
+     * 🚀 精准对齐 2.x 的单步特权命令发射（确保类中仅此一份！）
+     */
+    fun sendAdbShell(command: String) {
         appendLog("ADB >> $command")
         val cleanCmd = command.removePrefix("adb shell ").trim()
         
@@ -724,11 +726,10 @@ class MainActivity : AppCompatActivity() {
             try {
                 val kadb = kadbInstance ?: throw IllegalStateException("物理链路尚未就绪")
                 
-                // 🌟 2.x 标准单步调用：直接获取返回的全量响应实体
+                // 🌟 2.x 标准单步调用：直接获取返回的全量响应实体，不要用旧版的 openShell 读流逻辑
                 val response = kadb.shell(cleanCmd)
                 
                 withContext(Dispatchers.Main) {
-                    // 打印标准输出（新版包含了 stdout 与 stderr 的聚合体或独立域）
                     appendLog(response.allOutput)
                     appendLog("[流结束]")
                 }
@@ -739,8 +740,10 @@ class MainActivity : AppCompatActivity() {
             }
         }
     }
-    
-    private fun performUsbFileSync() {
+    /**
+     * 🚀 极简物理同步：完全对齐 2.x 源码顶级接口（确保类中仅此一份！）
+     */
+    fun performUsbFileSync() {
         appendLog("[Sync] 正在物理层唤醒 2.x 高能一键文件同步...")
         
         lifecycleScope.launch(Dispatchers.IO) {
@@ -754,7 +757,7 @@ class MainActivity : AppCompatActivity() {
                 }
 
                 appendLog("[Sync] 开始执行无感 Push...")
-                // 🌟 完美对齐 2.x 顶级接口：传入 File 对象即可，底层自动全周期自动托管
+                // 🌟 完美对齐 2.x 顶级接口：直接通过 kadbInstance 呼叫，不再使用旧的 syncStream 对象！
                 kadb.push(src = localFile, remotePath = "/data/local/tmp/target_test.apk")
                 withContext(Dispatchers.Main) { appendLog("[Sync] Push 推送数据圆满落幕！") }
 
@@ -1044,75 +1047,6 @@ class MainActivity : AppCompatActivity() {
         activeBinaryProcess?.let { process ->
             try { process.destroy() } catch (e: Exception) { e.printStackTrace() }
             activeBinaryProcess = null
-        }
-    }
-
-    private fun sendAdbShell(command: String) {
-        appendLog("ADB >> $command")
-        val cleanCmd = command.removePrefix("adb shell ").trim()
-        
-        lifecycleScope.launch(Dispatchers.IO) {
-            try {
-                val kadb = kadbInstance ?: throw IllegalStateException("物理链路尚未就绪")
-                
-                // 🌟 最新 2.x 版接口一键开启 Shell 流（对应代码树中的 AdbShellStream.kt）
-                val shellStream = kadb.openShell(cleanCmd)
-                
-                shellStream.source.use { source ->
-                    val buffer = Buffer()
-                    while (source.read(buffer, 8192) != -1L) {
-                        val outputChunk = buffer.readUtf8()
-                        withContext(Dispatchers.Main) {
-                            appendLog(outputChunk) // 实时冲刷终端数据
-                        }
-                    }
-                }
-                
-                withContext(Dispatchers.Main) {
-                    appendLog("[流结束]")
-                }
-            } catch (e: Exception) {
-                withContext(Dispatchers.Main) {
-                    appendLog("[Shell 异常] ${e.message}")
-                }
-            }
-        }
-    }
-    
-    private fun performUsbFileSync() {
-        appendLog("[Sync] 正在物理层唤醒新版 AOSP 文件同步模块...")
-        
-        lifecycleScope.launch(Dispatchers.IO) {
-            try {
-                val kadb = kadbInstance ?: throw IllegalStateException("链路未建立")
-                
-                // 🌟 打开最新 2.x 版的物理同步流 
-                val syncStream = kadb.openSync()
-
-                val localFile = File(filesDir, "update_payload.apk")
-                if (!localFile.exists()) {
-                    withContext(Dispatchers.Main) { appendLog("[Sync] 本地测试文件不存在！") }
-                    syncStream.close()
-                    return@launch
-                }
-
-                appendLog("[Sync] 正在通过有线总线压入大文件...")
-                // 调用新版一键 Push
-                syncStream.push(localFile, "/data/local/tmp/target_test.apk", 0x1ED)
-                withContext(Dispatchers.Main) { appendLog("[Sync] Push 成功！") }
-
-                val localResultFile = File(filesDir, "pulled_remote_log.txt")
-                // 调用新版一键 Pull
-                syncStream.pull("/data/local/tmp/error.log", localResultFile)
-                withContext(Dispatchers.Main) { appendLog("[Sync] Pull 成功！") }
-
-                syncStream.close()
-
-            } catch (e: Exception) {
-                withContext(Dispatchers.Main) {
-                    appendLog("[Sync 异常]: ${e.message}")
-                }
-            }
         }
     }
 
