@@ -52,6 +52,13 @@ jobs:
           path: build.log
           archive: false
           
+      - name: Upload Lint Report HTML
+        uses: actions/upload-artifact@v7
+        with:
+          name: lint-reports-html
+          path: app/build/reports/lint-results-debug.html
+          archive: false
+          
       - name: Upload Lint Report
         uses: actions/upload-artifact@v7
         with:
