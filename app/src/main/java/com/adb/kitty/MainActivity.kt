@@ -813,7 +813,7 @@ class MainActivity : AppCompatActivity() {
                 
                 withContext(Dispatchers.Main) { 
                     appendLog("[成功] 🎉 配对凭证握手存盘成功！")
-                    updateStatus("无线调试已连接")
+                    updateStatus("无线调试配对成功")
                     appendLog("[提示] ⚠️ 请查看电视上的【无线调试端口】，输入 adb connect [IP:端口] 唤醒数据总线。")
                     usbForwarder?.stop() // 断开有线转发，准备迎接纯无线
                 }
@@ -823,7 +823,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
     /**
-     * 🛰️ 智能处理 adb connect 无线建链网络传输命令 (第二生命周期)
+     * 🛰️ 智能处理 adb connect 无线建链网络传输命令 (完全基于 KADB 2.1.1 规范)
      */
     private fun handleLocalAdbConnect(command: String) {
         appendLog("[无线] 执行 >> $command")
@@ -832,42 +832,43 @@ class MainActivity : AppCompatActivity() {
             appendLog("[错误] 请使用: adb connect [IP:无线调试端口]")
             return
         }
-
         val target = parts[2]
         val hostPort = target.split(":")
         if (hostPort.size != 2) {
             appendLog("[错误] IP与端口格式错误")
             return
         }
-
         val ip = hostPort[0]
         val port = hostPort[1].toInt()
-
         lifecycleScope.launch(Dispatchers.IO) {
             try {
                 withContext(Dispatchers.Main) { appendLog("[无线] 正在唤醒远端网络数据通道...") }
-                usbForwarder?.stop()
-
-                // 创建纯网络形式的 KADB 总线实例
-                kadbInstance = Kadb.create(host = ip, port = port)
-                val isConnected = kadbInstance!!.connectionCheck()
-
-                withContext(Dispatchers.Main) {
-                    if (isConnected) {
+                usbForwarder?.stop() // 掐断有线桥接
+                // 🌟 1. 严格按照文档，直接创建全局长连接实例
+                val instance = Kadb.create(host = ip, port = port)
+                withContext(Dispatchers.Main) { appendLog("[无线] 正在向网络通道发射探路信号...") }
+                val response = instance.shell("echo 1")
+                if (response.exitCode == 0 && response.allOutput.trim() == "1") {
+                    kadbInstance = instance // 把存活的实例转为全局常驻句柄
+                    withContext(Dispatchers.Main) {
                         isAdbAuthorized = true
                         refreshUiText()
-                        updateStatus("无线调试已连接")
                         appendLog(">>> 👍 无线调试通道连通成功！支持命令与推拉。 <<<")
-                        
+                    
                         // 归档至当前 WiFi 专属存储列表
                         saveConnectedDevice(ip, port)
-                    } else {
-                        appendLog("[警告] 数据通道连接返回异常状态")
+                    }
+                } else {
+                    // 回显不对，优雅释放
+                    runCatching { instance.close() }
+                    withContext(Dispatchers.Main) {
+                        appendLog("[警告] 远端响应握手信号失败，退出通道")
                     }
                 }
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
                     appendLog("[连接失败] 远端网络拒绝建立链路: ${e.message}")
+                    appendLog("[排查提示] 请务必【关闭】刚才的配对码弹窗，看一眼被控端外层大字显示的最新连接端口！")
                 }
             }
         }
