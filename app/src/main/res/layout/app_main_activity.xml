@@ -45,6 +45,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:importantForAutofill="no"
+        android:inputType="text" 
         android:hint="@string/app_main_activity_xml_etCommand"
         android:layout_marginEnd="@dimen/activity_xml_layout_marginEnd"
         android:layout_marginStart="@dimen/activity_xml_layout_marginStart"
