@@ -103,6 +103,8 @@ import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import javax.net.ssl.SSLContext
 import javax.net.ssl.SSLSocket
+import okio.Buffer
+import com.flyfishxu.kadb.KadbConnection
 
 data class AdbCommand(val description: String, val command: String)
 
@@ -127,6 +129,7 @@ class MainActivity : AppCompatActivity() {
     private var readerJob: Job? = null
     private var mLocalId = 1
     private var accessoryPfd: ParcelFileDescriptor? = null
+    private var kadbConnection: KadbConnection? = null
 
     private var isUsbAttached = false
     private var isAdbAuthorized = false
@@ -228,10 +231,6 @@ class MainActivity : AppCompatActivity() {
         ensureFlashDirExists()
         usbManager = getSystemService(Context.USB_SERVICE) as UsbManager
         keyManager = AdbKeyManager(this)
-
-        lifecycleScope.launch(Dispatchers.IO) {
-            rsaKeyPair = keyManager.getKeys()
-        }
 
         val exportFlag = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) RECEIVER_NOT_EXPORTED else 0
 
@@ -681,10 +680,38 @@ class MainActivity : AppCompatActivity() {
             appendLog("[系统] Fastboot 链路已就绪")
         } else {
             isAdbAuthorized = false
-            startAdbReader()
+            appendLog("[系统] 正在通过 KADB 初始化有线物理多路复用信道...")
+
             lifecycleScope.launch(Dispatchers.IO) {
-                val banner = "host::features=shell_v2,cmd,stat_v2,ls_v2,fixed_push_mkdir,abb,abb_exec,remount_shell,track_app,sendrecv_v2,sendrecv_v2_brotli,openscreen_mdns,compression_zstd\u0000".toByteArray(Charsets.UTF_8)
-                sendPacket(0x4e584e43, 0x01000001, 262144, banner)
+                try {
+                    // 1. 将物理 Bulk 端点套进我们刚才实现的 Okio 桥接管道中
+                    val bridgeChannel = KadbUsbBridgeChannel(conn, epIn!!, epOut!!)
+
+                    // 2. 一键创建 KADB 有线连接
+                    // 它会自动使用上面 AdbKeyManager 初始化好的全局私钥与公钥单例
+                    kadbConnection = KadbConnection.create(bridgeChannel)
+
+                    withContext(Dispatchers.Main) {
+                        appendLog("[Auth] 正在向远端设备轰入 CNXN 物理握手验证信号...")
+                    }
+
+                    // 3. 轰入物理连接进程！
+                    // 这行核心指令会在后台自动完成你之前在 startAdbReader 里编写的所有任务：
+                    // 发送 Banner -> 拦截并捕获 AUTH 挑战 -> 签名通过 -> 若私钥被拒，自动转码明文公钥促使电视端弹出授权弹窗！
+                    kadbConnection?.connect()
+
+                    // 4. 当流程推进到这一步，意味着 AUTH 完全击穿，握手全线成功！
+                    withContext(Dispatchers.Main) {
+                        isAdbAuthorized = true
+                        refreshUiText()
+                        appendLog(">>> ADB 授权成功，物理链路全线就绪 <<<")
+                    }
+
+                } catch (e: Exception) {
+                    withContext(Dispatchers.Main) {
+                        appendLog("[Error] KADB 物理握手发生塌方断裂: ${e.message}")
+                    }
+                }
             }
         }
     }
@@ -963,78 +990,35 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun startAdbReader() {
-        readerJob?.cancel()
-        readerJob = lifecycleScope.launch(Dispatchers.IO) {
-            val header = ByteArray(24)
-           // var stepAuthSent = false
-            while (isActive) {
-                val read = usbConn?.bulkTransfer(epIn, header, 24, 2000) ?: -1
-                if (read < 24) continue
-                val bb = ByteBuffer.wrap(header).order(ByteOrder.LITTLE_ENDIAN)
-                val cmd = bb.int; val arg0 = bb.int; val arg1 = bb.int; val len = bb.int
-                val payload = if (len > 0) ByteArray(len).also { usbConn?.bulkTransfer(epIn, it, len, 2000) } else null
-                val keyPair = keyManager.getKeys()
+    private fun sendAdbShell(command: String) {
+        appendLog("ADB >> $command")
+        val cleanCmd = command.removePrefix("adb shell ").trim()
+        
+        lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                val conn = kadbConnection ?: throw IllegalStateException("物理有线链路尚未握手就绪")
                 
-                withContext(Dispatchers.Main) {
-                    when (cmd) {
-                        0x48545541 -> {
-                            if (arg0 == 1) {
-                                payload?.let { token ->
-                                    if (isFirstTryInThisSession) {
-                                        appendLog("[Auth] 尝试使用本地历史私钥进行签名响应...")
-                                        val signature = keyManager.signAdbToken(token, keyPair.private)
-                                        sendPacket(0x48545541, 2, 0, signature)
-                                        isFirstTryInThisSession = false
-                                    } else {
-                                        appendLog("[Auth] 本地私钥未被手机接受，正在发送公钥申请弹窗授权...")
-                                        val pubPayload = keyManager.getAdbPublicKeyBytes()
-                                        sendPacket(0x48545541, 3, 0, pubPayload)
-                                        isFirstTryInThisSession = true
-                                    }
-                                } ?: appendLog("[Error] 收到 AUTH TOKEN 但 payload 为空")
-                            }
-                        }
-                        0x4e584e43 -> { 
-                            isAdbAuthorized = true
-                            isFirstTryInThisSession = true
-                            refreshUiText()
-                            appendLog(">>> ADB 授权成功，链路就绪 <<<")
-                        }
-                        0x45545257 -> { 
-                            appendLog(String(payload ?: byteArrayOf()))
-                            sendPacket(0x59414b4f, arg1, arg0, null) 
-                        }
-                        0x45534c43 -> { // CLSE: 提醒流结束
-                            appendLog("[流结束]")
-                            sendPacket(0x45534c43, arg1, arg0, null)
+                // 打开一条独占的高级虚拟多路复用 Shell 流
+                val stream = conn.openShell(cleanCmd)
+                
+                // 循环榨干远端设备吐回来的全量明文数据流
+                stream.source.use { source ->
+                    val buffer = Buffer()
+                    while (source.read(buffer, 8192) != -1L) {
+                        val outputChunk = buffer.readUtf8()
+                        withContext(Dispatchers.Main) {
+                            appendLog(outputChunk) // 实时冲刷出远端 Shell 回传的数据
                         }
                     }
                 }
-            }
-        }
-    }
-
-    private fun sendAdbShell(command: String) {
-        appendLog("ADB >> $command")
-        lifecycleScope.launch(Dispatchers.IO) {
-            val cleanCmd = command.removePrefix("adb shell ").trim()
-            val data = "shell:$cleanCmd\u0000".toByteArray()
-            sendPacket(0x4e45504f, mLocalId++, 0, data)
-        }
-    }
-    
-    private fun sendPacket(cmd: Int, arg0: Int, arg1: Int, payload: ByteArray?) {
-        val len = payload?.size ?: 0
-        val checksum = 0
-        
-        val buffer = ByteBuffer.allocate(24).order(ByteOrder.LITTLE_ENDIAN)
-        buffer.putInt(cmd).putInt(arg0).putInt(arg1).putInt(len).putInt(checksum).putInt(cmd xor -1)
-
-        lifecycleScope.launch(Dispatchers.IO) {
-            usbConn?.bulkTransfer(epOut, buffer.array(), 24, 1000)
-            if (len > 0 && payload != null) {
-                usbConn?.bulkTransfer(epOut, payload, len, 1000)
+                
+                withContext(Dispatchers.Main) {
+                    appendLog("[流结束]")
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    appendLog("[Shell 异常] 传输受阻: ${e.message}")
+                }
             }
         }
     }

@@ -138,7 +138,6 @@ dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity.ktx)
     implementation(libs.androidx.annotation)
-    implementation(libs.bundles.bouncycastle)
     implementation(libs.mt.dataFilesProvider)
     implementation(libs.lsposed.hiddenapibypass)
     implementation(libs.nayuki.qrcode)
