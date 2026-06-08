@@ -45,7 +45,7 @@ class AdbKeyManager(private val context: Context) {
     private val privFileName = "adbkey"
     private val pubFileName = "adbkey.pub"
     private val versionFileName = "version.json"
-    private val CURRENT_VERSION = 16
+    private val CURRENT_VERSION = 17
 
     companion object {
         private const val TAG = "AdbKeyManager"
@@ -230,6 +230,7 @@ class AdbKeyManager(private val context: Context) {
         }
     }
 
+    @SuppressLint("CustomX509TrustManager", "TrustAllX509TrustManager")
     fun getAdbTlsTrustManagers(spake2Key: ByteArray): Array<TrustManager> {
         return arrayOf(object : X509TrustManager {
             override fun checkClientTrusted(chain: Array<out X509Certificate>?, authType: String?) {}
