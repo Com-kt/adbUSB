@@ -58,6 +58,20 @@ jobs:
           name: lint-reports
           path: app/build/reports/*
           archive: true
+          
+      - name: Upload Kotlin Tooling Metadata
+        uses: actions/upload-artifact@v7
+        with:
+          name: kotlin-tooling-metadata
+          path: app/build/kotlinToolingMetadata/kotlin-tooling-metadata.json
+          archive: false
+          
+      - name: Upload Builds Report
+        uses: actions/upload-artifact@v7
+        with:
+          name: builds-reports
+          path: build/reports/*
+          archive: true
 
       - name: Upload Debug APKs
         uses: actions/upload-artifact@v7
@@ -71,4 +85,18 @@ jobs:
         with:
           name: release-apks
           path: app/build/outputs/apk/release/*
+          archive: true
+          
+      - name: Upload Native Debug Symbols
+        uses: actions/upload-artifact@v7
+        with:
+          name: native-debug-symbols
+          path: app/build/outputs/native-debug-symbols/*
+          archive: true
+          
+      - name: Upload Apks Logs
+        uses: actions/upload-artifact@v7
+        with:
+          name: apks-logs
+          path: app/build/outputs/logs/*
           archive: true
