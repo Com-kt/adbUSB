@@ -105,12 +105,16 @@ import javax.net.ssl.SSLContext
 import javax.net.ssl.SSLSocket
 import okio.Buffer
 import com.flyfishxu.kadb.Kadb
+import org.json.JSONArray
+import org.json.JSONObject
 
 data class AdbCommand(val description: String, val command: String)
 
 data class FbCommand(val description: String, val command: String)
 
 data class FastbootResponse(val status: String, val payload: String, val allLines: List<String>)
+
+data class AdbDevice(val ip: String, val port: Int, val wifiSsid: String, val lastConnectedTime: Long)
 
 class MainActivity : AppCompatActivity() {
 
@@ -152,6 +156,10 @@ class MainActivity : AppCompatActivity() {
             flashFolder.mkdirs()
         }
     }
+    
+    private val REQUEST_WIFI_PERMISSION_CODE = 99
+    private val PREFS_NAME = "AdbMultiDevicePrefs"
+    private val KEY_DEVICE_LIST = "device_list"
 
     private val usbPermissionReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
@@ -247,6 +255,10 @@ class MainActivity : AppCompatActivity() {
             appendLog(logText)
         }
         
+        if (checkAndRequestWifiPermission()) {
+            executeAutoWifiConnect()
+        }
+        
         binding.appMainActivity.btnConnect.setOnClickListener { findHostDevice() }
         
         binding.appMainActivity.ipTest.setOnClickListener { IpTestWork() }
@@ -256,9 +268,11 @@ class MainActivity : AppCompatActivity() {
         binding.appMainActivity.btnSend.setOnClickListener {
             val cmd = binding.appMainActivity.etCommand.text.toString().trim()
             if (cmd.isEmpty()) return@setOnClickListener
+            
             binding.appMainActivity.etCommand.setText("")
+
             if (isFastbootMode) {
-                // Fastboot 模式保持你原有的逻辑不变
+                // Fastboot 特权管道保持你原有的逻辑
                 lifecycleScope.launch(Dispatchers.IO) {
                     try {
                         withContext(Dispatchers.Main) {
@@ -270,29 +284,27 @@ class MainActivity : AppCompatActivity() {
                     }
                 }
             } else {
-                // 🌟 ADB 模式：启动智能命令分流器
-                if (!isAdbAuthorized && !cmd.startsWith("adb pair")) {
+                // ADB 特权管道：智能解构高级指令
+                if (!isAdbAuthorized && !cmd.startsWith("adb pair") && !cmd.startsWith("adb connect")) {
                     Toast.makeText(this, "设备未就绪或未授权", Toast.LENGTH_SHORT).show()
                     return@setOnClickListener
                 }
-                // 开始拦截特殊高级指令
+
                 when {
-                    // A. 拦截 adb pair [ip:port] [pairing_code]
-                    cmd.startsWith("adb pair") -> {
-                        handleLocalAdbPair(cmd)
-                    }
-                    // B. 拦截 adb push [local] [remote]
-                    cmd.startsWith("adb push") -> {
-                        handleLocalAdbPush(cmd)
-                    }
-                    // C. 拦截 adb pull [remote] [local]
-                    cmd.startsWith("adb pull") -> {
-                        handleLocalAdbPull(cmd)
-                    }
-                    // D. 默认兜底：其余所有命令全走 adb shell
-                    else -> {
-                        sendAdbShell(cmd)
-                    }
+                    // 1. 拦截无线配对
+                    cmd.startsWith("adb pair") -> handleLocalAdbPair(cmd)
+                    
+                    // 2. 拦截无线建链连接
+                    cmd.startsWith("adb connect") -> handleLocalAdbConnect(cmd)
+                    
+                    // 3. 拦截有线/无线特权文件推送
+                    cmd.startsWith("adb push") -> handleLocalAdbPush(cmd)
+                    
+                    // 4. 拦截有线/无线特权文件提取
+                    cmd.startsWith("adb pull") -> handleLocalAdbPull(cmd)
+                    
+                    // 5. 默认兜底：其余命令全部走纯正的 adb shell
+                    else -> sendAdbShell(cmd)
                 }
             }
         }
@@ -678,7 +690,9 @@ class MainActivity : AppCompatActivity() {
         }
         updateStatus("发现设备但无 ADB/Fastboot 接口")
     }
-    
+    /**
+     * 🚀 物理接口鉴权与连接：通过本地 TCP 环回桥接绕过 KADB 物理限制
+     */
     private fun connectToInterface(device: UsbDevice) {
         val protocolTarget = if (isFastbootMode) 3 else 1
         val intf = (0 until device.interfaceCount).map { device.getInterface(it) }
@@ -697,45 +711,42 @@ class MainActivity : AppCompatActivity() {
             isAdbAuthorized = true 
             refreshUiText()
             startFastbootReader()
-            appendLog("[系统] Fastboot 链路已就绪")
+            appendLog("[系统] Fastboot 物理信道就绪")
         } else {
             isAdbAuthorized = false
-            appendLog("[系统] 正在通过虚拟端口转发初始化 KADB 有线信道...")
+            appendLog("[系统] 正在建立虚拟本地有线网络转发桥接...")
 
             lifecycleScope.launch(Dispatchers.IO) {
                 try {
-                    // 1. 拦截老实例并启动环回转发代理
                     usbForwarder?.stop()
                     usbForwarder = UsbPortForwarder(conn, epIn!!, epOut!!)
                     val localVirtualPort = usbForwarder!!.startBridge()
 
                     withContext(Dispatchers.Main) {
-                        appendLog("[Auth] 正在向虚拟端口 [$localVirtualPort] 发起 CNXN 握手...")
+                        appendLog("[Auth] 正在向环回端口 [$localVirtualPort] 发起握手与撞门机制...")
                     }
 
-                    // 2. 🪐 创建新版 Kadb 实例：数据会被转发给物理 USB
+                    // 创建有线专用本地环回 KADB 实例
                     kadbInstance = Kadb.create(host = "127.0.0.1", port = localVirtualPort)
-
-                    // 3. 授权状态自检：Kadb 实例化时连接是 lazy（惰性）的
-                    // 我们主动呼叫一次 connectionCheck() 或 shell 触发物理撞门与弹窗机制
                     val isConnected = kadbInstance!!.connectionCheck()
 
                     withContext(Dispatchers.Main) {
-                        isAdbAuthorized = true
-                        refreshUiText()
-                        appendLog(">>> ADB 授权成功，物理链路全线就绪 <<<")
+                        if (isConnected) {
+                            isAdbAuthorized = true
+                            refreshUiText()
+                            appendLog(">>> ADB 有线授权成功，物理总线全面并网！ <<<")
+                        }
                     }
-
                 } catch (e: Exception) {
                     withContext(Dispatchers.Main) {
-                        appendLog("[Error] KADB 物理有线握手发生塌方: ${e.message}")
+                        appendLog("[Error] KADB 物理有线握手崩溃: ${e.message}")
                     }
                 }
             }
         }
     }
     /**
-     * 🚀 精准对齐 2.x 的单步特权命令发射（确保类中仅此一份！）
+     * 🛰️ 100% 对齐 2.x 的高级特权 Shell 命令单步发射
      */
     fun sendAdbShell(command: String) {
         appendLog("ADB >> $command")
@@ -743,9 +754,9 @@ class MainActivity : AppCompatActivity() {
         
         lifecycleScope.launch(Dispatchers.IO) {
             try {
-                val kadb = kadbInstance ?: throw IllegalStateException("物理链路尚未就绪")
+                val kadb = kadbInstance ?: throw IllegalStateException("通道连接未就绪")
                 
-                // 🌟 2.x 标准单步调用：直接获取返回的全量响应实体，不要用旧版的 openShell 读流逻辑
+                // 🌟 2.x 核心升级：直接通过高阶内聚函数获取全量响应，无需处理 source
                 val response = kadb.shell(cleanCmd)
                 
                 withContext(Dispatchers.Main) {
@@ -754,110 +765,257 @@ class MainActivity : AppCompatActivity() {
                 }
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
-                    appendLog("[Shell 异常] 传输受阻: ${e.message}")
+                    appendLog("[Shell 异常] 传输阻断: ${e.message}")
                 }
             }
         }
     }
     /**
-     * 🛰️ 智能处理 adb pair 配对命令
-     * 预期输入格式: adb pair 192.168.1.5:5555 123456
+     * 🛰️ 智能处理 adb pair 无线配对命令 (第一生命周期)
      */
     private fun handleLocalAdbPair(command: String) {
         appendLog("[配对] 执行 >> $command")
-        // 按空格切分参数
         val parts = command.split("\\s+".toRegex()).filter { it.isNotBlank() }
         if (parts.size < 4) {
-            appendLog("[错误] 配对格式不正确。请使用: adb pair [IP:端口] [配对码]")
+            appendLog("[错误] 请使用: adb pair [IP:配对端口] [配对码]")
             return
         }
-        val target = parts[2] // 例如 "192.168.1.5:5555"
-        val pairingCode = parts[3] // 例如 "123456"
+
+        val target = parts[2] 
+        val pairingCode = parts[3] 
         val hostPort = target.split(":")
         if (hostPort.size != 2) {
-            appendLog("[错误] IP与端口格式错误，应为 192.168.x.x:port")
+            appendLog("[错误] 格式不正确，应为 IP:端口")
             return
         }
+
         lifecycleScope.launch(Dispatchers.IO) {
             try {
-                withContext(Dispatchers.Main) { appendLog("[配对] 正在向远端注入 TLS 配对验证...") }
-                // 🔥 调用 2.x 的原生挂起配对函数
-                Kadb.pair(
-                    host = hostPort[0],
-                    port = hostPort[1].toInt(),
-                    pairingCode = pairingCode
-                )
-                withContext(Dispatchers.Main) { appendLog("[成功] 配对凭证已成功握手存盘！") }
+                withContext(Dispatchers.Main) { appendLog("[配对] 正在向远端电视注入 TLS 配对验证...") }
+                
+                Kadb.pair(host = hostPort[0], port = hostPort[1].toInt(), pairingCode = pairingCode)
+                
+                withContext(Dispatchers.Main) { 
+                    appendLog("[成功] 🎉 配对凭证握手存盘成功！")
+                    appendLog("[提示] ⚠️ 请查看电视上的【无线调试端口】，输入 adb connect [IP:端口] 唤醒数据总线。")
+                    usbForwarder?.stop() // 断开有线转发，准备迎接纯无线
+                }
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) { appendLog("[配对失败] 异常: ${e.message}") }
             }
         }
     }
     /**
-     * 🚀 智能处理 adb push 命令 (带 flash 文件夹自动补全)
-     * 预期输入格式: adb push update.zip /data/local/tmp/
+     * 🛰️ 智能处理 adb connect 无线建链网络传输命令 (第二生命周期)
+     */
+    private fun handleLocalAdbConnect(command: String) {
+        appendLog("[无线] 执行 >> $command")
+        val parts = command.split("\\s+".toRegex()).filter { it.isNotBlank() }
+        if (parts.size < 3) {
+            appendLog("[错误] 请使用: adb connect [IP:无线调试端口]")
+            return
+        }
+
+        val target = parts[2]
+        val hostPort = target.split(":")
+        if (hostPort.size != 2) {
+            appendLog("[错误] IP与端口格式错误")
+            return
+        }
+
+        val ip = hostPort[0]
+        val port = hostPort[1].toInt()
+
+        lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                withContext(Dispatchers.Main) { appendLog("[无线] 正在唤醒远端网络数据通道...") }
+                usbForwarder?.stop()
+
+                // 创建纯网络形式的 KADB 总线实例
+                kadbInstance = Kadb.create(host = ip, port = port)
+                val isConnected = kadbInstance!!.connectionCheck()
+
+                withContext(Dispatchers.Main) {
+                    if (isConnected) {
+                        isAdbAuthorized = true
+                        refreshUiText()
+                        appendLog(">>> 👍 无线调试通道连通成功！支持命令与推拉。 <<<")
+                        
+                        // 归档至当前 WiFi 专属存储列表
+                        saveConnectedDevice(ip, port)
+                    } else {
+                        appendLog("[警告] 数据通道连接返回异常状态")
+                    }
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    appendLog("[连接失败] 远端网络拒绝建立链路: ${e.message}")
+                }
+            }
+        }
+    }
+    /**
+     * 🚀 智能处理 adb push 命令 (带闪存文件夹自动补全)
      */
     private fun handleLocalAdbPush(command: String) {
         val parts = command.split("\\s+".toRegex()).filter { it.isNotBlank() }
         if (parts.size < 4) {
-            appendLog("[错误] Push 格式不正确。请使用: adb push [本地文件名] [远端路径]")
+            appendLog("[错误] 请使用: adb push [本地文件名] [远端路径]")
             return
         }
+
         val localInput = parts[2]
         val remotePath = parts[3]
-        // 🌟 核心智慧：如果用户输入的不是绝对路径，自动带上 flash 文件夹前缀
-        val localFile = if (localInput.startsWith("/")) {
-            File(localInput)
-        } else {
-            File(flashFolder, localInput)
-        }
+
+        val localFile = if (localInput.startsWith("/")) File(localInput) else File(flashFolder, localInput)
+
         if (!localFile.exists()) {
-            appendLog("[错误] 本地物理文件不存在: ${localFile.absolutePath}")
+            appendLog("[错误] 找不到本地物理文件: ${localFile.absolutePath}")
             return
         }
-        appendLog("[Sync] 正在准备推送: ${localFile.name} -> $remotePath")
+
+        appendLog("[Sync] 正在安全推送: ${localFile.name} -> $remotePath")
+        
         lifecycleScope.launch(Dispatchers.IO) {
             try {
-                val kadb = kadbInstance ?: throw IllegalStateException("链路尚未建立")
-                // 拼接远端如果是目录，则自动补全文件名（跟官方 adb 体验保持绝对一致）
-                val finalRemotePath = if (remotePath.endsWith("/")) {
-                    remotePath + localFile.name
-                } else remotePath
+                val kadb = kadbInstance ?: throw IllegalStateException("数据通道未建立")
+                val finalRemotePath = if (remotePath.endsWith("/")) remotePath + localFile.name else remotePath
+
+                // 🌟 2.x 升级：顶级类直接托管全周期 push
                 kadb.push(src = localFile, remotePath = finalRemotePath)
-                withContext(Dispatchers.Main) { appendLog("[成功] 文件已推入远端: $finalRemotePath") }
+                withContext(Dispatchers.Main) { appendLog("[成功] 文件已被推入远端: $finalRemotePath") }
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) { appendLog("[Push 失败] 传输崩塌: ${e.message}") }
             }
         }
     }
     /**
-     * 📥 智能处理 adb pull 命令 (带 flash 文件夹自动下载)
-     * 预期输入格式: adb pull /data/local/tmp/error.log test_back.txt
+     * 📥 智能处理 adb pull 命令 (带闪存文件夹自动归档)
      */
     private fun handleLocalAdbPull(command: String) {
         val parts = command.split("\\s+".toRegex()).filter { it.isNotBlank() }
         if (parts.size < 3) {
-            appendLog("[错误] Pull 格式不正确。请使用: adb pull [远端路径] (可选本地文件名)")
+            appendLog("[错误] 请使用: adb pull [远端路径] (可选本地落地名)")
             return
         }
+
         val remotePath = parts[2]
-        // 如果用户没写本地落地文件名，默认直接用远端的文件名
         val localInput = if (parts.size >= 4) parts[3] else remotePath.substringAfterLast("/")
-        // 🌟 同样智能锁定落地到 flash 文件夹中
-        val localFile = if (localInput.startsWith("/")) {
-            File(localInput)
-        } else {
-            File(flashFolder, localInput)
-        }
-        appendLog("[Sync] 正在拉取远端文件: $remotePath -> ${localFile.absolutePath}")
+        val localFile = if (localInput.startsWith("/")) File(localInput) else File(flashFolder, localInput)
+
+        appendLog("[Sync] 正在拉取远端数据: $remotePath -> ${localFile.absolutePath}")
+
         lifecycleScope.launch(Dispatchers.IO) {
             try {
-                val kadb = kadbInstance ?: throw IllegalStateException("链路尚未建立")
+                val kadb = kadbInstance ?: throw IllegalStateException("数据通道未建立")
+                
+                // 🌟 2.x 升级：顶级类直接托管全周期 pull
                 kadb.pull(dst = localFile, remotePath = remotePath)
-                withContext(Dispatchers.Main) { appendLog("[成功] 文件已下载至本地沙箱: ${localFile.absolutePath}") }
+                withContext(Dispatchers.Main) { appendLog("[成功] 数据已沉淀至本地: ${localFile.absolutePath}") }
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) { appendLog("[Pull 失败] 提取中止: ${e.message}") }
             }
+        }
+    }
+    /**
+     * 🔒 核心持久化存储：保存设备并与 WiFi 进行多路指纹绑定
+     */
+    private fun saveConnectedDevice(ip: String, port: Int) {
+        val currentWifi = getCurrentWifiSsid()
+        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val deviceList = getAllSavedDevices().toMutableList()
+        
+        deviceList.removeAll { it.ip == ip && it.wifiSsid == currentWifi }
+        deviceList.add(0, AdbDevice(ip, port, currentWifi, System.currentTimeMillis()))
+        
+        val trimmedList = if (deviceList.size > 10) deviceList.subList(0, 10) else deviceList
+        val jsonArray = JSONArray()
+        for (dev in trimmedList) {
+            val obj = JSONObject().apply {
+                put("ip", dev.ip)
+                put("port", dev.port)
+                put("wifiSsid", dev.wifiSsid)
+                put("lastConnectedTime", dev.lastConnectedTime)
+            }
+            jsonArray.put(obj)
+        }
+        prefs.edit().putString(KEY_DEVICE_LIST, jsonArray.toString()).apply()
+    }
+
+    private fun getAllSavedDevices(): List<AdbDevice> {
+        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val jsonStr = prefs.getString(KEY_DEVICE_LIST, null) ?: return emptyList()
+        val list = mutableListOf<AdbDevice>()
+        try {
+            val jsonArray = JSONArray(jsonStr)
+            for (i in 0 until jsonArray.length()) {
+                val obj = jsonArray.getJSONObject(i)
+                list.add(
+                    AdbDevice(
+                        ip = obj.getString("ip"),
+                        port = obj.getInt("port"),
+                        wifiSsid = obj.getString("wifiSsid"),
+                        lastConnectedTime = obj.getLong("lastConnectedTime")
+                    )
+                )
+            }
+        } catch (e: Exception) { e.printStackTrace() }
+        return list
+    }
+    /**
+     * 🛰️ 全兼容环境 WiFi SSID 获取算法（完美适配 NEARBY_WIFI_DEVICES 权限）
+     */
+    private fun getCurrentWifiSsid(): String {
+        try {
+            val connectivityManager = applicationContext.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                val activeNetwork = connectivityManager.activeNetwork
+                val capabilities = connectivityManager.getNetworkCapabilities(activeNetwork)
+                if (capabilities != null && capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)) {
+                    val wifiInfo = capabilities.transportInfo as? WifiInfo
+                    if (wifiInfo != null) {
+                        val ssid = wifiInfo.ssid.replace("\"", "")
+                        if (ssid != "<unknown ssid>" && ssid.isNotEmpty()) return ssid
+                    }
+                }
+            }
+            val wifiManager = applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
+            val ssid = wifiManager.connectionInfo.ssid.replace("\"", "")
+            if (ssid != "<unknown ssid>" && ssid.isNotEmpty()) return ssid
+        } catch (e: Exception) { Log.e("adbKitty", "获取无线SSID受限", e) }
+        return "DEFAULT_WIFI"
+    }
+
+    private fun checkAndRequestWifiPermission(): Boolean {
+        val targetPermission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            Manifest.permission.NEARBY_WIFI_DEVICES
+        } else {
+            Manifest.permission.ACCESS_FINE_LOCATION
+        }
+        if (ContextCompat.checkSelfPermission(this, targetPermission) != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this, arrayOf(targetPermission), REQUEST_WIFI_PERMISSION_CODE)
+            return false
+        }
+        return true
+    }
+    
+    private fun executeAutoWifiConnect() {
+        val currentWifi = getCurrentWifiSsid()
+        val allHistory = getAllSavedDevices()
+        val matchedDevices = allHistory.filter { it.wifiSsid == currentWifi }
+        
+        if (matchedDevices.isNotEmpty()) {
+            val targetDevice = matchedDevices.first()
+            appendLog("[系统] 📡 侦测到 WiFi [$currentWifi] 历史专属设备: ${targetDevice.ip}:${targetDevice.port}")
+            appendLog("[系统] 🚀 正在执行智能无感自动回连...")
+            handleLocalAdbConnect("adb connect ${targetDevice.ip}:${targetDevice.port}")
+        }
+    }
+
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == REQUEST_WIFI_PERMISSION_CODE && grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+            executeAutoWifiConnect()
         }
     }
     
@@ -1178,5 +1336,7 @@ class MainActivity : AppCompatActivity() {
         unregisterReceiver(usbPermissionReceiver)
         unregisterReceiver(usbStateReceiver)
         inspector.unbindRootService()
+        usbForwarder?.stop()
+        runCatching { kadbInstance?.close() }
     }
 }

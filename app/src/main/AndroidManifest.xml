@@ -84,6 +84,10 @@
         android:name="android.permission.NEARBY_WIFI_DEVICES" 
         android:usesPermissionFlags="neverForLocation"
         tools:ignore="UnusedAttribute" />
+    <!-- 通过 GPS 获取访问精确的位置信息 -->
+    <uses-permission-sdk-23 
+        android:name="android.permission.ACCESS_FINE_LOCATION" 
+        android:maxSdkVersion="32" />
     <!-- 使用证书 -->
     <uses-permission-sdk-23 android:name="android.permission.USE_CREDENTIALS" />
     <uses-permission-sdk-23 android:name="android.permission.USB_PERMISSION" />
