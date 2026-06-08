@@ -256,6 +256,49 @@ class MainActivity : AppCompatActivity() {
         binding.appMainActivity.btnSend.setOnClickListener {
             val cmd = binding.appMainActivity.etCommand.text.toString().trim()
             if (cmd.isEmpty()) return@setOnClickListener
+            binding.appMainActivity.etCommand.setText("")
+            if (isFastbootMode) {
+                // Fastboot 模式保持你原有的逻辑不变
+                lifecycleScope.launch(Dispatchers.IO) {
+                    try {
+                        withContext(Dispatchers.Main) {
+                           appendLog("[发送] FB >> $cmd")
+                        }
+                        executeCommandSync(cmd)
+                    } catch (e: Exception) {
+                        withContext(Dispatchers.Main) { appendLog("[错误] ${e.message}") }
+                    }
+                }
+            } else {
+                // 🌟 ADB 模式：启动智能命令分流器
+                if (!isAdbAuthorized && !cmd.startsWith("adb pair")) {
+                    Toast.makeText(this, "设备未就绪或未授权", Toast.LENGTH_SHORT).show()
+                    return@setOnClickListener
+                }
+                // 开始拦截特殊高级指令
+                when {
+                    // A. 拦截 adb pair [ip:port] [pairing_code]
+                    cmd.startsWith("adb pair") -> {
+                        handleLocalAdbPair(cmd)
+                    }
+                    // B. 拦截 adb push [local] [remote]
+                    cmd.startsWith("adb push") -> {
+                        handleLocalAdbPush(cmd)
+                    }
+                    // C. 拦截 adb pull [remote] [local]
+                    cmd.startsWith("adb pull") -> {
+                        handleLocalAdbPull(cmd)
+                    }
+                    // D. 默认兜底：其余所有命令全走 adb shell
+                    else -> {
+                        sendAdbShell(cmd)
+                    }
+                }
+            }
+        }
+      /*  binding.appMainActivity.btnSend.setOnClickListener {
+            val cmd = binding.appMainActivity.etCommand.text.toString().trim()
+            if (cmd.isEmpty()) return@setOnClickListener
             
             binding.appMainActivity.etCommand.setText("")
 
@@ -275,31 +318,7 @@ class MainActivity : AppCompatActivity() {
             } else {
                 Toast.makeText(this, "设备未就绪或未授权", Toast.LENGTH_SHORT).show()
             }
-        }
-        /*
-        binding.appMainActivity.btnSend.setOnClickListener {
-            val cmd = binding.appMainActivity.etCommand.text.toString().trim()
-            if (cmd.isEmpty()) return@setOnClickListener
-            
-            binding.appMainActivity.etCommand.setText("")
-
-            if (isFastbootMode) {
-                lifecycleScope.launch(Dispatchers.IO) {
-                    try {
-                        executeCommandSync(cmd)
-                    } catch (e: Exception) {
-                        withContext(Dispatchers.Main) { appendLog("[错误] ${e.message}") }
-                    }
-                }
-            } else if (isAdbAuthorized) {
-                sendAdbShell(cmd)
-            } else if (isAdbWifiAuthorized) {
-                sendAdbWifiShell(cmd)
-            } else {
-                Toast.makeText(this, "设备未就绪或未授权", Toast.LENGTH_SHORT).show()
-            }
-        }
-        */
+        }*/
         refreshUiText()
     }
     
@@ -741,37 +760,103 @@ class MainActivity : AppCompatActivity() {
         }
     }
     /**
-     * 🚀 极简物理同步：完全对齐 2.x 源码顶级接口（确保类中仅此一份！）
+     * 🛰️ 智能处理 adb pair 配对命令
+     * 预期输入格式: adb pair 192.168.1.5:5555 123456
      */
-    fun performUsbFileSync() {
-        appendLog("[Sync] 正在物理层唤醒 2.x 高能一键文件同步...")
-        
+    private fun handleLocalAdbPair(command: String) {
+        appendLog("[配对] 执行 >> $command")
+        // 按空格切分参数
+        val parts = command.split("\\s+".toRegex()).filter { it.isNotBlank() }
+        if (parts.size < 4) {
+            appendLog("[错误] 配对格式不正确。请使用: adb pair [IP:端口] [配对码]")
+            return
+        }
+        val target = parts[2] // 例如 "192.168.1.5:5555"
+        val pairingCode = parts[3] // 例如 "123456"
+        val hostPort = target.split(":")
+        if (hostPort.size != 2) {
+            appendLog("[错误] IP与端口格式错误，应为 192.168.x.x:port")
+            return
+        }
         lifecycleScope.launch(Dispatchers.IO) {
             try {
-                val kadb = kadbInstance ?: throw IllegalStateException("链路未建立")
-                
-                val localFile = File(filesDir, "update_payload.apk")
-                if (!localFile.exists()) {
-                    withContext(Dispatchers.Main) { appendLog("[Sync] 本地测试文件不存在！") }
-                    return@launch
-                }
-
-                appendLog("[Sync] 开始执行无感 Push...")
-                // 🌟 完美对齐 2.x 顶级接口：直接通过 kadbInstance 呼叫，不再使用旧的 syncStream 对象！
-                kadb.push(src = localFile, remotePath = "/data/local/tmp/target_test.apk")
-                withContext(Dispatchers.Main) { appendLog("[Sync] Push 推送数据圆满落幕！") }
-
-                val localResultFile = File(filesDir, "pulled_remote_log.txt")
-                appendLog("[Sync] 开始执行无感 Pull...")
-                
-                // 🌟 完美对齐 2.x 顶级接口：拉取远端文件覆盖本地 File 沙箱
-                kadb.pull(dst = localResultFile, remotePath = "/data/local/tmp/error.log")
-                withContext(Dispatchers.Main) { appendLog("[Sync] Pull 拉取数据完美收尾！") }
-
+                withContext(Dispatchers.Main) { appendLog("[配对] 正在向远端注入 TLS 配对验证...") }
+                // 🔥 调用 2.x 的原生挂起配对函数
+                Kadb.pair(
+                    host = hostPort[0],
+                    port = hostPort[1].toInt(),
+                    pairingCode = pairingCode
+                )
+                withContext(Dispatchers.Main) { appendLog("[成功] 配对凭证已成功握手存盘！") }
             } catch (e: Exception) {
-                withContext(Dispatchers.Main) {
-                    appendLog("[Sync 崩溃] 传输状态机受阻: ${e.message}")
-                }
+                withContext(Dispatchers.Main) { appendLog("[配对失败] 异常: ${e.message}") }
+            }
+        }
+    }
+    /**
+     * 🚀 智能处理 adb push 命令 (带 flash 文件夹自动补全)
+     * 预期输入格式: adb push update.zip /data/local/tmp/
+     */
+    private fun handleLocalAdbPush(command: String) {
+        val parts = command.split("\\s+".toRegex()).filter { it.isNotBlank() }
+        if (parts.size < 4) {
+            appendLog("[错误] Push 格式不正确。请使用: adb push [本地文件名] [远端路径]")
+            return
+        }
+        val localInput = parts[2]
+        val remotePath = parts[3]
+        // 🌟 核心智慧：如果用户输入的不是绝对路径，自动带上 flash 文件夹前缀
+        val localFile = if (localInput.startsWith("/")) {
+            File(localInput)
+        } else {
+            File(flashFolder, localInput)
+        }
+        if (!localFile.exists()) {
+            appendLog("[错误] 本地物理文件不存在: ${localFile.absolutePath}")
+            return
+        }
+        appendLog("[Sync] 正在准备推送: ${localFile.name} -> $remotePath")
+        lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                val kadb = kadbInstance ?: throw IllegalStateException("链路尚未建立")
+                // 拼接远端如果是目录，则自动补全文件名（跟官方 adb 体验保持绝对一致）
+                val finalRemotePath = if (remotePath.endsWith("/")) {
+                    remotePath + localFile.name
+                } else remotePath
+                kadb.push(src = localFile, remotePath = finalRemotePath)
+                withContext(Dispatchers.Main) { appendLog("[成功] 文件已推入远端: $finalRemotePath") }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) { appendLog("[Push 失败] 传输崩塌: ${e.message}") }
+            }
+        }
+    }
+    /**
+     * 📥 智能处理 adb pull 命令 (带 flash 文件夹自动下载)
+     * 预期输入格式: adb pull /data/local/tmp/error.log test_back.txt
+     */
+    private fun handleLocalAdbPull(command: String) {
+        val parts = command.split("\\s+".toRegex()).filter { it.isNotBlank() }
+        if (parts.size < 3) {
+            appendLog("[错误] Pull 格式不正确。请使用: adb pull [远端路径] (可选本地文件名)")
+            return
+        }
+        val remotePath = parts[2]
+        // 如果用户没写本地落地文件名，默认直接用远端的文件名
+        val localInput = if (parts.size >= 4) parts[3] else remotePath.substringAfterLast("/")
+        // 🌟 同样智能锁定落地到 flash 文件夹中
+        val localFile = if (localInput.startsWith("/")) {
+            File(localInput)
+        } else {
+            File(flashFolder, localInput)
+        }
+        appendLog("[Sync] 正在拉取远端文件: $remotePath -> ${localFile.absolutePath}")
+        lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                val kadb = kadbInstance ?: throw IllegalStateException("链路尚未建立")
+                kadb.pull(dst = localFile, remotePath = remotePath)
+                withContext(Dispatchers.Main) { appendLog("[成功] 文件已下载至本地沙箱: ${localFile.absolutePath}") }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) { appendLog("[Pull 失败] 提取中止: ${e.message}") }
             }
         }
     }
