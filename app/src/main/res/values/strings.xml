@@ -11,7 +11,7 @@
     <string name="app_name">userKitty</string>
     <string name="action_main_1">快捷adb</string>
     <string name="action_main_2">快捷fastboot</string>
-    <string name="action_main_3">无线调试</string>
+    <string name="action_main_3">开发中…</string>
     <string name="action_main_4">注意事项</string>
     <string name="action_main_5">测试帧率[启动][root]</string>
     <string name="action_main_6">测试帧率[停止][root]</string>

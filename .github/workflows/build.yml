@@ -70,8 +70,8 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: builds-reports
-          path: build/reports/*
-          archive: true
+          path: build/reports/problems/problems-report.html
+          archive: false
 
       - name: Upload Debug APKs
         uses: actions/upload-artifact@v7

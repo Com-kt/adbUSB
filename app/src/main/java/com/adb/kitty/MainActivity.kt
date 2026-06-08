@@ -369,10 +369,7 @@ class MainActivity : AppCompatActivity() {
                 true
            }
               R.id.action_main_3 -> {
-              val qrText = "adb-test:qr_code_data_here"
-              val pairingCode = "123456"
-              val dialogFragment = AdbQrDialogFragment.newInstance(qrText, pairingCode)
-              dialogFragment.show(supportFragmentManager, "AdbQrDialog")
+              Toast.makeText(this, "正在开发中……", Toast.LENGTH_SHORT).show()
                 true
            }
               R.id.action_main_4 -> {
@@ -815,6 +812,7 @@ class MainActivity : AppCompatActivity() {
                 
                 withContext(Dispatchers.Main) { 
                     appendLog("[成功] 🎉 配对凭证握手存盘成功！")
+                    updateStatus("无线调试已连接")
                     appendLog("[提示] ⚠️ 请查看电视上的【无线调试端口】，输入 adb connect [IP:端口] 唤醒数据总线。")
                     usbForwarder?.stop() // 断开有线转发，准备迎接纯无线
                 }
@@ -857,6 +855,7 @@ class MainActivity : AppCompatActivity() {
                     if (isConnected) {
                         isAdbAuthorized = true
                         refreshUiText()
+                        updateStatus("无线调试已连接")
                         appendLog(">>> 👍 无线调试通道连通成功！支持命令与推拉。 <<<")
                         
                         // 归档至当前 WiFi 专属存储列表
