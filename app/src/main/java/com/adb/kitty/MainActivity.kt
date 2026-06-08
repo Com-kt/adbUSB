@@ -853,6 +853,7 @@ class MainActivity : AppCompatActivity() {
                     withContext(Dispatchers.Main) {
                         isAdbAuthorized = true
                         refreshUiText()
+                        updateStatus("无线调试已连接")
                         appendLog(">>> 👍 无线调试通道连通成功！支持命令与推拉。 <<<")
                     
                         // 归档至当前 WiFi 专属存储列表
