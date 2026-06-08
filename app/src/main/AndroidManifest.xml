@@ -111,6 +111,8 @@
     <uses-permission-sdk-23 android:name="android.permission.INTERNET" />
     <!-- 更改网络连接性 -->
     <uses-permission-sdk-23 android:name="android.permission.CHANGE_NETWORK_STATE" />
+    <!-- 显示通知 -->
+    <uses-permission-sdk-23 android:name="android.permission.POST_NOTIFICATIONS" />
     <!-- 运行前台服务 -->
     <uses-permission-sdk-23 android:name="android.permission.FOREGROUND_SERVICE" />
     <!-- 运行「dataSync」类型的前台服务 -->
@@ -182,6 +184,11 @@
                  android:name="android.hardware.usb.action.USB_ACCESSORY_ATTACHED"
                  android:resource="@xml/accessory_filter" />
         </activity>
+        <service
+            android:name=".MdnsScannerService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="connectedDevice" />
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"

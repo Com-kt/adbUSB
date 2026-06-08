@@ -93,12 +93,16 @@ import java.net.Inet4Address
 import java.net.NetworkInterface
 import java.net.HttpURLConnection
 import java.net.URL
+import java.net.InetSocketAddress
+import java.net.Socket
 import java.util.Collections
 import java.util.Date
 import java.util.Locale
 import java.util.zip.CRC32
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
+import javax.net.ssl.SSLContext
+import javax.net.ssl.SSLSocket
 
 data class AdbCommand(val description: String, val command: String)
 

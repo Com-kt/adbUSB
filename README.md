@@ -1,11 +1,10 @@
 # 加入我们的频道
 [![Telegram](image/telegram_icon.webp)](https://t.me/SkisMode)
 
+# Work
 > [!WARNING]
 > 
 > THIS PROJECT IS NOT MAINTAINED ANYMORE.
-
-# Work #
 
 # Code
 - [x] USB mode
@@ -20,15 +19,13 @@
         - [ ] 255/68/3
 - [x] ADB
     - [x] shell (Android 9+)
-    - [ ] pull (Android 9+)
-        - [ ] Sync
-        - [ ] adb Shell
-    - [ ] push (Android 9+)
-        - [ ] Sync
-        - [ ] adb Shell
+    - [x] pull (Android 9+)
+        - [x] Sync
+    - [x] push (Android 9+)
+        - [x] Sync
     - [ ] pair (Android 13+)
-        - [ ] QR (Android 13+)
-        - [ ] IPC/TCP (Android 9+)
+        - [ ] QR
+        - [ ] IPC/TCP
     - [x] interface
         - [x] 255/66/1
         - [ ] 6/1/1

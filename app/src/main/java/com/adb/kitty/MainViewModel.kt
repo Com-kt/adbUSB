@@ -75,6 +75,7 @@ class MainViewModel : ViewModel() {
         FbCommand("退出 Fastboot 模式并正常重启手机", "reboot"),
         FbCommand("从 Fastboot 模式再次重启回 Fastboot 模式（用于重置连接状态)", "reboot bootloader"),
         FbCommand("进入 FastbootD 模式", "reboot fastboot"),
+        FbCommand("尝试进入 EDL 模式", "oem edl"),
         FbCommand("擦除缓存分区", "erase cache"),
         FbCommand("擦除用户数据分区（相当于恢复出厂设置)", "erase userdata"),
         FbCommand("擦除出厂重置保护(谷歌锁)", "erase frp"),

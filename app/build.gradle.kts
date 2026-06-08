@@ -144,4 +144,6 @@ dependencies {
     implementation(libs.nayuki.qrcode)
     implementation(libs.bundles.libsu)
     implementation(libs.bundles.lifecycle)
+    implementation(libs.com.flyfishxu.kadb)
+    implementation(libs.org.conscrypt.openjdk.uber)
 }
