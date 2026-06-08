@@ -130,6 +130,7 @@ class MainActivity : AppCompatActivity() {
     private var mLocalId = 1
     private var accessoryPfd: ParcelFileDescriptor? = null
     private var kadbInstance: Kadb? = null
+    private var usbForwarder: UsbPortForwarder? = null
 
     private var isUsbAttached = false
     private var isAdbAuthorized = false
@@ -680,22 +681,26 @@ class MainActivity : AppCompatActivity() {
             appendLog("[系统] Fastboot 链路已就绪")
         } else {
             isAdbAuthorized = false
-            appendLog("[系统] 正在通过新版 KADB 初始化有线物理通道...")
+            appendLog("[系统] 正在通过虚拟端口转发初始化 KADB 有线信道...")
 
             lifecycleScope.launch(Dispatchers.IO) {
                 try {
-                    // 1. 将物理端点套进针对新架构重写的桥接通道中
-                    val bridgeChannel = KadbUsbBridgeChannel(conn, epIn!!, epOut!!)
+                    // 1. 拦截老实例并启动环回转发代理
+                    usbForwarder?.stop()
+                    usbForwarder = UsbPortForwarder(conn, epIn!!, epOut!!)
+                    val localVirtualPort = usbForwarder!!.startBridge()
 
                     withContext(Dispatchers.Main) {
-                        appendLog("[Auth] 正在向远端设备轰入 CNXN 物理握手验证信号...")
+                        appendLog("[Auth] 正在向虚拟端口 [$localVirtualPort] 发起 CNXN 握手...")
                     }
 
-                    // 2. 🔥🔥🔥 见证奇迹：调用最新 2.x 版的创建函数
-                    // 它会自动从全局配置就绪的 KadbCert 里提取私钥公钥处理 AUTH 状态机
-                    kadbInstance = Kadb.create(channel = bridgeChannel)
+                    // 2. 🪐 创建新版 Kadb 实例：数据会被转发给物理 USB
+                    kadbInstance = Kadb.create(host = "127.0.0.1", port = localVirtualPort)
 
-                    // 3. 授权完全击穿，握手成功
+                    // 3. 授权状态自检：Kadb 实例化时连接是 lazy（惰性）的
+                    // 我们主动呼叫一次 connectionCheck() 或 shell 触发物理撞门与弹窗机制
+                    val isConnected = kadbInstance!!.connectionCheck()
+
                     withContext(Dispatchers.Main) {
                         isAdbAuthorized = true
                         refreshUiText()
@@ -704,8 +709,65 @@ class MainActivity : AppCompatActivity() {
 
                 } catch (e: Exception) {
                     withContext(Dispatchers.Main) {
-                        appendLog("[Error] KADB 物理握手断裂: ${e.message}")
+                        appendLog("[Error] KADB 物理有线握手发生塌方: ${e.message}")
                     }
+                }
+            }
+        }
+    }
+    
+    private fun sendAdbShell(command: String) {
+        appendLog("ADB >> $command")
+        val cleanCmd = command.removePrefix("adb shell ").trim()
+        
+        lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                val kadb = kadbInstance ?: throw IllegalStateException("物理链路尚未就绪")
+                
+                // 🌟 2.x 标准单步调用：直接获取返回的全量响应实体
+                val response = kadb.shell(cleanCmd)
+                
+                withContext(Dispatchers.Main) {
+                    // 打印标准输出（新版包含了 stdout 与 stderr 的聚合体或独立域）
+                    appendLog(response.allOutput)
+                    appendLog("[流结束]")
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    appendLog("[Shell 异常] 传输受阻: ${e.message}")
+                }
+            }
+        }
+    }
+    
+    private fun performUsbFileSync() {
+        appendLog("[Sync] 正在物理层唤醒 2.x 高能一键文件同步...")
+        
+        lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                val kadb = kadbInstance ?: throw IllegalStateException("链路未建立")
+                
+                val localFile = File(filesDir, "update_payload.apk")
+                if (!localFile.exists()) {
+                    withContext(Dispatchers.Main) { appendLog("[Sync] 本地测试文件不存在！") }
+                    return@launch
+                }
+
+                appendLog("[Sync] 开始执行无感 Push...")
+                // 🌟 完美对齐 2.x 顶级接口：传入 File 对象即可，底层自动全周期自动托管
+                kadb.push(src = localFile, remotePath = "/data/local/tmp/target_test.apk")
+                withContext(Dispatchers.Main) { appendLog("[Sync] Push 推送数据圆满落幕！") }
+
+                val localResultFile = File(filesDir, "pulled_remote_log.txt")
+                appendLog("[Sync] 开始执行无感 Pull...")
+                
+                // 🌟 完美对齐 2.x 顶级接口：拉取远端文件覆盖本地 File 沙箱
+                kadb.pull(dst = localResultFile, remotePath = "/data/local/tmp/error.log")
+                withContext(Dispatchers.Main) { appendLog("[Sync] Pull 拉取数据完美收尾！") }
+
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    appendLog("[Sync 崩溃] 传输状态机受阻: ${e.message}")
                 }
             }
         }

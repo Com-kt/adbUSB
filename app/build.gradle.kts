@@ -137,6 +137,7 @@ dependencies {
     implementation(libs.androidx.appcompat)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity.ktx)
+    implementation(libs.androidx.fragment.ktx)
     implementation(libs.androidx.annotation)
     implementation(libs.mt.dataFilesProvider)
     implementation(libs.lsposed.hiddenapibypass)
