@@ -20,6 +20,7 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.graphics.Color
 import android.graphics.Bitmap
+
 import android.view.View
 import android.view.ViewGroup
 import android.view.Menu
@@ -27,6 +28,7 @@ import android.view.MenuItem
 import android.view.WindowInsets
 import android.view.WindowInsetsController
 import android.view.WindowManager
+
 import android.hardware.usb.UsbConstants
 import android.hardware.usb.UsbDevice
 import android.hardware.usb.UsbDeviceConnection
@@ -34,11 +36,14 @@ import android.hardware.usb.UsbEndpoint
 import android.hardware.usb.UsbInterface
 import android.hardware.usb.UsbManager
 import android.hardware.usb.UsbAccessory
+
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
+import android.net.wifi.WifiInfo
 import android.net.wifi.WifiManager
 import android.net.nsd.NsdManager
 import android.net.nsd.NsdServiceInfo
+
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
@@ -48,17 +53,23 @@ import android.text.method.ScrollingMovementMethod
 import android.widget.Toast
 import android.widget.ArrayAdapter
 import android.widget.TextView
+
 import androidx.appcompat.widget.Toolbar
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.SystemBarStyle
 import androidx.activity.viewModels
+
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.updatePadding
 import androidx.core.widget.NestedScrollView
+import androidx.core.content.ContextCompat
+import androidx.core.app.ActivityCompat
+
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -72,9 +83,11 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.NonCancellable
+
 import kotlin.ExperimentalUnsignedTypes
 import kotlin.coroutines.resume
 import kotlin.math.roundToInt
+
 import java.io.File
 import java.io.FileWriter
 import java.io.FileInputStream
@@ -83,22 +96,27 @@ import java.io.FileDescriptor
 import java.io.IOException
 import java.io.BufferedReader
 import java.io.InputStreamReader
+
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
+
 import java.security.KeyPair
 import java.security.Signature
 import javax.crypto.Cipher
 import java.text.SimpleDateFormat
+
 import java.net.Inet4Address
 import java.net.NetworkInterface
 import java.net.HttpURLConnection
 import java.net.URL
 import java.net.InetSocketAddress
 import java.net.Socket
+
 import java.util.Collections
 import java.util.Date
 import java.util.Locale
 import java.util.zip.CRC32
+
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import javax.net.ssl.SSLContext
