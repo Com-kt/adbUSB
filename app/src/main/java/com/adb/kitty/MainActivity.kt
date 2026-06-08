@@ -68,6 +68,7 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.updatePadding
 import androidx.core.widget.NestedScrollView
 import androidx.core.content.ContextCompat
+import androidx.core.content.edit
 import androidx.core.app.ActivityCompat
 
 import androidx.lifecycle.lifecycleScope
@@ -956,7 +957,10 @@ class MainActivity : AppCompatActivity() {
             }
             jsonArray.put(obj)
         }
-        prefs.edit().putString(KEY_DEVICE_LIST, jsonArray.toString()).apply()
+      //  prefs.edit().putString(KEY_DEVICE_LIST, jsonArray.toString()).apply()
+        prefs.edit {
+            putString(KEY_DEVICE_LIST, jsonArray.toString())
+        }
     }
 
     private fun getAllSavedDevices(): List<AdbDevice> {
