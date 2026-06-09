@@ -17,7 +17,7 @@
         - [x] getvar
         - [x] erase
     - [x] flash (Android 9+)
-        - [x] flash_all.sh
+        - [x] flash-all
         - [x] partition-table
     - [x] interface
         - [x] 255/66/3

@@ -104,7 +104,7 @@ class AdbSessionService : Service() {
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("Adb设备连接守护服务")
             .setContentText(contentText)
-            .setSmallIcon(android.R.drawable.stat_sys_phone_call)
+            .setSmallIcon(android.R.drawable.ic_dialog_info)
             .setPriority(NotificationCompat.PRIORITY_LOW) // 用 LOW 即可，因为高频刷新足以保活
             .setOngoing(true) // 设为常驻，防止用户手动划掉
             .setOnlyAlertOnce(true) // 🌟 极其重要：防止每次刷新都发出滴滴声或震动，只在第一次提醒

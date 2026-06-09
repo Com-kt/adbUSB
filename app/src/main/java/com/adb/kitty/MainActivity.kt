@@ -335,6 +335,8 @@ class MainActivity : AppCompatActivity() {
             appendLog(logText)
         }
         
+        checkAndRequestNotificationPermission()
+        
         val intent = Intent(this, AdbSessionService::class.java)
         startService(intent)
         bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE)
@@ -483,6 +485,16 @@ class MainActivity : AppCompatActivity() {
            }
              else -> super.onOptionsItemSelected(item)
         }
+    }
+    
+    private fun checkAndRequestNotificationPermission(): Boolean {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.POST_NOTIFICATIONS), 2027)
+                return false
+            }
+        }
+        return true
     }
     
     private fun initWifiState() {
