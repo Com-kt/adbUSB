@@ -21,7 +21,7 @@
     <!-- USB 主机功能 -->
     <uses-feature 
           android:name="android.hardware.usb.host"
-          android:required="true" />
+          android:required="false" />
     <!-- USB 配件功能 -->
     <uses-feature 
           android:name="android.hardware.usb.accessory"
