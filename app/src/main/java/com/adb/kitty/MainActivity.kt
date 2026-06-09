@@ -18,6 +18,8 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.ComponentName
+import android.content.ServiceConnection
 import android.graphics.Color
 import android.graphics.Bitmap
 
@@ -48,13 +50,10 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.os.IBinder
 import android.os.ParcelFileDescriptor
 import android.text.method.ScrollingMovementMethod
-import android.widget.Toast
-import android.widget.ArrayAdapter
-import android.widget.TextView
-import android.widget.ListView
-import android.widget.LinearLayout
+import android.widget.*
 
 import androidx.appcompat.widget.Toolbar
 import androidx.appcompat.app.AlertDialog
