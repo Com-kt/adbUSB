@@ -116,7 +116,7 @@
     <!-- 更改网络连接性 -->
     <uses-permission-sdk-23 android:name="android.permission.CHANGE_NETWORK_STATE" />
     <!-- 显示通知 -->
-    <uses-permission-sdk-23 android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <!-- 运行前台服务 -->
     <uses-permission-sdk-23 android:name="android.permission.FOREGROUND_SERVICE" />
     <!-- 运行「dataSync」类型的前台服务 -->
