@@ -112,19 +112,17 @@ class AdbSessionService : Service() {
     }
 
     private fun createNotificationChannel() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                CHANNEL_ID,
-                "ADB无线连接守护服务",
-                NotificationManager.IMPORTANCE_LOW
-            ).apply {
-                description = "确保退后台时，无线调试命令依然可以正常传输"
-                enableLights(false)
-                enableVibration(false)
-            }
-            val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-            manager.createNotificationChannel(channel)
+        val channel = NotificationChannel(
+            CHANNEL_ID,
+            "ADB无线连接守护服务",
+            NotificationManager.IMPORTANCE_LOW
+        ).apply {
+            description = "确保退后台时，无线调试命令依然可以正常传输"
+            enableLights(false)
+            enableVibration(false)
         }
+        val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        manager.createNotificationChannel(channel)
     }
 
     override fun onDestroy() {
