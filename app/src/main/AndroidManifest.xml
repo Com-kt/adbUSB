@@ -188,6 +188,11 @@
                  android:name="android.hardware.usb.action.USB_ACCESSORY_ATTACHED"
                  android:resource="@xml/accessory_filter" />
         </activity>
+        <service
+            android:name="AdbSessionService"
+            android:foregroundServiceType="connectedDevice"
+            android:enabled="true"
+            android:exported="false" />
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"
