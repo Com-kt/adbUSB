@@ -1178,6 +1178,22 @@ class MainActivity : AppCompatActivity() {
         bottomSheetDialog.setCancelable(true)
         bottomSheetDialog.show()
     }
+    /**
+     * 🕒 辅助工具：将时间戳转换为人性化的相对时间提示（例如：刚刚、5分钟前）
+     */
+    private fun getRelativeTimeString(timeMs: Long): String {
+        val diff = System.currentTimeMillis() - timeMs
+        val minutes = diff / 1000 / 60
+        val hours = minutes / 60
+        val days = hours / 24
+
+        return when {
+            minutes < 1 -> "刚刚"
+            minutes < 60 -> "${minutes}分钟前"
+            hours < 24 -> "${hours}小时前"
+            else -> "${days}天前"
+        }
+    }
     
     private fun startFastbootReader() {
         readerJob?.cancel()
