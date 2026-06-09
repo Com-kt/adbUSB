@@ -53,6 +53,8 @@ import android.text.method.ScrollingMovementMethod
 import android.widget.Toast
 import android.widget.ArrayAdapter
 import android.widget.TextView
+import android.widget.ListView
+import android.widget.LinearLayout
 
 import androidx.appcompat.widget.Toolbar
 import androidx.appcompat.app.AlertDialog
@@ -70,6 +72,8 @@ import androidx.core.widget.NestedScrollView
 import androidx.core.content.ContextCompat
 import androidx.core.content.edit
 import androidx.core.app.ActivityCompat
+
+import com.google.android.material.bottomsheet.BottomSheetDialog
 
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.CancellationException
@@ -1102,13 +1106,23 @@ class MainActivity : AppCompatActivity() {
     private fun executeAutoWifiConnect() {
         val currentWifi = getCurrentWifiSsid()
         val allHistory = getAllSavedDevices()
+        // 过滤出属于当前 WiFi 名字的所有历史机器
         val matchedDevices = allHistory.filter { it.wifiSsid == currentWifi }
-        
-        if (matchedDevices.isNotEmpty()) {
-            val targetDevice = matchedDevices.first()
-            appendLog("[系统] 📡 侦测到 WiFi [$currentWifi] 历史专属设备: ${targetDevice.ip}:${targetDevice.port}")
-            appendLog("[系统] 🚀 正在执行智能无感自动回连...")
-            handleLocalAdbConnect("adb connect ${targetDevice.ip}:${targetDevice.port}")
+        when {
+            // 情况 1：无历史记录
+            matchedDevices.isEmpty() -> {
+                appendLog("[系统] 💡 当前 WiFi [$currentWifi] 无历史记录，等待手动输入")
+            }
+            // 情况 2：仅有一台 -> 依旧执行酷炫的后台无感秒连
+            matchedDevices.size == 1 -> {
+                val target = matchedDevices.first()
+                appendLog("[系统] 📡 侦测到 WiFi [$currentWifi] 唯一历史设备，正在无感回连...")
+                handleLocalAdbConnect("adb connect ${target.ip}:${target.port}")
+            }
+            // 情况 3：有多台 -> 🌟 华丽升级：拉起底部抽屉面板
+            else -> {
+                showDeviceSelectionBottomSheet(currentWifi, matchedDevices)
+            }
         }
     }
 
@@ -1119,6 +1133,50 @@ class MainActivity : AppCompatActivity() {
                 executeAutoWifiConnect()
             }
         }
+    }
+    
+    private fun showDeviceSelectionBottomSheet(wifiName: String, devices: List<AdbDevice>) {
+        // 1. 创建底部的 Dialog 实例
+        val bottomSheetDialog = BottomSheetDialog(this)
+        // 2. 动态构建一个垂直排列的根布局
+        val rootLayout = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(48, 64, 48, 64)
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, 
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+        }
+        // 3. 顶部的标题文字
+        val titleView = TextView(this).apply {
+            text = "📡 检测到当前 WiFi [$wifiName] 下有多个历史设备"
+            textSize = 16f
+            textAlignment = TextView.TEXT_ALIGNMENT_CENTER
+            setTypeface(null, android.graphics.Typeface.BOLD)
+            setPadding(0, 0, 0, 48) // 与下方列表隔开
+        }
+        rootLayout.addView(titleView)
+        // 4. 准备列表展示的数据
+        val items = devices.map { dev ->
+            "📺 IP: ${dev.ip}:${dev.port}   (${getRelativeTimeString(dev.lastConnectedTime)})"
+        }
+        // 5. 构建列表组件
+        val listView = ListView(this).apply {
+            // 使用系统自带的简单列表样式
+            adapter = ArrayAdapter(this@MainActivity, android.R.layout.simple_list_item_1, items)
+            // 关键：点击某一项后触发无线连接，并关闭抽屉
+            setOnItemClickListener { _, _, position, _ ->
+                val selectedDevice = devices[position]
+                appendLog("[系统] 用户从底部抽屉选择了设备: ${selectedDevice.ip}:${selectedDevice.port}")
+                handleLocalAdbConnect("adb connect ${selectedDevice.ip}:${selectedDevice.port}")
+                bottomSheetDialog.dismiss()
+            }
+        }
+        rootLayout.addView(listView)
+        // 6. 装载布局并优雅滑出
+        bottomSheetDialog.setContentView(rootLayout)
+        bottomSheetDialog.setCancelable(true)
+        bottomSheetDialog.show()
     }
     
     private fun startFastbootReader() {
