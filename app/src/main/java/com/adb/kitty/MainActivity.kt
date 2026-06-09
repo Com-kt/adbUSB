@@ -960,6 +960,8 @@ class MainActivity : AppCompatActivity() {
                         if (isServiceBound) {
                             adbService?.setKadbInstance(instance)
                         }
+                        isAdbAuthorized = true
+                        refreshUiText()
                         updateStatus("无线调试已连接")
                         appendLog(">>> 👍 无线调试通道连通成功！支持后台常驻！ <<<")
                         saveConnectedDevice(ip, port)

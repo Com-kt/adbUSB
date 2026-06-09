@@ -26,6 +26,8 @@
     - [x] shell (Android 9+)
     - [x] pull (Android 9+)
     - [x] push (Android 9+)
+    - [x] install (Android 9+)
+    - [x] uninstall (Android 9+)
     - [x] pair (Android 11+)
     - [x] connect (Android 11+)
     - [x] interface
