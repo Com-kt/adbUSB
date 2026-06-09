@@ -157,8 +157,9 @@ class MainActivity : AppCompatActivity() {
 
     private var isUsbAttached = false
     private var isAdbAuthorized = false
-    private var isFastbootMode = false 
+    private var isFastbootMode = false
     private var isFirstTryInThisSession = true
+    private var isWifiEnabled: Boolean = false
 
     private val responseChannel = Channel<String>(Channel.CONFLATED)
     private val turbo by lazy { PerformanceTurbo(this) }
@@ -179,6 +180,45 @@ class MainActivity : AppCompatActivity() {
     private val REQUEST_WIFI_PERMISSION_CODE = 99
     private val PREFS_NAME = "AdbMultiDevicePrefs"
     private val KEY_DEVICE_LIST = "device_list"
+    
+    private val wifiReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (intent?.action == WifiManager.WIFI_STATE_CHANGED_ACTION) {
+                val wifiState = intent.getIntExtra(
+                    WifiManager.EXTRA_WIFI_STATE, 
+                    WifiManager.WIFI_STATE_UNKNOWN
+                )
+
+                // 记录旧的状态，用来判断状态是否真的改变了
+                val oldState = isWifiEnabled
+
+                when (wifiState) {
+                    WifiManager.WIFI_STATE_ENABLED -> {
+                        isWifiEnabled = true
+                        appendLog("[系统] ⏳ WLAN 已开启")
+                        
+                        // 状态从关闭变为开启时，自动触发你的连接逻辑
+                        if (!oldState) {
+                            handleWifiConnectionFlow()
+                        }
+                    }
+                    WifiManager.WIFI_STATE_DISABLED -> {
+                        isWifiEnabled = false
+                        appendLog("[系统] ⏳ WLAN 已关闭")
+                        
+                        // 状态变为关闭时，触发你的提示逻辑
+                        handleWifiConnectionFlow()
+                    }
+                    WifiManager.WIFI_STATE_ENABLING -> {
+                        appendLog("[系统] ⏳ WLAN 可能正在开启中……")
+                    }
+                    WifiManager.WIFI_STATE_DISABLING -> {
+                        appendLog("[系统] ⏳ WLAN 可能正在关闭中……")
+                    }
+                }
+            }
+        }
+    }
 
     private val usbPermissionReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
@@ -274,9 +314,13 @@ class MainActivity : AppCompatActivity() {
             appendLog(logText)
         }
         
-        if (checkAndRequestWifiPermission()) {
-            executeAutoWifiConnect()
+        val filter = IntentFilter(WifiManager.WIFI_STATE_CHANGED_ACTION)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(wifiReceiver, filter, Context.RECEIVER_EXPORTED)
+        } else {
+            registerReceiver(wifiReceiver, filter)
         }
+        initWifiState()
         
         binding.appMainActivity.btnConnect.setOnClickListener { findHostDevice() }
         
@@ -412,6 +456,25 @@ class MainActivity : AppCompatActivity() {
                 true
            }
              else -> super.onOptionsItemSelected(item)
+        }
+    }
+    
+    private fun initWifiState() {
+        val wifiManager = applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
+        isWifiEnabled = wifiManager.isWifiEnabled
+        appendLog("[系统] 🚀 初始 WLAN 状态: isWifiEnabled = $isWifiEnabled")
+        
+        // 刚进入 App 时执行一次检查
+        handleWifiConnectionFlow()
+    }
+    
+    private fun handleWifiConnectionFlow() {
+        if (checkAndRequestWifiPermission()) {
+            if (isWifiEnabled) {
+                executeAutoWifiConnect()
+            } else {
+                appendLog("[系统] 📡 自动回连已跳过：手机 WLAN (Wi-Fi) 开关当前未开启。")
+            }
         }
     }
     
@@ -1052,7 +1115,9 @@ class MainActivity : AppCompatActivity() {
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode == REQUEST_WIFI_PERMISSION_CODE && grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-            executeAutoWifiConnect()
+            if (isWifiEnabled) {
+                executeAutoWifiConnect()
+            }
         }
     }
     
@@ -1372,6 +1437,7 @@ class MainActivity : AppCompatActivity() {
         usbConn?.close()
         unregisterReceiver(usbPermissionReceiver)
         unregisterReceiver(usbStateReceiver)
+        unregisterReceiver(wifiReceiver)
         inspector.unbindRootService()
         usbForwarder?.stop()
         runCatching { kadbInstance?.close() }
