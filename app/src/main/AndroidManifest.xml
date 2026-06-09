@@ -80,51 +80,51 @@
           android:required="false" />
     
     <!-- Android 13+ 附近 WiFi 设备 -->
-    <uses-permission-sdk-23 
+    <uses-permission 
         android:name="android.permission.NEARBY_WIFI_DEVICES" 
         android:usesPermissionFlags="neverForLocation"
         tools:ignore="UnusedAttribute" />
     <!-- 通过 GPS 获取访问精确的位置信息 -->
-    <uses-permission-sdk-23 
+    <uses-permission 
         android:name="android.permission.ACCESS_FINE_LOCATION" 
         android:maxSdkVersion="32" />
     <!-- 使用证书 -->
-    <uses-permission-sdk-23 android:name="android.permission.USE_CREDENTIALS" />
-    <uses-permission-sdk-23 android:name="android.permission.USB_PERMISSION" />
+    <uses-permission android:name="android.permission.USE_CREDENTIALS" />
+    <uses-permission android:name="android.permission.USB_PERMISSION" />
     <!-- 防止手机休眠 -->
-    <uses-permission-sdk-23 android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
     <!-- 以高采样率访问传感器数据 -->
-    <uses-permission-sdk-23 android:name="android.permission.HIGH_SAMPLING_RATE_SENSORS" />
+    <uses-permission android:name="android.permission.HIGH_SAMPLING_RATE_SENSORS" />
     <!-- 开机启动 -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <!-- 强制更新所有权 -->
-    <uses-permission-sdk-23 android:name="android.permission.ENFORCE_UPDATE_OWNERSHIP" />
+    <uses-permission android:name="android.permission.ENFORCE_UPDATE_OWNERSHIP" />
     <!-- 在后台运行 -->
-    <uses-permission-sdk-23 android:name="android.permission.REQUEST_COMPANION_RUN_IN_BACKGROUND" />
+    <uses-permission android:name="android.permission.REQUEST_COMPANION_RUN_IN_BACKGROUND" />
     <!-- 在后台使用数据 -->
-    <uses-permission-sdk-23 android:name="android.permission.REQUEST_COMPANION_USE_DATA_IN_BACKGROUND" />
+    <uses-permission android:name="android.permission.REQUEST_COMPANION_USE_DATA_IN_BACKGROUND" />
     <!-- 查看WLAN连接 -->
-    <uses-permission-sdk-23 android:name="android.permission.ACCESS_WIFI_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <!-- 连接WLAN网络和断开连接 -->
-    <uses-permission-sdk-23 android:name="android.permission.CHANGE_WIFI_STATE" />
+    <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
     <!-- 允许接收WLAN多播 -->
-    <uses-permission-sdk-23 android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />
+    <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />
     <!-- 查看网络连接 -->
-    <uses-permission-sdk-23 android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <!-- 拥有完全的网络访问权限 -->
-    <uses-permission-sdk-23 android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.INTERNET" />
     <!-- 更改网络连接性 -->
-    <uses-permission-sdk-23 android:name="android.permission.CHANGE_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.CHANGE_NETWORK_STATE" />
     <!-- 显示通知 -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <!-- 运行前台服务 -->
-    <uses-permission-sdk-23 android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <!-- 运行「dataSync」类型的前台服务 -->
-    <uses-permission-sdk-23 android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
     <!-- 运行「connectedDevice」类型的前台服务 -->
-    <uses-permission-sdk-23 android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
     <!-- 允许振动 -->
-    <uses-permission-sdk-23 android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.VIBRATE" />
     <application
         android:process=":cpu"
         android:name="BypassApi"
@@ -191,9 +191,9 @@
         <service
             android:name="AdbSessionService"
             android:foregroundServiceType="connectedDevice"
-            android:directBootAware="true"
             android:process=":cpu"
-            android:exported="false" />
+            android:exported="false"
+            android:permission="android.permission.INTERACT_ACROSS_USERS_FULL" />
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"
