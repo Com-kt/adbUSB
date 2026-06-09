@@ -1218,7 +1218,9 @@ class MainActivity : AppCompatActivity() {
             setOnItemClickListener { _, _, position, _ ->
                 val selectedDevice = devices[position]
                 appendLog("[系统] 用户从底部抽屉选择了设备: ${selectedDevice.ip}:${selectedDevice.port}")
-                handleLocalAdbConnect("adb connect ${selectedDevice.ip}:${selectedDevice.port}")
+                lifecycleScope.launch(Dispatchers.IO) {
+                    handleLocalAdbConnect("adb connect ${selectedDevice.ip}:${selectedDevice.port}")
+                }
                 bottomSheetDialog.dismiss()
             }
         }
