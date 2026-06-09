@@ -355,7 +355,10 @@ class MainActivity : AppCompatActivity() {
             registerReceiver(wifiReceiver, filter)
         }
         
-        binding.appMainActivity.btnConnect.setOnClickListener { findHostDevice() }
+        binding.appMainActivity.btnConnect.setOnClickListener { 
+            findHostDevice()
+            initWifiState()
+        }
         
         binding.appMainActivity.ipTest.setOnClickListener { IpTestWork() }
         
@@ -1015,7 +1018,7 @@ class MainActivity : AppCompatActivity() {
         } catch (e: Exception) {
             withContext(Dispatchers.Main) {
                 appendLog("[连接失败] 远端网络拒绝建立链路: ${e.message}")
-                appendLog("[排查提示] 请务必【关闭】刚才的配对码弹窗，看一眼被控端外层大字显示的最新连接端口！")
+                appendLog("[无线提示] 如果没有自动触发 adb connect 连接，那就点击扫描 USB 设备来触发，正常情况下，WLAN 开启/关闭都会扫描一次")
             }
         }
     }
@@ -1104,7 +1107,6 @@ class MainActivity : AppCompatActivity() {
             }
             jsonArray.put(obj)
         }
-      //  prefs.edit().putString(KEY_DEVICE_LIST, jsonArray.toString()).apply()
         prefs.edit {
             putString(KEY_DEVICE_LIST, jsonArray.toString())
         }
@@ -1562,7 +1564,14 @@ class MainActivity : AppCompatActivity() {
                 else -> "状态：未连接"
             }
             binding.tvStatus.text = status
-            binding.tvStatus.setTextColor(if (isAdbAuthorized || isFastbootMode) Color.GREEN else Color.RED)
+            val statusColor = if (isAdbAuthorized || isFastbootMode) {
+                // 捞取系统内置的高级亮绿
+                ContextCompat.getColor(this, android.R.color.holo_green_light)
+            } else {
+                // 捞取系统内置的高级珊瑚红
+                ContextCompat.getColor(this, android.R.color.holo_red_light)
+            }
+            binding.tvStatus.setTextColor(statusColor)
             binding.appMainActivity.flashAll.isEnabled = isFastbootMode
         }
     }
