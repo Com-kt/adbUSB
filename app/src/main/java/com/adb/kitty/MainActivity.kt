@@ -9,6 +9,7 @@
 package com.adb.kitty
 
 import com.adb.kitty.databinding.ActivityMainBinding
+import com.adb.kitty.R
 
 import android.Manifest
 import android.util.Log
@@ -1565,11 +1566,9 @@ class MainActivity : AppCompatActivity() {
             }
             binding.tvStatus.text = status
             val statusColor = if (isAdbAuthorized || isFastbootMode) {
-                // 捞取系统内置的高级亮绿
-                ContextCompat.getColor(this, android.R.color.holo_green_light)
+                ContextCompat.getColor(this, R.color.status_connected_green)
             } else {
-                // 捞取系统内置的高级珊瑚红
-                ContextCompat.getColor(this, android.R.color.holo_red_light)
+                ContextCompat.getColor(this, R.color.status_disconnected_red)
             }
             binding.tvStatus.setTextColor(statusColor)
             binding.appMainActivity.flashAll.isEnabled = isFastbootMode

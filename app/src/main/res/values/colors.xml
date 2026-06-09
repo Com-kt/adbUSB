@@ -9,4 +9,6 @@
  */ -->
 <resources>
     <color name="activity_xml_scrollView_background_color">#F0F0F0</color>
+    <color name="status_connected_green">#275BF5</color>
+    <color name="status_disconnected_red">#F51616</color>
 </resources>
