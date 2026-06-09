@@ -357,7 +357,7 @@ class MainActivity : AppCompatActivity() {
                     Toast.makeText(this, "设备未就绪或未授权", Toast.LENGTH_SHORT).show()
                     return@setOnClickListener
                 }
-
+            lifecycleScope.launch(Dispatchers.IO) {
                 when {
                     // 1. 拦截无线配对
                     cmd.startsWith("adb pair") -> handleLocalAdbPair(cmd)
@@ -373,6 +373,7 @@ class MainActivity : AppCompatActivity() {
                     
                     // 5. 默认兜底：其余命令全部走纯正的 adb shell
                     else -> sendAdbShell(cmd)
+                    }
                 }
             }
         }
@@ -710,7 +711,9 @@ class MainActivity : AppCompatActivity() {
         builder.setAdapter(adapter) { _, which ->
             if (isAdbAuthorized) {
                 val selectedCommand = adbCommands[which].command
-                sendAdbShell(selectedCommand)
+                lifecycleScope.launch(Dispatchers.IO) {
+                    sendAdbShell(selectedCommand)
+                }
             } else {
                 Toast.makeText(this, "ADB 未授权", Toast.LENGTH_SHORT).show()
             }
@@ -844,24 +847,41 @@ class MainActivity : AppCompatActivity() {
     /**
      * 🛰️ 100% 对齐 2.x 的高级特权 Shell 命令单步发射
      */
-    fun sendAdbShell(command: String) {
-        appendLog("ADB >> $command")
+    private suspend fun sendAdbShell(command: String) {
+        // 1. 在主线程先行回显用户输入的命令
+        withContext(Dispatchers.Main) {
+            appendLog("ADB >> $command")
+        }
+    
         val cleanCmd = command.removePrefix("adb shell ").trim()
+    
+        try {
+            // 🌟 核心防空：直接安全读取当前本地持有的实例，若为空则直接抛出
+            val kadb = kadbInstance ?: throw IllegalStateException("通道连接未就绪")
         
-        lifecycleScope.launch(Dispatchers.IO) {
-            try {
-                val kadb = kadbInstance ?: throw IllegalStateException("通道连接未就绪")
-                
-                // 🌟 2.x 核心升级：直接通过高阶内聚函数获取全量响应，无需处理 source
-                val response = kadb.shell(cleanCmd)
-                
-                withContext(Dispatchers.Main) {
-                    appendLog(response.allOutput)
-                    appendLog("[流结束]")
+            // 🌟 2. 挂起等待：切到 IO 线程执行命令，在远端响应返回前，后面的代码绝对不会偷跑
+            val response = withContext(Dispatchers.IO) {
+                kadb.shell(cleanCmd)
+            }
+        
+            // 3. 切回主线程打印全量回显
+            withContext(Dispatchers.Main) {
+                // 如果远端返回的内容不为空则打印，否则给个友好提示
+                if (response.allOutput.isNotBlank()) {
+                    appendLog(response.allOutput.trim())
+                } else {
+                    appendLog("[系统] 命令已执行，远端无标准输出回显")
                 }
-            } catch (e: Exception) {
-                withContext(Dispatchers.Main) {
-                    appendLog("[Shell 异常] 传输阻断: ${e.message}")
+                appendLog("[流结束]")
+            }
+        } catch (e: Exception) {
+            withContext(Dispatchers.Main) {
+                appendLog("[Shell 异常] 传输阻断: ${e.message}")
+                // 如果发生了物理断开（如 Pipe broken/Socket closed），及时将全局句柄归零置空
+                if (e is java.io.IOException || e.message?.contains("closed") == true) {
+                    kadbInstance = null
+                    isAdbAuthorized = false
+                    updateStatus("连接已断开")
                 }
             }
         }
@@ -905,58 +925,69 @@ class MainActivity : AppCompatActivity() {
     /**
      * 🛰️ 智能处理 adb connect 无线建链网络传输命令 (完全基于 KADB 2.1.1 规范)
      */
-    private fun handleLocalAdbConnect(command: String) {
-        appendLog("[无线] 执行 >> $command")
+    private suspend fun handleLocalAdbConnect(command: String) {
+        withContext(Dispatchers.Main) {
+            appendLog("[无线] 执行 >> $command")
+        }
+    
         val parts = command.split("\\s+".toRegex()).filter { it.isNotBlank() }
         if (parts.size < 3) {
-            appendLog("[错误] 请使用: adb connect [IP:无线调试端口]")
+            withContext(Dispatchers.Main) { appendLog("[错误] 请使用: adb connect [IP:无线调试端口]") }
             return
         }
         val target = parts[2]
         val hostPort = target.split(":")
         if (hostPort.size != 2) {
-            appendLog("[错误] IP与端口格式错误")
+            withContext(Dispatchers.Main) { appendLog("[错误] IP与端口格式错误") }
             return
         }
         val ip = hostPort[0]
         val port = hostPort[1].toInt()
-        lifecycleScope.launch(Dispatchers.IO) {
-            try {
-                withContext(Dispatchers.Main) { appendLog("[无线] 正在唤醒远端网络数据通道...") }
+
+        // 🌟 强力清道夫：用你原有的变量名执行物理释放
+        kadbInstance?.let {
+            withContext(Dispatchers.Main) { appendLog("[无线] 正在强行释放旧的物理 Socket 链路...") }
+            runCatching { it.close() }
+        }
+        kadbInstance = null
+
+        try {
+            withContext(Dispatchers.Main) { appendLog("[无线] 正在唤醒远端网络数据通道...") }
+        
+            // 切到 IO 线程池创建 Socket
+            val instance = withContext(Dispatchers.IO) {
                 usbForwarder?.stop() // 掐断有线桥接
+                Kadb.create(host = ip, port = port)
+            }
+        
+            withContext(Dispatchers.Main) { appendLog("[无线] 正在向网络通道发射探路信号...") }
+        
+            // 挂起等待远端握手响应
+            val response = withContext(Dispatchers.IO) {
+                instance.shell("echo 1")
+            }
 
-                // 🌟 1. 严格按照文档，直接创建全局长连接实例
-                val instance = Kadb.create(host = ip, port = port)
+            // 时序安全赋值：echo 1 没返回前，绝对不会走到这一步
+            if (response.exitCode == 0 && response.allOutput.trim() == "1") {
             
-                withContext(Dispatchers.Main) { appendLog("[无线] 正在向网络通道发射探路信号...") }
-
-                // 🌟 2. 投石问路：直接发射一条极轻量的 shell 命令来验证通道是否真正存活
-                // 这是代替 connectionCheck() 最完美的官方合规方案
-                val response = instance.shell("echo 1")
-
-                if (response.exitCode == 0 && response.allOutput.trim() == "1") {
-                    // 探路成功！说明通道彻底通了，证书完全匹配！
-                    kadbInstance = instance // 把存活的实例转为全局常驻句柄
-                
-                    withContext(Dispatchers.Main) {
-                        isAdbAuthorized = true
-                        refreshUiText()
-                        appendLog(">>> 👍 无线调试通道连通成功！支持命令与推拉。 <<<")
-                        // 归档至当前 WiFi 专属存储列表
-                        saveConnectedDevice(ip, port)
-                    }
-                } else {
-                    // 回显不对，优雅释放
-                    runCatching { instance.close() }
-                    withContext(Dispatchers.Main) {
-                        appendLog("[警告] 远端响应握手信号失败，退出通道")
-                    }
-                }
-            } catch (e: Exception) {
+                // 🌟 探路成功，直接赋值给你原来的全局变量
+                kadbInstance = instance 
+            
                 withContext(Dispatchers.Main) {
-                    appendLog("[连接失败] 远端网络拒绝建立链路: ${e.message}")
-                    appendLog("[排查提示] 请务必【关闭】刚才的配对码弹窗，看一眼被控端外层大字显示的最新连接端口！")
+                    isAdbAuthorized = true
+                    refreshUiText()
+                    updateStatus("无线调试已连接")
+                    appendLog(">>> 👍 无线调试通道连通成功！支持命令与推拉。 <<<")
+                    saveConnectedDevice(ip, port)
                 }
+            } else {
+                runCatching { instance.close() }
+                withContext(Dispatchers.Main) { appendLog("[警告] 远端响应握手信号失败，退出通道") }
+            }
+        } catch (e: Exception) {
+            withContext(Dispatchers.Main) {
+                appendLog("[连接失败] 远端网络拒绝建立链路: ${e.message}")
+                appendLog("[排查提示] 请务必【关闭】刚才的配对码弹窗，看一眼被控端外层大字显示的最新连接端口！")
             }
         }
     }
