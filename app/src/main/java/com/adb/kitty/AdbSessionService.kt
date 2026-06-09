@@ -27,6 +27,10 @@ import com.flyfishxu.kadb.Kadb
  * 🛰️ 前台守护服务（全时高活心跳版）
  * 承载 Kadb 长连接，并通过动态刷新运行时长，彻底防止通知被系统判定为“僵尸通知”而折叠收起。
  */
+inner class AdbBinder : Binder() {
+    fun getService(): AdbSessionService = this@AdbSessionService
+}
+    
 class AdbSessionService : Service() {
 
     private val NOTIFICATION_ID = 101
@@ -47,10 +51,6 @@ class AdbSessionService : Service() {
             updateNotificationWithDuration()
             mainHandler.postDelayed(this, 3000)
         }
-    }
-
-    inner class AdbBinder : Binder() {
-        fun getService(): AdbSessionService = this@AdbSessionService
     }
 
     override fun onBind(intent: Intent?): IBinder = binder

@@ -182,14 +182,25 @@ class MainActivity : AppCompatActivity() {
     
     private var adbService: AdbSessionService? = null
     private var isServiceBound = false
+    private var localKadbInstance: Kadb? = null
     private val activeKadb: Kadb?
-        get() = if (isServiceBound) adbService?.liveKadbInstance else null
+        get() {
+            // 1. 优先去前台服务的保险箱里捞取
+            if (isServiceBound && adbService?.liveKadbInstance != null) {
+                return adbService?.liveKadbInstance
+            }
+            // 2. 如果服务还没接管成功，用本地刚创建的实例兜底
+            return localKadbInstance
+        }
+
     private val serviceConnection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
             val binder = service as AdbSessionService.AdbBinder
             adbService = binder.getService()
             isServiceBound = true
-            appendLog("[无线] 守护进程并网成功，已激活后台保护机制。")
+            appendLog("[系统] 守护进程并网成功，已激活后台保护机制。")
+        
+            initWifiState()
         }
 
         override fun onServiceDisconnected(name: ComponentName?) {
@@ -335,19 +346,18 @@ class MainActivity : AppCompatActivity() {
             appendLog(logText)
         }
         
-        checkAndRequestNotificationPermission()
-        
-        val intent = Intent(this, AdbSessionService::class.java)
-        startService(intent)
-        bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE)
-        
         val filter = IntentFilter(WifiManager.WIFI_STATE_CHANGED_ACTION)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             registerReceiver(wifiReceiver, filter, Context.RECEIVER_EXPORTED)
         } else {
             registerReceiver(wifiReceiver, filter)
         }
-        initWifiState()
+        
+        checkAndRequestNotificationPermission()
+        
+        val intent = Intent(this, AdbSessionService::class.java)
+        startService(intent)
+        bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE)
         
         binding.appMainActivity.btnConnect.setOnClickListener { findHostDevice() }
         
@@ -955,11 +965,12 @@ class MainActivity : AppCompatActivity() {
                 val response = instance.shell("echo 1")
 
                 if (response.exitCode == 0 && response.allOutput.trim() == "1") {
-                    // 🌟 3. 验证成功！将长连接实例上缴给前台服务深度托管
                     withContext(Dispatchers.Main) {
-                        if (isServiceBound) {
-                            adbService?.setKadbInstance(instance)
-                        }
+                        // 🌟 双规写入：本地存一份，服务存一份！
+                        localKadbInstance = instance 
+                    if (isServiceBound) {
+                        adbService?.setKadbInstance(instance) 
+                    }
                         isAdbAuthorized = true
                         refreshUiText()
                         updateStatus("无线调试已连接")
