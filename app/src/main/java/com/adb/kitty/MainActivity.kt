@@ -1167,7 +1167,9 @@ class MainActivity : AppCompatActivity() {
             matchedDevices.size == 1 -> {
                 val target = matchedDevices.first()
                 appendLog("[系统] 📡 侦测到 WiFi [$currentWifi] 唯一历史设备，正在无感回连...")
-                handleLocalAdbConnect("adb connect ${target.ip}:${target.port}")
+                lifecycleScope.launch(Dispatchers.IO) {
+                    handleLocalAdbConnect("adb connect ${target.ip}:${target.port}")
+                }
             }
             // 情况 3：有多台 -> 🌟 华丽升级：拉起底部抽屉面板
             else -> {
