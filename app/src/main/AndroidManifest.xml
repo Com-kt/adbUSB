@@ -195,6 +195,7 @@
         <service
             android:name="AdbSessionService"
             android:foregroundServiceType="connectedDevice"
+            android:directBootAware="true"
             android:exported="false"
             android:permission="android.permission.INTERACT_ACROSS_USERS_FULL" />
         <provider
