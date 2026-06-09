@@ -13,19 +13,21 @@
     - [x] UsbManager API (Android 9+)
 - [x] Fastboot
     - [x] cmd (Android 9+)
+        - [x] oem
+        - [x] getvar
+        - [x] erase
     - [x] flash (Android 9+)
+        - [x] flash_all.sh
+        - [x] partition-table
     - [x] interface
         - [x] 255/66/3
         - [ ] 255/68/3
 - [x] ADB
     - [x] shell (Android 9+)
     - [x] pull (Android 9+)
-        - [x] Sync
     - [x] push (Android 9+)
-        - [x] Sync
-    - [ ] pair (Android 13+)
-        - [ ] QR
-        - [ ] IPC/TCP
+    - [x] pair (Android 11+)
+    - [x] connect (Android 11+)
     - [x] interface
         - [x] 255/66/1
         - [ ] 6/1/1
