@@ -155,7 +155,7 @@ class MainActivity : AppCompatActivity() {
     private var readerJob: Job? = null
     private var mLocalId = 1
     private var accessoryPfd: ParcelFileDescriptor? = null
-    private var kadbInstance: Kadb? = null
+  //  private var kadbInstance: Kadb? = null
     private var usbForwarder: UsbPortForwarder? = null
 
     private var isUsbAttached = false
@@ -177,6 +177,31 @@ class MainActivity : AppCompatActivity() {
     private fun ensureFlashDirExists() {
         if (!flashFolder.exists()) {
             flashFolder.mkdirs()
+        }
+    }
+    
+    private var adbService: AdbSessionService? = null
+    private var isServiceBound = false
+    private var kadbInstance: Kadb?
+        get() = if (isServiceBound) adbService?.globalKadbInstance else null
+        set(value) {
+            if (isServiceBound) {
+                adbService?.globalKadbInstance = value
+            }
+        }
+        
+    private val serviceConnection = object : ServiceConnection {
+        override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
+            val binder = service as AdbSessionService.AdbBinder
+            adbService = binder.getService()
+            isServiceBound = true
+            appendLog("[系统] 前台物理守护进程并网成功。")
+            initWifiState()
+        }
+
+        override fun onServiceDisconnected(name: ComponentName?) {
+            isServiceBound = false
+            adbService = null
         }
     }
     
@@ -302,6 +327,12 @@ class MainActivity : AppCompatActivity() {
         ensureFlashDirExists()
         usbManager = getSystemService(Context.USB_SERVICE) as UsbManager
         keyManager = AdbKeyManager(this)
+        
+        if (checkAndRequestNotificationPermission()) {
+            val intent = Intent(this, AdbSessionService::class.java)
+            startService(intent)
+            bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE)
+        }
 
         val exportFlag = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) RECEIVER_NOT_EXPORTED else 0
 
@@ -323,9 +354,6 @@ class MainActivity : AppCompatActivity() {
         } else {
             registerReceiver(wifiReceiver, filter)
         }
-        initWifiState()
-        
-        checkAndRequestNotificationPermission()
         
         binding.appMainActivity.btnConnect.setOnClickListener { findHostDevice() }
         
@@ -1559,6 +1587,10 @@ class MainActivity : AppCompatActivity() {
     }
     
     override fun onDestroy() {
+        if (isServiceBound) {
+            unbindService(serviceConnection)
+            isServiceBound = false
+        }
         cleanupActiveProcess()
         super.onDestroy()
         readerJob?.cancel()

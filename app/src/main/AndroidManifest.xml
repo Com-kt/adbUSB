@@ -78,6 +78,10 @@
     <uses-feature 
           android:name="android.hardware.sensor.relative_humidity"
           android:required="false" />
+    <!-- 配套设备 -->
+    <uses-feature 
+          android:name="android.software.companion_device_setup"
+          android:required="false" />
     
     <!-- Android 13+ 附近 WiFi 设备 -->
     <uses-permission 
@@ -171,7 +175,6 @@
             android:supportsPictureInPicture="true"
             android:windowSoftInputMode="adjustPan"
             android:canDisplayOnRemoteDevices="false"
-            android:requireContentUriPermissionFromCaller="4"
             android:launchMode="singleInstancePerTask"
             android:persistableMode="persistNever"
             android:exported="true">
@@ -192,6 +195,13 @@
                  android:name="android.hardware.usb.action.USB_ACCESSORY_ATTACHED"
                  android:resource="@xml/accessory_filter" />
         </activity>
+        <service 
+            android:name="AdbSessionService"
+            android:foregroundServiceType="connectedDevice"
+            android:process=":cpu"
+            android:exported="false"
+            android:directBootAware="true"
+            android:permission="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"
