@@ -180,35 +180,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
     
-    private var adbService: AdbSessionService? = null
-    private var isServiceBound = false
-    private var localKadbInstance: Kadb? = null
-    private val activeKadb: Kadb?
-        get() {
-            // 1. 优先去前台服务的保险箱里捞取
-            if (isServiceBound && adbService?.liveKadbInstance != null) {
-                return adbService?.liveKadbInstance
-            }
-            // 2. 如果服务还没接管成功，用本地刚创建的实例兜底
-            return localKadbInstance
-        }
-
-    private val serviceConnection = object : ServiceConnection {
-        override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
-            val binder = service as AdbSessionService.AdbBinder
-            adbService = binder.getService()
-            isServiceBound = true
-            appendLog("[系统] 守护进程并网成功，已激活后台保护机制。")
-        
-            initWifiState()
-        }
-
-        override fun onServiceDisconnected(name: ComponentName?) {
-            isServiceBound = false
-            adbService = null
-        }
-    }
-    
     private val REQUEST_WIFI_PERMISSION_CODE = 99
     private val PREFS_NAME = "AdbMultiDevicePrefs"
     private val KEY_DEVICE_LIST = "device_list"
@@ -352,12 +323,9 @@ class MainActivity : AppCompatActivity() {
         } else {
             registerReceiver(wifiReceiver, filter)
         }
+        initWifiState()
         
         checkAndRequestNotificationPermission()
-        
-        val intent = Intent(this, AdbSessionService::class.java)
-        startService(intent)
-        bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE)
         
         binding.appMainActivity.btnConnect.setOnClickListener { findHostDevice() }
         
@@ -937,11 +905,11 @@ class MainActivity : AppCompatActivity() {
     /**
      * 🛰️ 智能处理 adb connect 无线建链网络传输命令 (完全基于 KADB 2.1.1 规范)
      */
-    fun handleLocalAdbConnect(command: String) {
+    private fun handleLocalAdbConnect(command: String) {
         appendLog("[无线] 执行 >> $command")
         val parts = command.split("\\s+".toRegex()).filter { it.isNotBlank() }
         if (parts.size < 3) {
-            appendLog("[错误] 请使用: adb connect [IP:端口]")
+            appendLog("[错误] 请使用: adb connect [IP:无线调试端口]")
             return
         }
         val target = parts[2]
@@ -955,37 +923,39 @@ class MainActivity : AppCompatActivity() {
         lifecycleScope.launch(Dispatchers.IO) {
             try {
                 withContext(Dispatchers.Main) { appendLog("[无线] 正在唤醒远端网络数据通道...") }
+                usbForwarder?.stop() // 掐断有线桥接
 
-                // 1. 严格遵循官方文档最佳实践，直接建立基础连接实例
+                // 🌟 1. 严格按照文档，直接创建全局长连接实例
                 val instance = Kadb.create(host = ip, port = port)
-                
+            
                 withContext(Dispatchers.Main) { appendLog("[无线] 正在向网络通道发射探路信号...") }
 
-                // 2. 投石问路：利用最轻量的 shell("echo 1") 检验物理握手状态
+                // 🌟 2. 投石问路：直接发射一条极轻量的 shell 命令来验证通道是否真正存活
+                // 这是代替 connectionCheck() 最完美的官方合规方案
                 val response = instance.shell("echo 1")
 
                 if (response.exitCode == 0 && response.allOutput.trim() == "1") {
+                    // 探路成功！说明通道彻底通了，证书完全匹配！
+                    kadbInstance = instance // 把存活的实例转为全局常驻句柄
+                
                     withContext(Dispatchers.Main) {
-                        // 🌟 双规写入：本地存一份，服务存一份！
-                        localKadbInstance = instance 
-                    if (isServiceBound) {
-                        adbService?.setKadbInstance(instance) 
-                    }
                         isAdbAuthorized = true
                         refreshUiText()
-                        updateStatus("无线调试已连接")
-                        appendLog(">>> 👍 无线调试通道连通成功！支持后台常驻！ <<<")
+                        appendLog(">>> 👍 无线调试通道连通成功！支持命令与推拉。 <<<")
+                        // 归档至当前 WiFi 专属存储列表
                         saveConnectedDevice(ip, port)
                     }
                 } else {
+                    // 回显不对，优雅释放
                     runCatching { instance.close() }
-                    withContext(Dispatchers.Main) { appendLog("[警告] 远端响应握手信号失败，通道已关闭") }
+                    withContext(Dispatchers.Main) {
+                        appendLog("[警告] 远端响应握手信号失败，退出通道")
+                    }
                 }
-
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
                     appendLog("[连接失败] 远端网络拒绝建立链路: ${e.message}")
-                    appendLog("[排查提示] 请务必【关闭】配对弹窗，采用外层主界面大字显示的最新连接端口！")
+                    appendLog("[排查提示] 请务必【关闭】刚才的配对码弹窗，看一眼被控端外层大字显示的最新连接端口！")
                 }
             }
         }
@@ -1564,8 +1534,5 @@ class MainActivity : AppCompatActivity() {
         inspector.unbindRootService()
         usbForwarder?.stop()
         runCatching { kadbInstance?.close() }
-        if (isServiceBound) {
-            unbindService(serviceConnection)
-        }
     }
 }
