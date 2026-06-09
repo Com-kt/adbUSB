@@ -135,7 +135,7 @@ class AdbSessionService : Service() {
             // 确保渠道本身彻底静默
             enableLights(false)
             enableVibration(false)
-            sound = null
+            setSound(null, null)
         }
         
         manager.createNotificationChannel(channel)
