@@ -193,8 +193,7 @@
             android:foregroundServiceType="connectedDevice"
             android:directBootAware="true"
             android:process=":cpu"
-            android:exported="false"
-            android:permission="android.permission.INTERACT_ACROSS_USERS_FULL" />
+            android:exported="false" />
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"
