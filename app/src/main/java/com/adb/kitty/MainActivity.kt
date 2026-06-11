@@ -1344,6 +1344,15 @@ class MainActivity : AppCompatActivity() {
            // executeViaFastbootBinary(parts)
             return@withContext
         }
+        
+        if (action == "flash") {
+            if (parts.size >= 3) {
+                performFlash(parts[1], parts[2]) 
+            } else {
+                withContext(Dispatchers.Main) { appendLog("❌ 格式错误: flash <分区> <路径>") }
+            }
+            return@withContext // flash 操作已完成，直接退出该函数，不走后续的通用发送逻辑
+        }
 
         // 🔌 2. 【走原生的 USB 协议转换直连分支】（保持你原有的精良设计）
         val protocolCmd = when (action) {
@@ -1358,13 +1367,6 @@ class MainActivity : AppCompatActivity() {
             }
             "erase" -> {
                 if (parts.size >= 2) "${parts[0]}:${parts.drop(1).joinToString(" ")}" else parts[0]
-            }
-            "flash" -> {
-                if (parts.size >= 3) {
-                    performFlash(parts[1], parts[2]) // 使用：fastboot flash boot /sdcard/boot.img
-                } else {
-                    appendLog("❌ 格式错误: flash <分区> <路径>")
-                }
             }
             else -> {
                 cleanCmd
