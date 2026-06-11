@@ -117,6 +117,8 @@
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <!-- 连接WLAN网络和断开连接 -->
     <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
+    <!-- 发送持久广播 -->
+    <uses-permission android:name="android.permission.BROADCAST_STICKY" />
     <!-- 允许接收WLAN多播 -->
     <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />
     <!-- 查看网络连接 -->
@@ -131,12 +133,76 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <!-- 运行「dataSync」类型的前台服务 -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <!-- 运行「specialUse」类型的前台服务 -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <!-- 运行「systemExempted」类型的前台服务 -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SYSTEM_EXEMPTED" />
+    <!-- 运行「camera」类型的前台服务 -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CAMERA" />
     <!-- 运行「connectedDevice」类型的前台服务 -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
+    <!-- 运行「fileManagement」类型的前台服务 -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_FILE_MANAGEMENT" />
+    <!-- 运行「health」类型的前台服务 -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_HEALTH" />
+    <!-- 运行「location」类型的前台服务 -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
+    <!-- 运行「mediaPlayback」类型的前台服务 -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+    <!-- 运行「mediaProjection」类型的前台服务 -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
+    <!-- 运行「microphone」类型的前台服务 -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
+    <!-- 运行「phoneCall」类型的前台服务 -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_PHONE_CALL" />
+    <!-- 运行「remoteMessaging」类型的前台服务 -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_REMOTE_MESSAGING" />
     <!-- 允许振动 -->
     <uses-permission android:name="android.permission.VIBRATE" />
+    <!-- 关闭其他应用 -->
+    <uses-permission android:name="android.permission.KILL_BACKGROUND_PROCESSES" />
+    <!-- 关闭其他应用 -->
+    <uses-permission android:name="android.permission.RESTART_PACKAGES" />
+    <!-- 禁用键盘锁 -->
+    <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
+    <queries>
+        <package android:name="com.google.android.webview" />
+        <package android:name="com.google.android.gms" />
+        <package android:name="com.android.vending" />
+        <package android:name="com.android.shell" />
+        <package android:name="com.adb.kitty" />
+        <package android:name="com.android.wifi.resources" />
+        <package android:name="com.xiaomi.misettings" />
+        <package android:name="com.android.settings" />
+        <package android:name="com.android.adbd" />
+        <package android:name="com.android.wifi" />
+        <package android:name="com.android.adservices" />
+    </queries>
+    <queries>
+        <intent>
+            <action
+                android:name="android.intent.action.VIEW" />
+            <category
+                android:name="android.intent.category.BROWSABLE" />
+            <data android:scheme="https" />
+        </intent>
+        <intent>
+            <action
+                android:name="android.intent.action.VIEW" />
+            <category
+                android:name="android.intent.category.BROWSABLE" />
+            <data android:scheme="http" />
+        </intent>
+        <intent>
+            <action
+                android:name="android.intent.action.VIEW" />
+            <category
+                android:name="android.intent.category.BROWSABLE" />
+            <data android:scheme="ftp" />
+        </intent>
+    </queries>
     <application
-        android:process=":cpu"
+        android:process=":task"
         android:name="BypassApi"
         android:allowBackup="true"
         android:directBootAware="true"
@@ -144,6 +210,7 @@
         android:usesCleartextTraffic="true"
         android:resizeableActivity="true"
         android:appCategory="productivity"
+        android:hardwareAccelerated="true"
         android:networkSecurityConfig="@xml/network_security_config"
         android:enableOnBackInvokedCallback="true"
         android:icon="@mipmap/ic_launcher"
@@ -155,6 +222,9 @@
         <!-- uses-native-library Android 12+ -->
         <uses-native-library
             android:name="com.android.future.usb.accessory"
+            android:required="false" />
+        <uses-native-library
+            android:name="com.android.location.provider"
             android:required="false" />
         <!-- activity-alias 适配 Pixel 系列的类原生系统桌面 -->
         <activity-alias
@@ -170,7 +240,7 @@
         </activity-alias>
         <activity 
             android:name="MainActivity"
-            android:process=":cpu"
+            android:process=":task"
             android:directBootAware="true"
             android:showForAllUsers="false"
             android:hardwareAccelerated="true"
@@ -200,14 +270,14 @@
         <service 
             android:name="AdbSessionService"
             android:foregroundServiceType="connectedDevice"
-            android:process=":cpu"
-            android:exported="false"
+            android:process=":task"
+            android:exported="true"
             android:directBootAware="true"
-            android:permission="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
+            android:permission="android.permission.INTERACT_ACROSS_USERS_FULL" />
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"
-            android:process=":cpu"
+            android:process=":task"
             android:exported="false"
             android:grantUriPermissions="true">
             <meta-data
