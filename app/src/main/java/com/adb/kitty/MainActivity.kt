@@ -159,6 +159,7 @@ class MainActivity : AppCompatActivity() {
   //  private var kadbInstance: Kadb? = null
     private var usbForwarder: UsbPortForwarder? = null
     private var currentUsbDevice: UsbDevice? = null
+    private var intf: UsbInterface? = null
 
     private var isUsbAttached = false
     private var isAdbAuthorized = false
