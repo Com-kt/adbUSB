@@ -126,12 +126,5 @@ jobs:
 
       - name: Run Unit Tests
         # -PdisablePreDex 是一些优化选项，可以按需添加
-        run: ./gradlew testDebugUnitTest -i --stacktrace
-
-      - name: Upload Test Report
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: test-results
-          path: app/build/reports/tests/testDebugUnitTest/
-          archive: true
+        run: ./gradlew testDebugUnitTest -i -w --stacktrace
+        

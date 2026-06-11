@@ -20,7 +20,6 @@ class FlashTest {
         val responses = LinkedList<String>()
 
         override fun send(data: ByteArray): Int {
-            // 这里可以打印发出的命令，用于调试
             println("Sent command: ${String(data)}")
             return data.size
         }
@@ -34,12 +33,11 @@ class FlashTest {
     }
 
     @Test
-    fun testSuccessfulFlashFlow() = runTest {
+    fun testSuccessfulFlashFlow() = runTest { // 统一使用 runTest
         val mock = MockTransport()
-        // 预设协议交互顺序
-        mock.responses.add("DATA00000004") // 模拟收到 Download 许可
-        mock.responses.add("OKAY")         // 模拟数据流传输完毕
-        mock.responses.add("OKAY")         // 模拟 Flash 完成
+        mock.responses.add("DATA00000004") 
+        mock.responses.add("OKAY")         
+        mock.responses.add("OKAY")         
 
         val protocol = FastbootProtocol(mock)
         val result = protocol.flashPartition("boot", byteArrayOf(0, 1, 2, 3))
@@ -48,9 +46,9 @@ class FlashTest {
     }
 
     @Test
-    fun testFlashFailure_WhenDeviceRefuses() = runBlocking {
+    fun testFlashFailure_WhenDeviceRefuses() = runTest { // 统一使用 runTest
         val mock = MockTransport()
-        mock.responses.add("FAILDeviceBusy") // 模拟设备拒绝
+        mock.responses.add("FAILDeviceBusy")
 
         val protocol = FastbootProtocol(mock)
         val result = protocol.flashPartition("boot", byteArrayOf(0, 1, 2, 3))
