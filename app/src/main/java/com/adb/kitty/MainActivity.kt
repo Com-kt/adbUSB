@@ -23,6 +23,7 @@ import android.content.ComponentName
 import android.content.ServiceConnection
 import android.graphics.Color
 import android.graphics.Bitmap
+import android.animation.ObjectAnimator
 
 import android.view.View
 import android.view.ViewGroup
@@ -456,6 +457,7 @@ class MainActivity : AppCompatActivity() {
            }
               R.id.action_main_6 -> {
               inspector.stop()
+              updateStatus("帧率测试已停止")
                 true
            }
               R.id.action_main_7 -> {
@@ -1517,10 +1519,14 @@ class MainActivity : AppCompatActivity() {
         val time = current.format(formatter)
         runOnUiThread {
             binding.appMainActivity.tvLog.append(time + "\u0020" + msg + "\n")
-            binding.appMainActivity.scrollView.post {
-            // fullScroll 会直接滑动到最底部，确保你能看到最新的 [流结束] 或命令输出
-            binding.appMainActivity.scrollView.fullScroll(android.view.View.FOCUS_DOWN)
-        }
+            binding.appMainActivity.scrollView.postDelayed({
+                val targetY = binding.appMainActivity.scrollView.getChildAt(0).height - binding.appMainActivity.scrollView.height
+                if (targetY > 0) {
+                    ObjectAnimator.ofInt(binding.appMainActivity.scrollView, "scrollY", targetY)
+                    .setDuration(300)
+                    .start()
+                }
+            }, 100)
             val offset = binding.appMainActivity.tvLog.lineCount * binding.appMainActivity.tvLog.lineHeight
             if (offset > binding.appMainActivity.tvLog.height) binding.appMainActivity.tvLog.scrollTo(0, offset - binding.appMainActivity.tvLog.height)
         }
