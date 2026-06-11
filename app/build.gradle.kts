@@ -47,6 +47,8 @@ android {
         versionCode = propVersionCode
         versionName = "$versionPrefix-$buildDate-android"
         
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        
         vectorDrawables { 
             useSupportLibrary = true
         }
@@ -119,6 +121,12 @@ android {
         includeInApk = false
         includeInBundle = false
     }
+    
+    testOptions {
+        unitTests {
+            isIncludeAndroidResources = true
+        }
+    }
 }
 
 tasks.withType<KotlinJvmCompile>()
@@ -146,4 +154,8 @@ dependencies {
     implementation(libs.bundles.lifecycle)
     implementation(libs.com.flyfishxu.kadb)
     implementation(libs.org.conscrypt.openjdk.uber)
+    implementation(libs.androidx.annotation.experimental)
+    testImplementation(libs.junit)
+    androidTestImplementation(libs.androidx.test.ext.junit)
+    androidTestImplementation(libs.androidx.test.espresso.core)
 }
