@@ -8,7 +8,7 @@
  */
 package com.adb.kitty
 
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import java.util.LinkedList
@@ -34,7 +34,7 @@ class FlashTest {
     }
 
     @Test
-    fun testSuccessfulFlashFlow() = runBlocking {
+    fun testSuccessfulFlashFlow() = runTest {
         val mock = MockTransport()
         // 预设协议交互顺序
         mock.responses.add("DATA00000004") // 模拟收到 Download 许可

@@ -156,6 +156,7 @@ dependencies {
     implementation(libs.org.conscrypt.openjdk.uber)
     implementation(libs.androidx.annotation.experimental)
     testImplementation(libs.junit)
+    testImplementation(libs.kotlinx.coroutines.test)
     androidTestImplementation(libs.androidx.test.ext.junit)
     androidTestImplementation(libs.androidx.test.espresso.core)
 }
