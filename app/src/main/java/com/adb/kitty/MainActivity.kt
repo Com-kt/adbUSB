@@ -94,17 +94,8 @@ import kotlin.ExperimentalUnsignedTypes
 import kotlin.coroutines.resume
 import kotlin.math.roundToInt
 
-import java.io.File
-import java.io.FileWriter
-import java.io.FileInputStream
-import java.io.FileOutputStream
-import java.io.FileDescriptor
-import java.io.IOException
-import java.io.BufferedReader
-import java.io.InputStreamReader
-
-import java.nio.ByteBuffer
-import java.nio.ByteOrder
+import java.io.*
+import java.nio.*
 
 import java.security.KeyPair
 import java.security.Signature
@@ -159,8 +150,6 @@ class MainActivity : AppCompatActivity() {
     private var accessoryPfd: ParcelFileDescriptor? = null
   //  private var kadbInstance: Kadb? = null
     private var usbForwarder: UsbPortForwarder? = null
-    private var currentUsbDevice: UsbDevice? = null
-    private var intf: UsbInterface? = null
 
     private var isUsbAttached = false
     private var isAdbAuthorized = false
@@ -170,14 +159,6 @@ class MainActivity : AppCompatActivity() {
 
     private val responseChannel = Channel<String>(Channel.CONFLATED)
     private val turbo by lazy { PerformanceTurbo(this) }
-    
-    @Volatile
-    private var activeBinaryProcess: Process? = null
-    
-    @Volatile
-    var isBinaryRunning = false
-    
-    private val logPipeline = Channel<String>(Channel.UNLIMITED)
     
     private val flashFolder by lazy { File(getExternalFilesDir(null), "flash") }
     
@@ -260,30 +241,24 @@ class MainActivity : AppCompatActivity() {
             if (ACTION_USB_PERMISSION == intent.action) {
                 val granted = intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false)
                 if (granted) {
+                    // 1. 尝试获取 Device (Host 模式)
                     val device = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                         intent.getParcelableExtra(UsbManager.EXTRA_DEVICE, UsbDevice::class.java)
                     } else {
                         @Suppress("DEPRECATION")
                         intent.getParcelableExtra(UsbManager.EXTRA_DEVICE)
                     }
-                
+                    // 2. 尝试获取 Accessory (配件模式)
                     val accessory = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                         intent.getParcelableExtra(UsbManager.EXTRA_ACCESSORY, UsbAccessory::class.java)
                     } else {
                         @Suppress("DEPRECATION")
                         intent.getParcelableExtra(UsbManager.EXTRA_ACCESSORY)
                     }
-                
+                    // 分别处理
                     if (device != null) {
                         appendLog("[系统] USB 调试设备权限获取成功")
-                    
-                        // 🌟【关键修改】：记录设备指针。但如果二进制在跑，把物理 claim 让给它，App 先不抢
-                        currentUsbDevice = device 
-                        if (isBinaryRunning) {
-                            appendLog("[物理避让] 当前刷机引擎正在独占总线，App 暂不接管物理接口。")
-                        } else {
-                            connectToInterface(device) 
-                        }
+                        connectToInterface(device) // 保持你原有的逻辑
                     } else if (accessory != null) {
                         appendLog("[系统] USB 配件模式权限获取成功")
                     }
@@ -293,7 +268,7 @@ class MainActivity : AppCompatActivity() {
             }
         }
     }
-
+    
     private val usbStateReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
             when (intent.action) {
@@ -301,36 +276,15 @@ class MainActivity : AppCompatActivity() {
                 UsbManager.ACTION_USB_ACCESSORY_ATTACHED -> {
                     isUsbAttached = true
                     refreshUiText()
-                    appendLog("[系统] 物理 USB 设备/配件已挂载插入")
-                
-                    // 🌟【关键修改】：插入设备时，如果二进制没在跑，主动去扫一遍接口并握手
-                    if (!isBinaryRunning) {
-                        findHostDevice()
-                    } else {
-                        appendLog("[系统] 刷机期间检测到物理节点重连，底层二进制正在自动接管...")
-                    }
                 }
-            
-                // 🌟【关键修改 2】：修正了下面第二行的 DETACHED 拼写错误
                 UsbManager.ACTION_USB_DEVICE_DETACHED,
-                UsbManager.ACTION_USB_ACCESSORY_DETACHED -> { 
-                
-                    // 🌟【关键修改 3】：如果底层二进制正在狂飙刷机，App 原生信道对“断开”保持静默
-                    if (isBinaryRunning) {
-                        appendLog("[系统] 刷机期间设备暂时断开（属于正常分区切换重启），原生信道保持避让。")
-                        return // 🔥 直接拦截，绝对不准清除 App 的 Fastboot 状态和物理指针
-                    }
-                
-                    // 正常非刷机状态下的断开，App 释放自己的连接
+                UsbManager.ACTION_USB_ACCESSORY_DETACHED -> {
                     isUsbAttached = false
                     isAdbAuthorized = false
                     isFastbootMode = false
                     readerJob?.cancel()
                     usbConn?.close()
-                    usbConn = null
-                    currentUsbDevice = null // 顺手清空指针
                     refreshUiText()
-                    updateStatus("设备已断开")
                     appendLog("[系统] USB 设备已断开")
                 }
             }
@@ -393,7 +347,7 @@ class MainActivity : AppCompatActivity() {
         
         binding.appMainActivity.ipTest.setOnClickListener { IpTestWork() }
         
-        binding.appMainActivity.flashAll.setOnClickListener { startDualChannelFlashEngine() }
+        binding.appMainActivity.flashAll.setOnClickListener {  }
         
         binding.appMainActivity.btnSend.setOnClickListener {
             val cmd = binding.appMainActivity.etCommand.text.toString().trim()
@@ -787,41 +741,44 @@ class MainActivity : AppCompatActivity() {
         val devices = usbManager.deviceList
         if (devices.isEmpty()) {
             updateStatus("未发现 USB 设备")
-            currentUsbDevice = null
             return
         }
 
         for (device in devices.values) {
             for (i in 0 until device.interfaceCount) {
-                val targetIntf = device.getInterface(i)
+                val intf = device.getInterface(i)
                 appendLog("设备: ${device.productName ?: "未知"}")
                 appendLog("制造商: ${device.manufacturerName ?: "未知"}")
                 appendLog("版本号: ${device.version}")
-                appendLog("接口名称: ${targetIntf.name ?: "无描述"}")
+                // 在遍历 interface 的循环内
+                appendLog("接口名称: ${intf.name ?: "无描述"}")
+                // USB设备信息
                 appendLog("VID: ${device.vendorId} | PID: ${device.productId}")
-                appendLog("检查接口 $i: Class=${targetIntf.interfaceClass}, Subclass=${targetIntf.interfaceSubclass}, Protocol=${targetIntf.interfaceProtocol}")
-            
+                appendLog("检查接口 $i: Class=${intf.interfaceClass}, Subclass=${intf.interfaceSubclass}, Protocol=${intf.interfaceProtocol}")
+                
                 // 遍历端点 (Endpoint)
-                for (j in 0 until targetIntf.endpointCount) {
-                    val ep = targetIntf.getEndpoint(j)
+                for (j in 0 until intf.endpointCount) {
+                    val ep = intf.getEndpoint(j)
+                    
+                    // 解析端点方向：最高位为 1 代表 IN (设备到手机)，0 代表 OUT (手机到设备)
                     val isInput = (ep.address and 0x80) != 0
                     val direction = if (isInput) "IN (设备->手机)" else "OUT (手机->设备)"
+                    
+                    // 解析端点编号：低 4 位代表编号
                     val epNumber = ep.address and 0x0F
+                    
                     appendLog("端点 $j: 地址=${ep.address} (方向: $direction, 编号: $epNumber), 最大包大小=${ep.maxPacketSize}")
                 }
-            
+                
                 appendLog("--- 通过USB连接输出 ---")
-                if (targetIntf.interfaceClass == 255 && targetIntf.interfaceSubclass == 66) {
-                    isFastbootMode = (targetIntf.interfaceProtocol == 3)
+                if (intf.interfaceClass == 255 && intf.interfaceSubclass == 66) {
+                    isFastbootMode = (intf.interfaceProtocol == 3)
                     isUsbAttached = true
-                
-                    // 🌟 随时更新全局设备指针，供二进制退出后能够重新夺回控制权
-                    currentUsbDevice = device 
-                
+                    
                     val modeName = if (isFastbootMode) "Fastboot" else "ADB"
+                    // 匹配要求：同行显示 VID/PID 十进制
                     appendLog("--- 检测到 $modeName 兼容设备 ---")
 
-                    // 检查 Android 运行时 USB 权限
                     if (!usbManager.hasPermission(device)) {
                         // --- 修复 Android 14 崩溃的关键点 ---
                         val flags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -836,16 +793,10 @@ class MainActivity : AppCompatActivity() {
                         val pi = PendingIntent.getBroadcast(this, 0, intent, flags)
                         usbManager.requestPermission(device, pi)
                         refreshUiText()
+                        
                     } else {
                         appendLog("[Serial] 硬件序列号: ${device.serialNumber ?: "未提供"}")
-                    
-                        // 🌟 【核心交警控制】：判断当前是不是有独立进程正在吞吐 USB
-                        if (isBinaryRunning) {
-                            updateStatus("物理总线当前正由底层的独立刷机进程排他性占用中...")
-                            appendLog("[系统] 监测到当前二进制正在执行，App 原生信道主动避让，不执行抢断式 claim。")
-                        } else {
-                            connectToInterface(device)
-                        }
+                        connectToInterface(device)
                     }
                     return
                 }
@@ -857,28 +808,24 @@ class MainActivity : AppCompatActivity() {
      * 🚀 物理接口鉴权与连接：通过本地 TCP 环回桥接绕过 KADB 物理限制
      */
     private fun connectToInterface(device: UsbDevice) {
-        this.currentUsbDevice = device
         val protocolTarget = if (isFastbootMode) 3 else 1
-
-        val matchedIntf = (0 until device.interfaceCount).map { device.getInterface(it) }
+        val intf = (0 until device.interfaceCount).map { device.getInterface(it) }
             .firstOrNull { it.interfaceClass == 255 && it.interfaceSubclass == 66 && it.interfaceProtocol == protocolTarget } ?: return
 
-        this.intf = matchedIntf
         val conn = usbManager.openDevice(device) ?: return
-        conn.claimInterface(matchedIntf, true)
-
-        for (j in 0 until matchedIntf.endpointCount) {
-            val ep = matchedIntf.getEndpoint(j)
+        conn.claimInterface(intf, true)
+        
+        for (j in 0 until intf.endpointCount) {
+            val ep = intf.getEndpoint(j)
             if (ep.direction == UsbConstants.USB_DIR_IN) epIn = ep else epOut = ep
         }
         usbConn = conn
-
+        
         if (isFastbootMode) {
-            isAdbAuthorized = true
+            isAdbAuthorized = true 
             refreshUiText()
             startFastbootReader()
             appendLog("[系统] Fastboot 物理信道就绪")
-            updateStatus("USB链路: Fastboot 已连接")
         } else {
             // kadb 库可能只有在发送 adb shell 命令时才会使用 adb shell，故此 USB 授权之后就默认 adb 已授权，以此开放 adb shell 命令发送
             isAdbAuthorized = true
@@ -903,7 +850,7 @@ class MainActivity : AppCompatActivity() {
                         if (isConnected) {
                             isAdbAuthorized = true
                             refreshUiText()
-                            updateStatus("USB链路: adb shell 已授权")
+                            updateStatus("USB链路: adb shell 首次授权成功")
                             appendLog(">>> ADB 有线授权成功，物理总线全面并网！ <<<")
                         }
                     }
@@ -921,6 +868,7 @@ class MainActivity : AppCompatActivity() {
     private suspend fun sendAdbShell(command: String) {
         // 1. 在主线程先行回显用户输入的命令
         withContext(Dispatchers.Main) {
+            isAdbAuthorized = true
             appendLog("ADB >> $command")
         }
     
@@ -1319,39 +1267,12 @@ class MainActivity : AppCompatActivity() {
         }
     }
     
-    private suspend fun releaseUsbForBinary() {
-        readerJob?.cancelAndJoin() // 1. 彻底斩断 App 层的物理接收轮询 Job
-        usbConn?.let { conn ->     // 2. 解除 Interface 独占并关闭物理连接
-            try {
-                intf?.let { conn.releaseInterface(it) }
-                conn.close()
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
-        }
-        usbConn = null
-        epIn = null
-        epOut = null
-        delay(50) // 给系统底层总线重置节点状态留出 50ms 物理缓冲切换时间
-    }
-
-    private fun reclaimUsbAfterBinary() {
-        currentUsbDevice?.let { device ->
-            connectToInterface(device)
-        }
-    }
-
-    // ------------------------------------------------------------------------
-    // 📡 6. 原生通道通信（基于 Android USB Host API 直连）
-    // ------------------------------------------------------------------------
     private fun startFastbootReader() {
         readerJob?.cancel()
         readerJob = lifecycleScope.launch(Dispatchers.IO) {
             val buffer = ByteArray(1024)
             while (isActive) {
-                val currentConn = usbConn ?: break
-                val currentEpIn = epIn ?: break
-                val read = currentConn.bulkTransfer(currentEpIn, buffer, buffer.size, 1000)
+                val read = usbConn?.bulkTransfer(epIn, buffer, buffer.size, 1000) ?: -1
                 if (read > 0) {
                     val response = String(buffer, 0, read).trim()
                     withContext(Dispatchers.Main) { appendLog("FB >> $response") }
@@ -1365,74 +1286,103 @@ class MainActivity : AppCompatActivity() {
      * Fastboot 协议中，INFO 包会连续发送，必须全部接收直到 OKAY
      */
     private suspend fun waitForTerminalResponse(
-        timeout: Long = 10000,
+        timeout: Long = 10000, 
         onInfoReceived: (String) -> Unit
     ): FastbootResponse {
-        val lines = mutableListOf<String>()
+        val lines = mutableListOf<String>() // 🌟 建立全量日志收集箱
         val startTime = System.currentTimeMillis()
 
         while (System.currentTimeMillis() - startTime < timeout) {
             val resp = withTimeoutOrNull(2000) { responseChannel.receive() } ?: continue
-            lines.add(resp)
-
+            lines.add(resp) // 🌟 每一行进来的原始数据都老老实实存进去
+        
             if (resp.startsWith("OKAY") || resp.startsWith("FAIL")) {
                 val status = resp.substring(0, 4)
                 val payload = if (resp.length > 4) resp.substring(4) else ""
-                return FastbootResponse(status, payload, lines)
+                return FastbootResponse(status, payload, lines) // 🌟 返回全量集合
             } else if (resp.startsWith("DATA")) {
                 val payload = if (resp.length > 4) resp.substring(4) else ""
-                return FastbootResponse("DATA", payload, lines)
+                return FastbootResponse("DATA", payload, lines) // 🌟 返回全量集合
             } else if (resp.startsWith("INFO")) {
                 val infoPayload = if (resp.length > 4) resp.substring(4) else ""
-                onInfoReceived(infoPayload)
+                onInfoReceived(infoPayload) // 依旧保持实时的实时回调
             } else {
                 onInfoReceived(resp)
             }
         }
         return FastbootResponse("TIMEOUT", "等待设备响应超时", lines)
     }
-    
+
     private fun sendFastbootCommandDirect(command: String) {
         val data = command.toByteArray()
-        val currentConn = usbConn
-        val currentEpOut = epOut
-        if (currentConn != null && currentEpOut != null) {
-            currentConn.bulkTransfer(currentEpOut, data, data.size, 1000)
-        }
+        usbConn?.bulkTransfer(epOut, data, data.size, 1000)
     }
     /**
      * 核心融合方法：执行任意 Fastboot 命令
      */
     suspend fun executeCommandSync(command: String) = withContext(Dispatchers.IO) {
+        // 清理并拆分命令
         val cleanCmd = command.removePrefix("fastboot ").trim()
         if (cleanCmd.isEmpty()) return@withContext
         val parts = cleanCmd.split(Regex("\\s+"))
         val action = parts[0].lowercase()
 
+        // 🌟 1. 【核心路由分流】判断是否需要通过 libfastboot.so 可执行文件来完成
         val requiresBinary = when {
+            // 情况 A：参数以 "-" 开头（例如 -help, --version, -s 等参数），直接走二进制文件
             action.startsWith("-") -> true
-            action == "getvar" || action == "oem" || action == "reboot" || action == "erase" -> false
+            
+            // 情况 B：你已经完美适配好协议的纯文本直连指令，走物理 USB 通道
+            action == "getvar" || action == "oem" || action == "reboot" || action == "erase" || action == "flash" -> false
+            
+            // 情况 C：其余复杂的刷机、文件操作或未适配的命令（flash, boot, reboot, devices ），默认全部走二进制文件
             else -> true
         }
 
         if (requiresBinary) {
-            executeViaFastbootBinary(parts)
+            // 🚀 【走二进制可执行文件独立进程分支】
+           // executeViaFastbootBinary(parts)
             return@withContext
         }
 
+        // 🔌 2. 【走原生的 USB 协议转换直连分支】（保持你原有的精良设计）
         val protocolCmd = when (action) {
-            "getvar", "erase" -> if (parts.size >= 2) "${parts[0]}:${parts.drop(1).joinToString(" ")}" else parts[0]
-            "oem", "reboot" -> cleanCmd
-            else -> cleanCmd
+            "getvar" -> {
+                if (parts.size >= 2) "${parts[0]}:${parts.drop(1).joinToString(" ")}" else parts[0]
+            }
+            "oem" -> {
+                cleanCmd 
+            }
+            "reboot" -> {
+                cleanCmd 
+            }
+            "erase" -> {
+                if (parts.size >= 2) "${parts[0]}:${parts.drop(1).joinToString(" ")}" else parts[0]
+            }
+            "flash" -> {
+                if (parts.size >= 3) {
+                    performFlash(parts[1], parts[2]) // 使用：fastboot flash boot /sdcard/boot.img
+                } else {
+                    appendLog("❌ 格式错误: flash <分区> <路径>")
+                }
+            }
+            else -> {
+                cleanCmd
+            }
         }
 
-        withContext(Dispatchers.Main) { appendLog("🚀 [USB直连] 发送指令: $protocolCmd") }
+        withContext(Dispatchers.Main) {
+            appendLog("🚀 [USB直连] 发送指令: $protocolCmd")
+        }
+
         sendFastbootCommandDirect(protocolCmd)
 
+        // 3. 传入实时回调，刷新前台 UI
         val result = waitForTerminalResponse(10000) { infoText ->
             appendLog("FB << (bootloader) $infoText")
         }
-
+        
+        // 4. 原生通道最终状态结算
         withContext(Dispatchers.Main) {
             when (result.status) {
                 "OKAY" -> appendLog("FB << OKAY [执行成功] ${result.payload}")
@@ -1442,145 +1392,98 @@ class MainActivity : AppCompatActivity() {
         }
     }
     /**
-     * 🌟 混合驱动核心：调用打包在 jniLibs 中的 libfastboot.so 执行未适配或复杂的命令
+     * 执行完整的 Flash 事务
+     * @param partition 分区名称 (例如 "boot", "system")
+     * @param filePath 本地文件路径
      */
-    private suspend fun executeViaFastbootBinary(args: List<String>) = withContext(Dispatchers.IO) {
-        val nativeDir = applicationInfo.nativeLibraryDir
-        val fastbootFile = File(nativeDir, "libfastboot.so")
-
-        if (!fastbootFile.exists()) {
-            withContext(Dispatchers.Main) { appendLog("❌ 错误：未找到 libfastboot.so 可执行文件。") }
+    suspend fun performFlash(partition: String, filePath: String) = withContext(Dispatchers.IO) {
+        val file = File(filePath)
+        if (!file.exists()) {
+            withContext(Dispatchers.Main) { appendLog("❌ 错误: 找不到镜像文件 -> $filePath") }
             return@withContext
         }
 
-        ensureFlashDirExists()
+        // 1. 预处理：判断是否需要特殊处理 (Sparse Image)
+        // 如果是 Sparse Image 且设备不支持直接刷写，此处可插入转换逻辑
+        val isSparse = isSparseImage(file)
+        withContext(Dispatchers.Main) { appendLog("ℹ️ 格式识别: ${if (isSparse) "Sparse Image" else "Raw Image"}") }
 
-        // 🌟【关键避让】：开启高能状态锁，App 撤销物理 USB 占用，给二进制进程让路
-        withContext(Dispatchers.Main) {
-            appendLog("🔌 [物理断开] 正在向 Android 系统释放 USB 独占锁，为二进制进程让路...")
-            isBinaryRunning = true
-        }
-        releaseUsbForBinary()
-
-        val command = mutableListOf<String>().apply {
-            add(fastbootFile.absolutePath)
-            addAll(args)
-        }
-
-        withContext(Dispatchers.Main) {
-            appendLog("🚀 [独立进程] 执行命令: fastboot ${args.joinToString(" ")}")
-        }
-
-        try {
-            val process = ProcessBuilder(command).directory(flashFolder).redirectErrorStream(true).start()
-            val reader = BufferedReader(InputStreamReader(process.inputStream, "UTF-8"))
-            var line: String?
-
-            while (reader.readLine().also { line = it } != null) {
-                val currentLine = line ?: continue
-                withContext(Dispatchers.Main) { appendLog("FB(Bin) << $currentLine") }
-            }
-            process.waitFor()
-        } catch (e: Exception) {
-            withContext(Dispatchers.Main) { appendLog("💥 [独立进程异常]: ${e.message}") }
-        } finally {
-            // 🌟【关键回收】：降下状态锁，App 重新收回物理通道控制权
-            withContext(Dispatchers.Main) {
-                appendLog("🔌 [物理回收] 二进制进程已彻底结束，App 重新并网物理总线...")
-                isBinaryRunning = false
-                reclaimUsbAfterBinary()
-            }
-        }
-    }
+        // 2. 握手阶段: download:<size>
+        // 协议要求：size 必须是 8 位十六进制
+        val sizeHex = String.format("%08x", file.length())
+        withContext(Dispatchers.Main) { appendLog("🚀 开始下载: $partition (大小: ${file.length()} bytes)") }
     
-    fun startDualChannelFlashEngine() {
-        lifecycleScope.launch(Dispatchers.Main) {
-            appendLog("⏳ [全速通道开启] 正在初始化原生日志流监听...")
-            for (logLine in logPipeline) {
-                appendLog(logLine)
-            }
+        sendFastbootCommandDirect("download:$sizeHex")
+    
+        // 等待设备响应 DATA (只有收到 DATA 才能开始传数据)
+        val handshake = waitForTerminalResponse(10000) { }
+        if (handshake.status != "DATA") {
+            withContext(Dispatchers.Main) { appendLog("❌ 拒绝下载: ${handshake.payload}") }
+            return@withContext
         }
 
-        lifecycleScope.launch(Dispatchers.IO) {
-            try {
-                flashAllEngine()
-            } finally {
-                logPipeline.close()
-            }
-        }
-    }
-    /**
-     * 🌟 纯粹的线刷核心引擎（零阻碍日志吞吐，分区级物理减压）
-     */
-    private suspend fun flashAllEngine() {
-        val nativeDir = applicationInfo.nativeLibraryDir
-        val sourceFastbootFile = File(nativeDir, "libfastboot.so")
-        val scriptFile = File(flashFolder, "flash_all.sh")
-        val targetFastbootFile = File(flashFolder, "fastboot")
-
-        if (!sourceFastbootFile.exists() || !scriptFile.exists()) {
-            logPipeline.send("❌ [线刷失败]: 缺少必需的依赖文件。")
-            return
-        }
-
+        // 3. 数据传输阶段 (流式循环)
+        withContext(Dispatchers.Main) { appendLog("⏳ 正在传输数据，请勿断开连接...") }
+        val buffer = ByteArray(65536) // 64KB 缓冲区
         try {
-            if (!targetFastbootFile.exists()) {
-                sourceFastbootFile.copyTo(targetFastbootFile, overwrite = true)
-                Runtime.getRuntime().exec("chmod 700 ${targetFastbootFile.absolutePath}").waitFor()
-            }
-            Runtime.getRuntime().exec("chmod 700 ${scriptFile.absolutePath}").waitFor()
-
-            // 🌟【关键避让】：脚本全面发车前，拉起交警锁，App 主动断开 USB 物理独占
-            logPipeline.send("🔌 [物理断开] 释放锁，总线全权交由底层的刷机可执行文件掌控...")
-            withContext(Dispatchers.Main) { isBinaryRunning = true }
-            releaseUsbForBinary()
-
-            val inlineCommand = "alias fastboot='${targetFastbootFile.absolutePath}'; sh ${scriptFile.absolutePath}"
-            val processBuilder = ProcessBuilder(listOf("sh", "-c", inlineCommand)).apply {
-                directory(flashFolder)
-                redirectErrorStream(true)
-            }
-
-            logPipeline.send("⚙️ [引擎启动] 正在唤醒底层 Linux 独立进程...")
-            val process = processBuilder.start()
-            activeBinaryProcess = process
-
-            val reader = BufferedReader(InputStreamReader(process.inputStream, "UTF-8"), 1024)
-            var line: String?
-
-            while (reader.readLine().also { line = it } != null) {
-                val currentLine = line ?: continue
-                logPipeline.send("SH_SCRIPT >> $currentLine")
-
-                if (currentLine.contains("OKAY")) {
-                    logPipeline.send("♻️ [分区刷写完毕] 物理小休眠降温...")
-                    delay(15)
+            FileInputStream(file).use { fis ->
+                var bytesRead: Int
+                while (fis.read(buffer).also { bytesRead = it } != -1) {
+                    // 使用 bulkTransfer 循环发送
+                    val written = usbConn?.bulkTransfer(epOut, buffer, bytesRead, 5000) ?: -1
+                    if (written != bytesRead) {
+                        throw Exception("USB 传输中断 (发送字节数不匹配)")
+                    }
                 }
             }
-            process.waitFor()
-        } catch (e: CancellationException) {
-            withContext(NonCancellable) { logPipeline.send("⚠️ [生命周期安全介入]: 线刷任务已被断开。") }
         } catch (e: Exception) {
-            logPipeline.send("💥 [进程异常]: ${e.message}")
-        } finally {
-            cleanupActiveProcess()
-            // 🌟【关键回收】：线刷彻底结束，降下交警锁，App 强制将物理信道收回来
-            logPipeline.send("🔌 [物理回收] 线刷脚本结束，App 重新并网接管物理信道...")
-            withContext(Dispatchers.Main) {
-                isBinaryRunning = false
-                reclaimUsbAfterBinary()
-            }
-            System.gc()
+            withContext(Dispatchers.Main) { appendLog("❌ 传输数据失败: ${e.message}") }
+            return@withContext
         }
-    }
+
+        // 4. 等待下载确认 (OKAY)
+        val downloadConfirm = waitForTerminalResponse(30000) { }
+        if (downloadConfirm.status != "OKAY") {
+            withContext(Dispatchers.Main) { appendLog("❌ 下载被拒绝: ${downloadConfirm.payload}") }
+            return@withContext
+        }
+
+        // 5. 触发刷写阶段: flash:<partition>
+        withContext(Dispatchers.Main) { appendLog("⚡ 触发刷写: flash:$partition") }
+        sendFastbootCommandDirect("flash:$partition")
     
-    private fun cleanupActiveProcess() {
-        activeBinaryProcess?.let { process ->
-            try { process.destroy() } catch (e: Exception) { e.printStackTrace() }
-            activeBinaryProcess = null
+        // 6. 最终结算 (长超时)
+        // 刷写过程设备会频繁返回 INFO，我们通过回调实时打印
+        val flashResult = waitForTerminalResponse(120000) { info ->
+            withContext(Dispatchers.Main) { appendLog("FB << (bootloader) $info") }
+        }
+
+        withContext(Dispatchers.Main) {
+            if (flashResult.status == "OKAY") {
+                appendLog("✅ [成功] 分区 $partition 刷写完成")
+            } else {
+                appendLog("❌ [失败] 分区 $partition 刷写失败: ${flashResult.payload}")
+            }
         }
     }
 
+    private fun isSparseImage(file: File): Boolean {
+        if (!file.exists() || file.length() < 4) return false
+        val SPARSE_HEADER_MAGIC = 0xED26FF3A.toInt() // 小端序 Magic
+
+        return try {
+            RandomAccessFile(file, "r").use { raf ->
+                val buffer = ByteArray(4)
+                raf.readFully(buffer)
+                val magic = ByteBuffer.wrap(buffer)
+                    .order(ByteOrder.LITTLE_ENDIAN).int
+                magic == SPARSE_HEADER_MAGIC
+            }
+        } catch (e: Exception) {
+            false
+        }
+    }
+    
     private fun refreshUiText() {
         runOnUiThread {
             // 匹配要求：状态：USB 已连接，XXX
@@ -1603,7 +1506,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun updateStatus(msg: String) {
-        runOnUiThread { binding.tvStatus.text = "状态：$msg"; appendLog("[系统] $msg") }
+        runOnUiThread { binding.tvStatus.text = "状态: $msg"; appendLog("[系统] $msg") }
     }
 
     private fun appendLog(msg: String) {
@@ -1626,7 +1529,6 @@ class MainActivity : AppCompatActivity() {
             unbindService(serviceConnection)
             isServiceBound = false
         }
-        cleanupActiveProcess()
         super.onDestroy()
         readerJob?.cancel()
         usbConn?.close()

@@ -142,7 +142,9 @@
     <!-- 运行「connectedDevice」类型的前台服务 -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
     <!-- 运行「fileManagement」类型的前台服务 -->
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_FILE_MANAGEMENT" />
+    <uses-permission 
+        android:name="android.permission.FOREGROUND_SERVICE_FILE_MANAGEMENT"
+        tools:ignore="SystemPermissionTypo" />
     <!-- 运行「health」类型的前台服务 -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_HEALTH" />
     <!-- 运行「location」类型的前台服务 -->
@@ -166,17 +168,22 @@
     <!-- 禁用键盘锁 -->
     <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
     <queries>
-        <package android:name="com.google.android.webview" />
-        <package android:name="com.google.android.gms" />
-        <package android:name="com.android.vending" />
-        <package android:name="com.android.shell" />
         <package android:name="com.adb.kitty" />
-        <package android:name="com.android.wifi.resources" />
-        <package android:name="com.xiaomi.misettings" />
+        <package android:name="com.android.ipsec" />
+        <package android:name="com.android.art" />
+        <package android:name="com.android.neuralnetworks" />
+        <package android:name="com.android.shell" />
+        <package android:name="com.android.devicelock" />
+        <package android:name="com.android.uwb" />
         <package android:name="com.android.settings" />
         <package android:name="com.android.adbd" />
         <package android:name="com.android.wifi" />
         <package android:name="com.android.adservices" />
+        <package android:name="com.android.healthfitness" />
+        <package android:name="com.android.tethering" />
+        <package android:name="com.android.permission" />
+        <package android:name="com.android.mediaprovider" />
+        <package android:name="com.android.media" />
     </queries>
     <queries>
         <intent>
