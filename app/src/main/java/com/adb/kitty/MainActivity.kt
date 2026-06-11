@@ -1287,7 +1287,7 @@ class MainActivity : AppCompatActivity() {
      */
     private suspend fun waitForTerminalResponse(
         timeout: Long = 10000, 
-        onInfoReceived: (String) -> Unit
+        onInfoReceived: suspend (String) -> Unit
     ): FastbootResponse {
         val lines = mutableListOf<String>() // 🌟 建立全量日志收集箱
         val startTime = System.currentTimeMillis()
