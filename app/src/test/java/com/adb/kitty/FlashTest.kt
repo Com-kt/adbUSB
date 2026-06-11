@@ -15,7 +15,7 @@ import java.util.LinkedList
 
 class FlashTest {
 
-    // 模拟一个“听话”或“调皮”的设备
+        // 模拟一个“听话”或“调皮”的设备
     class MockTransport : FastbootTransport {
         val responses = LinkedList<String>()
 
@@ -25,10 +25,16 @@ class FlashTest {
         }
 
         override fun receive(buffer: ByteArray, timeout: Int): Int {
-            if (responses.isEmpty()) return -1
-            val resp = responses.poll().toByteArray()
-            System.arraycopy(resp, 0, buffer, 0, resp.size)
-            return resp.size
+            // 🌟 修复关键点：使用 ?: 处理 null 的情况
+            val pollResult = responses.poll() ?: return -1 
+            
+            // 此时 pollResult 已经被智能类型转换为非空 String 了
+            val resp = pollResult.toByteArray()
+            
+            // 确保不会溢出 buffer
+            val length = minOf(resp.size, buffer.size)
+            System.arraycopy(resp, 0, buffer, 0, length)
+            return length
         }
     }
 

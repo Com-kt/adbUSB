@@ -128,3 +128,10 @@ jobs:
         # -PdisablePreDex 是一些优化选项，可以按需添加
         run: ./gradlew testDebugUnitTest -i -w --stacktrace
         
+      - name: Upload Tset Report HTML
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-reports-html
+          path: app/build/reports/tests/testDebugUnitTest/index.html
+          archive: false
+        
