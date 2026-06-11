@@ -1406,7 +1406,17 @@ class MainActivity : AppCompatActivity() {
             withContext(Dispatchers.Main) { appendLog("❌ 错误: 找不到镜像文件 -> $filePath") }
             return@withContext
         }
-
+        
+        val activeSlot = getActiveSlot()
+        val targetPartition = if (activeSlot.isNotEmpty()) {
+            "${partition}_$activeSlot" // 拼接成 boot_a 或 boot_b
+        } else {
+            partition // 不支持插槽的设备保持原样
+        }
+    
+        withContext(Dispatchers.Main) { 
+            appendLog("📱 目标分区: $targetPartition (Slot: ${if (activeSlot.isEmpty()) "Single" else activeSlot})") 
+        }
         // 1. 预处理：判断是否需要特殊处理 (Sparse Image)
         // 如果是 Sparse Image 且设备不支持直接刷写，此处可插入转换逻辑
         val isSparse = isSparseImage(file)
@@ -1453,8 +1463,8 @@ class MainActivity : AppCompatActivity() {
         }
 
         // 5. 触发刷写阶段: flash:<partition>
-        withContext(Dispatchers.Main) { appendLog("⚡ 触发刷写: flash:$partition") }
-        sendFastbootCommandDirect("flash:$partition")
+        withContext(Dispatchers.Main) { appendLog("⚡ 触发刷写: flash:$targetPartition") }
+        sendFastbootCommandDirect("flash:$targetPartition")
     
         // 6. 最终结算 (长超时)
         // 刷写过程设备会频繁返回 INFO，我们通过回调实时打印
@@ -1469,6 +1479,24 @@ class MainActivity : AppCompatActivity() {
                 appendLog("❌ [失败] 分区 $partition 刷写失败: ${flashResult.payload}")
             }
         }
+    }
+    
+    private suspend fun getActiveSlot(): String {
+        // 1. 发送查询命令
+        sendFastbootCommandDirect("getvar:current-slot")
+    
+        var slot = ""
+        // 2. 获取响应
+        val response = waitForTerminalResponse(5000) { info ->
+            // Fastboot 的 getvar 响应通常格式为 "current-slot: a" 或直接是 "a"
+            // 某些设备响应在 info 回调中，需要提取出来
+            if (info.contains("current-slot:")) {
+                slot = info.substringAfter("current-slot:").trim()
+            }
+        }
+    
+        // 如果没有取到，说明设备不支持分区插槽，返回空
+        return if (response.status == "OKAY") slot else ""
     }
 
     private fun isSparseImage(file: File): Boolean {

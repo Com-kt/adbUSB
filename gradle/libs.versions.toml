@@ -31,9 +31,6 @@ lifecycle = "2.10.0"
 kadb = "2.1.2"
 conscrypt = "2.5.2"
 
-junit = "4.13.2"
-testExtJunit = "1.3.0"
-espresso = "3.7.0"
 annotationExperimental = "1.6.0"
 
 [libraries]
@@ -53,11 +50,6 @@ androidx-lifecycle-process = { group = "androidx.lifecycle", name = "lifecycle-p
 androidx-lifecycle-runtime-ktx = { group = "androidx.lifecycle", name = "lifecycle-runtime-ktx", version.ref = "lifecycle" }
 androidx-lifecycle-reactivestreams-ktx = { group = "androidx.lifecycle", name = "lifecycle-reactivestreams-ktx", version.ref = "lifecycle" }
 androidx-lifecycle-service = { group = "androidx.lifecycle", name = "lifecycle-service", version.ref = "lifecycle" }
-
-# 测试库
-junit = { group = "junit", name = "junit", version.ref = "junit" }
-androidx-test-ext-junit = { group = "androidx.test.ext", name = "junit-ktx", version.ref = "testExtJunit" }
-androidx-test-espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espresso" }
 
 # Google & 第三方库
 material = { group = "com.google.android.material", name = "material", version.ref = "material" }
