@@ -80,11 +80,10 @@
 
     <androidx.core.widget.NestedScrollView
         android:layout_width="match_parent"
-        android:layout_height="700dp"
+        android:layout_height="500dp"
         android:layout_margin="8dp"
         android:layout_marginEnd="@dimen/activity_xml_layout_marginEnd"
         android:layout_marginStart="@dimen/activity_xml_layout_marginStart"
-        android:background="@color/activity_xml_scrollView_background_color"
         android:padding="@dimen/dialog_simple_xml_layout_margin"
         android:id="@+id/scrollView"
         app:layout_constraintTop_toBottomOf="@+id/flashAll"
