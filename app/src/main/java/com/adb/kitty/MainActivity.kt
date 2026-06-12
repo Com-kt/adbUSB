@@ -1447,12 +1447,28 @@ class MainActivity : AppCompatActivity() {
         val flashResult = waitForTerminalResponse(120000) { info ->
             withContext(Dispatchers.Main) { appendLog("FB << (bootloader) $info") }
         }
+        
+        val endTime = System.currentTimeMillis()
+        val thresholdBytes = 512 * 1024
+        val fileSizeMB = file.length() / (1024.0 * 1024.0)
+        val durationSeconds = (endTime - startTime) / 1000.0
 
         withContext(Dispatchers.Main) {
             if (flashResult.status == "OKAY") {
-                appendLog("✅ [成功] 分区 $partition 刷写完成")
+                val sb = StringBuilder()
+                sb.append("✅ [成功] 分区 $partition 刷写完成")
+                sb.append("⏱️ 耗时: ${"%.2f".format(durationSeconds)}秒")
+        
+                // 只有在文件足够大时，才展示传输速度，避免误导
+                if (file.length() >= thresholdBytes && durationSeconds > 0) {
+                    val speedMbps = fileSizeMB / durationSeconds
+                    sb.append(" | 平均速度: ${"%.2f".format(speedMbps)} MB/s")
+                } else {
+                    sb.append("刷写的分区过小，因此不展示传输速度")
+                }
+                appendLog(sb.toString())
             } else {
-                appendLog("❌ [失败] 分区 $partition 刷写失败: ${flashResult.payload}")
+                appendLog("❌ [失败] 分区 $partition 刷写失败: ${flashResult.payload} (已耗时: ${"%.2f".format(durationSeconds)}秒)")
             }
         }
     }
