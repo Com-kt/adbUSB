@@ -1375,10 +1375,6 @@ class MainActivity : AppCompatActivity() {
             return@withContext
         }
         
-        withContext(Dispatchers.Main) { 
-            appendLog("📂 即将刷入: ${file.name} -> 目标: $targetPartition")
-        }
-        
         val activeSlot = getActiveSlot()
         val hasManualSuffix = partition.endsWith("_a", ignoreCase = true) || 
                               partition.endsWith("_b", ignoreCase = true) || 
@@ -1392,8 +1388,10 @@ class MainActivity : AppCompatActivity() {
         }
         
         withContext(Dispatchers.Main) { 
-            appendLog("📱 计算目标: $partition -> $targetPartition (Active Slot: ${activeSlot.ifEmpty { "N/A" }})") 
+            appendLog("📂 即将刷入: ${file.name} -> 目标: $targetPartition")
+            appendLog("📱 计算目标: $partition -> $targetPartition (Active Slot: ${activeSlot.ifEmpty { "N/A" }})")
         }
+        
         // 1. 预处理：判断是否需要特殊处理 (Sparse Image)
         // 如果是 Sparse Image 且设备不支持直接刷写，此处可插入转换逻辑
         val isSparse = isSparseImage(file)
