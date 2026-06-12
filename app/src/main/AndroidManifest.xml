@@ -171,6 +171,7 @@
         <package android:name="com.adb.kitty" />
         <package android:name="com.android.ipsec" />
         <package android:name="com.android.art" />
+        <package android:name="com.android.virt" />
         <package android:name="com.android.neuralnetworks" />
         <package android:name="com.android.shell" />
         <package android:name="com.android.devicelock" />
@@ -184,6 +185,30 @@
         <package android:name="com.android.permission" />
         <package android:name="com.android.mediaprovider" />
         <package android:name="com.android.media" />
+        <package android:name="com.android.extservices" />
+        <package android:name="com.android.conscrypt" />
+        <package android:name="com.android.configinfrastructure" />
+        <package android:name="com.android.cellbroadcast" />
+        <package android:name="com.android.appsearch" />
+        <package android:name="com.android.scheduling" />
+        <package android:name="com.android.resolv" />
+        <package android:name="com.android.profiling" />
+        <package android:name="com.android.ondevicepersonalization" />
+        <package android:name="com.android.media.swcodec" />
+        <package android:name="com.android.vndk" />
+        <package android:name="com.android.vndk.v30" />
+        <package android:name="com.android.vndk.v31" />
+        <package android:name="com.android.vndk.v32" />
+        <package android:name="com.android.vndk.v33" />
+        <package android:name="com.android.vndk.v34" />
+        <package android:name="com.android.vndk.v35" />
+        <package android:name="com.android.vndk.v36" />
+        <package android:name="com.android.vndk.v37" />
+        <package android:name="com.android.apex.cts.shim" />
+        <package android:name="com.android.os.statsd" />
+        <package android:name="com.android.tzdata" />
+        <package android:name="com.android.sdkext" />
+        <package android:name="com.android.runtime" />
     </queries>
     <queries>
         <intent>

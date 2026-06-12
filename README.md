@@ -12,13 +12,14 @@
     - [ ] accessory (Android 12+)
     - [x] UsbManager API (Android 9+)
 - [x] Fastboot
-    - [x] cmd (Android 9+)
-        - [x] oem
-        - [x] getvar
-        - [x] erase
+    - [x] reboot (Android 9+)
+    - [x] oem (Android 9+)
+    - [x] getvar (Android 9+)
+    - [x] erase (Android 9+)
     - [x] flash (Android 9+)
-        - [x] flash-all
-        - [x] partition-table
+    - [ ] boot (Android 9+)
+    - [ ] format (Android 9+)
+    - [ ] set active (Android 9+)
     - [x] interface
         - [x] 255/66/3
         - [ ] 255/68/3
@@ -38,6 +39,22 @@
     - [x] ipv4 Test
     - [x] ipv6 Test
     - [x] display Test (RootService)
+        - [x] CPU
+            - [x] SM8475：
+                - [x] 第一代骁龙 8+ (Snapdragon 8+ Gen 1)
+                - [x] 1+3+4
+            - [x] SM8550：
+                - [x] 第二代骁龙 8 (Snapdragon 8 Gen 2)
+                - [x] 1+(2+2)+3
+            - [x] SM8650：
+                - [x] 第三代骁龙 8 (Snapdragon 8 Gen 3)
+                - [x] 1+5+2
+            - [x] SM8750：
+                - [x] 骁龙 8 至尊版 (Snapdragon 8 Elite / 8e)
+                - [x] 2+6
+            - [x] SM8850：
+                - [x] 第五代骁龙 8 至尊版 (Snapdragon 8 Elite Gen 5 / 8e5)
+                - [x] 2+6
     - [x] MTFilesProvider
     - [x] Kernel frequency raising (Android 12+)
     - [x] Library
@@ -46,22 +63,49 @@
         - [x] x86
         - [x] x86_64
         - [x] riscv64
-- [x] CPU
-    - [x] SM8475：
-        - [x] 第一代骁龙 8+ (Snapdragon 8+ Gen 1)
-        - [x] 1+3+4
-    - [x] SM8550：
-        - [x] 第二代骁龙 8 (Snapdragon 8 Gen 2)
-        - [x] 1+(2+2)+3
-    - [x] SM8650：
-        - [x] 第三代骁龙 8 (Snapdragon 8 Gen 3)
-        - [x] 1+5+2
-    - [x] SM8750：
-        - [x] 骁龙 8 至尊版 (Snapdragon 8 Elite / 8e)
-        - [x] 2+6
-    - [x] SM8850：
-        - [x] 第五代骁龙 8 至尊版 (Snapdragon 8 Elite Gen 5 / 8e5)
-        - [x] 2+6
+    - [ ] flash Test
+        - [x] flash dtbo
+        - [ ] flash boot
+        - [ ] flash system
+        - [ ] flash xbl config
+        - [ ] flash xbl
+        - [ ] flash adl
+        - [ ] flash aop config
+        - [ ] flash aop
+        - [ ] flash shrm
+        - [ ] flash cpucp dtb
+        - [ ] flash sparsecrclist
+        - [ ] flash crclist
+        - [ ] flash uefi
+        - [ ] flash hyp
+        - [ ] flash featenabler
+        - [ ] flash devcfg
+        - [ ] flash tz
+        - [ ] flash dsp
+        - [ ] flash bluetooth
+        - [ ] flash modemfirmware
+        - [ ] flash modem
+        - [ ] flash spuservice
+        - [ ] flash uefisecapp
+        - [ ] flash cpucp
+        - [ ] flash multiimgqti
+        - [ ] flash multiimgoem
+        - [ ] flash qupfw
+        - [ ] flash keymaster
+        - [ ] flash xbl ramdump
+        - [ ] flash toolsfv
+        - [ ] flash storsec
+        - [ ] flash rescue
+        - [ ] flash logfs
+        - [ ] flash vbmeta system
+        - [ ] flash vbmeta
+        - [ ] flash vendor boot
+        - [ ] flash super
+        - [ ] flash init boot
+        - [ ] flash recovery
+        - [ ] flash misc
+        - [ ] flash userdata
+        - [ ] flash metadata
 
 > [!WARNING]
 > 

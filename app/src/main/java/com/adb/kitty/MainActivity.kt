@@ -15,31 +15,15 @@ import android.Manifest
 import android.util.Log
 import android.content.pm.PackageManager
 import android.app.PendingIntent
-import android.content.BroadcastReceiver
-import android.content.Context
-import android.content.Intent
-import android.content.IntentFilter
-import android.content.ComponentName
-import android.content.ServiceConnection
 import android.graphics.Color
 import android.graphics.Bitmap
 import android.animation.ObjectAnimator
 
-import android.view.View
-import android.view.ViewGroup
-import android.view.Menu
-import android.view.MenuItem
-import android.view.WindowInsets
-import android.view.WindowInsetsController
-import android.view.WindowManager
-
-import android.hardware.usb.UsbConstants
-import android.hardware.usb.UsbDevice
-import android.hardware.usb.UsbDeviceConnection
-import android.hardware.usb.UsbEndpoint
-import android.hardware.usb.UsbInterface
-import android.hardware.usb.UsbManager
-import android.hardware.usb.UsbAccessory
+import android.os.*
+import android.view.*
+import android.widget.*
+import android.content.*
+import android.hardware.usb.*
 
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
@@ -48,14 +32,7 @@ import android.net.wifi.WifiManager
 import android.net.nsd.NsdManager
 import android.net.nsd.NsdServiceInfo
 
-import android.os.Build
-import android.os.Bundle
-import android.os.Handler
-import android.os.Looper
-import android.os.IBinder
-import android.os.ParcelFileDescriptor
 import android.text.method.ScrollingMovementMethod
-import android.widget.*
 
 import androidx.appcompat.widget.Toolbar
 import androidx.appcompat.app.AlertDialog
@@ -75,7 +52,10 @@ import androidx.core.content.edit
 import androidx.core.app.ActivityCompat
 
 import com.google.android.material.bottomsheet.BottomSheetDialog
-
+/*******************************
+*        kotlinx 协程         *
+*    suspend 都给我挂起     *
+********************************/
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -97,32 +77,19 @@ import kotlin.math.roundToInt
 
 import java.io.*
 import java.nio.*
-
-import java.security.KeyPair
-import java.security.Signature
-import javax.crypto.Cipher
-import java.text.SimpleDateFormat
-
-import java.net.Inet4Address
-import java.net.NetworkInterface
-import java.net.HttpURLConnection
-import java.net.URL
-import java.net.InetSocketAddress
-import java.net.Socket
-
-import java.util.Collections
-import java.util.Date
-import java.util.Locale
+import java.security.*
+import java.text.*
+import java.net.*
+import java.util.*
 import java.util.zip.CRC32
-
-import java.time.LocalDateTime
+import java.time.*
 import java.time.format.DateTimeFormatter
+import javax.crypto.Cipher
 import javax.net.ssl.SSLContext
 import javax.net.ssl.SSLSocket
 import okio.Buffer
 import com.flyfishxu.kadb.Kadb
-import org.json.JSONArray
-import org.json.JSONObject
+import org.json.*
 
 data class AdbCommand(val description: String, val command: String)
 
@@ -656,8 +623,7 @@ class MainActivity : AppCompatActivity() {
     
     private fun WarngApps() {
         val warnTitle = "注意事项"
-        val warnMessage = "1.ADB授权之后就直接进入了adb shell，命令里也就不需要加上adb shell \n2.fastboot通信链路如果有问题，请第一时间前往GitHub提交问题 \n3.GitHub地址：https://github.com/Com-kt/adbUSB \n4.应用自身没有签名校验机制，随时都有可能会被寡改 \n5.如果您认为此应用程序Fastboot的实现不能进行线刷，那么您就不要线刷 \n6.免责声明：开发者没有任何义务对所有人进行服务 \n7.线刷文件夹路径：/storage/emulated/0/Android/data/com.adb.kitty/files/flash/"
-    
+        val warnMessage = viewModel.warnMessage
         val builder = AlertDialog.Builder(this)
             .setTitle(warnTitle)
             .setMessage(warnMessage)
@@ -749,11 +715,11 @@ class MainActivity : AppCompatActivity() {
         for (device in devices.values) {
             for (i in 0 until device.interfaceCount) {
                 val intf = device.getInterface(i)
-                appendLog("设备: ${device.productName ?: "未知"}")
-                appendLog("制造商: ${device.manufacturerName ?: "未知"}")
+                appendLog("设备: ${device.productName ?: "unknown"}")
+                appendLog("制造商: ${device.manufacturerName ?: "unknown"}")
                 appendLog("版本号: ${device.version}")
                 // 在遍历 interface 的循环内
-                appendLog("接口名称: ${intf.name ?: "无描述"}")
+                appendLog("接口名称: ${intf.name ?: "unknown"}")
                 // USB设备信息
                 appendLog("VID: ${device.vendorId} | PID: ${device.productId}")
                 appendLog("检查接口 $i: Class=${intf.interfaceClass}, Subclass=${intf.interfaceSubclass}, Protocol=${intf.interfaceProtocol}")
@@ -797,7 +763,7 @@ class MainActivity : AppCompatActivity() {
                         refreshUiText()
                         
                     } else {
-                        appendLog("[Serial] 硬件序列号: ${device.serialNumber ?: "未提供"}")
+                        appendLog("[Serial] 硬件序列号: ${device.serialNumber ?: "unknown"}")
                         connectToInterface(device)
                     }
                     return
@@ -824,7 +790,6 @@ class MainActivity : AppCompatActivity() {
         usbConn = conn
         
         if (isFastbootMode) {
-            isAdbAuthorized = true 
             refreshUiText()
             startFastbootReader()
             appendLog("[系统] Fastboot 物理信道就绪")
@@ -1351,7 +1316,7 @@ class MainActivity : AppCompatActivity() {
             if (parts.size >= 3) {
                 performFlash(parts[1], parts[2]) 
             } else {
-                withContext(Dispatchers.Main) { appendLog("❌ 格式错误: flash <分区> <路径>") }
+                withContext(Dispatchers.Main) { appendLog("❌ 格式错误: flash <分区> <文件名>") }
             }
             return@withContext // flash 操作已完成，直接退出该函数，不走后续的通用发送逻辑
         }
@@ -1400,22 +1365,33 @@ class MainActivity : AppCompatActivity() {
      * @param partition 分区名称 (例如 "boot", "system")
      * @param filePath 本地文件路径
      */
-    suspend fun performFlash(partition: String, filePath: String) = withContext(Dispatchers.IO) {
-        val file = File(filePath)
+    suspend fun performFlash(partition: String, fileName: String) = withContext(Dispatchers.IO) {
+        val file = File(flashFolder, fileName)
         if (!file.exists()) {
-            withContext(Dispatchers.Main) { appendLog("❌ 错误: 找不到镜像文件 -> $filePath") }
+            withContext(Dispatchers.Main) { 
+                appendLog("❌ 错误: 找不到镜像文件 -> $file.absolutePath") 
+            }
             return@withContext
         }
         
-        val activeSlot = getActiveSlot()
-        val targetPartition = if (activeSlot.isNotEmpty()) {
-            "${partition}_$activeSlot" // 拼接成 boot_a 或 boot_b
-        } else {
-            partition // 不支持插槽的设备保持原样
-        }
-    
         withContext(Dispatchers.Main) { 
-            appendLog("📱 目标分区: $targetPartition (Slot: ${if (activeSlot.isEmpty()) "Single" else activeSlot})") 
+            appendLog("📂 即将刷入的文件: ${file.name}")
+        }
+        
+        val activeSlot = getActiveSlot()
+        val hasManualSuffix = partition.endsWith("_a", ignoreCase = true) || 
+                              partition.endsWith("_b", ignoreCase = true) || 
+                              partition.endsWith("_ab", ignoreCase = true)
+        val targetPartition = if (hasManualSuffix) {
+            // 用户指定了具体插槽，直接使用用户的输入
+            partition 
+        } else {
+            // 用户没指定，使用你的自动映射逻辑
+            getTargetPartition(partition, activeSlot)
+        }
+        
+        withContext(Dispatchers.Main) { 
+            appendLog("📱 计算目标: $partition -> $targetPartition (Active Slot: ${activeSlot.ifEmpty { "N/A" }})") 
         }
         // 1. 预处理：判断是否需要特殊处理 (Sparse Image)
         // 如果是 Sparse Image 且设备不支持直接刷写，此处可插入转换逻辑
@@ -1484,21 +1460,40 @@ class MainActivity : AppCompatActivity() {
     private suspend fun getActiveSlot(): String {
         // 1. 发送查询命令
         sendFastbootCommandDirect("getvar:current-slot")
+        val response = waitForTerminalResponse(5000) { /* 可以在这里打印日志调试 */ }
     
-        var slot = ""
-        // 2. 获取响应
-        val response = waitForTerminalResponse(5000) { info ->
-            // Fastboot 的 getvar 响应通常格式为 "current-slot: a" 或直接是 "a"
-            // 某些设备响应在 info 回调中，需要提取出来
-            if (info.contains("current-slot:")) {
-                slot = info.substringAfter("current-slot:").trim()
-            }
+        // 将整个接收到的 payload 转为小写，统一处理，避免大小写导致的识别错误
+        val fullResponse = response.payload.lowercase()
+    
+        // 3. 直接通过特征字符串进行判断
+        return when {
+            // 优先匹配“粘包”情况
+            fullResponse.contains("okayb") -> "b"
+            fullResponse.contains("okaya") -> "a"
+        
+            // 兼容处理：如果设备响应正常，没有粘包，而是标准格式
+            fullResponse.contains("current-slot: b") -> "b"
+            fullResponse.contains("current-slot: a") -> "a"
+        
+            // 兼容处理：有些设备直接返回单独的 a 或 b
+            fullResponse.contains("slot: b") || fullResponse.endsWith(" b") -> "b"
+            fullResponse.contains("slot: a") || fullResponse.endsWith(" a") -> "a"
+        
+            // 如果都匹配不到，说明无法识别，返回空
+            else -> ""
         }
-    
-        // 如果没有取到，说明设备不支持分区插槽，返回空
-        return if (response.status == "OKAY") slot else ""
     }
 
+    private fun getTargetPartition(partition: String, activeSlot: String): String {
+    // 只有在白名单内的分区，且我们确实获取到了活跃插槽时，才拼接后缀
+        return if (viewModel.abPartitions.contains(partition) && activeSlot.isNotEmpty()) {
+            "${partition}_$activeSlot"
+        } else {
+            // 对于 misc, metadata, userdata, super 等，保持原样
+            partition
+        }
+    }
+    
     private fun isSparseImage(file: File): Boolean {
         if (!file.exists() || file.length() < 4) return false
         val SPARSE_HEADER_MAGIC = 0xED26FF3A.toInt() // 小端序 Magic
@@ -1520,7 +1515,6 @@ class MainActivity : AppCompatActivity() {
         runOnUiThread {
             // 匹配要求：状态：USB 已连接，XXX
             val status = when {
-            //    isAdbWifiAuthorized -> "状态：WiFi 无线调试已连接"
                 isFastbootMode -> "状态：USB 已连接，Fastboot模式"
                 isUsbAttached && isAdbAuthorized -> "状态：USB 已连接，ADB已授权"
                 isUsbAttached -> "状态：USB 已连接，ADB未授权"

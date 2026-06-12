@@ -8,9 +8,7 @@
  */
 package com.adb.kitty
 
-import android.hardware.usb.UsbConstants
-import android.hardware.usb.UsbDeviceConnection
-import android.hardware.usb.UsbEndpoint
+import android.hardware.usb.*
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Dispatchers
@@ -20,15 +18,12 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
-import java.io.File
-import java.nio.ByteBuffer
-import java.nio.ByteOrder
-import java.security.KeyPair
-import java.security.Signature
-import javax.crypto.Cipher
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
+import java.io.*
+import java.nio.*
+import java.security.*
+import javax.crypto.*
+import java.text.*
+import java.util.*
 import java.util.zip.CRC32
 
 class MainViewModel : ViewModel() {
@@ -41,7 +36,7 @@ class MainViewModel : ViewModel() {
         AdbCommand("重启到 Recovery", "reboot recovery"),
         AdbCommand("重启到 Bootloader", "reboot bootloader"),
         AdbCommand("重启到 FastbootD", "reboot fastboot"),
-        AdbCommand("重启到 Edl", "reboot edl"),
+        AdbCommand("重启到 Edl (紧急下载/9008模式)", "reboot edl"),
         AdbCommand("纯净系统无任何用户激活 Dhizuku (需要安装Dhizuku)", "dpm set-device-owner com.rosan.dhizuku/.server.DhizukuDAReceiver"),
         AdbCommand("激活 Sence (需要安装Sence)", "sh /storage/emulated/0/Android/data/com.omarea.vtools/up.sh"),
         AdbCommand("激活 AppManager (需要安装AppManager)", "sh /storage/emulated/0/Android/data/io.github.muntashirakon.AppManager/cache/run_server.sh 60001 wasp-lurk-ripen"),
@@ -63,19 +58,16 @@ class MainViewModel : ViewModel() {
     val adbCommands: List<AdbCommand> get() = _adbCommands
     
     private val _fbCommands = listOf(
-        FbCommand("fastboot 使用帮助", "-help"),
-        FbCommand("当前连接的 fastboot 设备", "devices"),
         FbCommand("查看当前安全补丁级别", "getvar security-patch-level"),
         FbCommand("查看当前活跃的分区槽位（a 或 b)", "getvar current-slot"),
         FbCommand("查看 Bootloader 解锁状态", "getvar unlocked"),
         FbCommand("oem info", "oem device-info"),
         FbCommand("获取设备的所有系统变量（如版本号、电池电压、Bootloader 锁状态等)", "getvar all"),
-        FbCommand("尝试设置 SeLinux 为宽容模式", "oem set-gpu-preemption 0 androidboot.selinux=permissive"),
-        FbCommand("设置完成", "continue"),
         FbCommand("退出 Fastboot 模式并正常重启手机", "reboot"),
         FbCommand("从 Fastboot 模式再次重启回 Fastboot 模式（用于重置连接状态)", "reboot bootloader"),
-        FbCommand("进入 FastbootD 模式", "reboot fastboot"),
-        FbCommand("尝试进入 EDL 模式", "oem edl"),
+        FbCommand("重启到 FastbootD 模式", "reboot fastboot"),
+        FbCommand("尝试重启到 EDL 模式(紧急下载/9008)", "reboot edl"),
+        FbCommand("尝试进入 EDL 模式(紧急下载/9008)", "oem edl"),
         FbCommand("擦除缓存分区", "erase cache"),
         FbCommand("擦除用户数据分区（相当于恢复出厂设置)", "erase userdata"),
         FbCommand("擦除出厂重置保护(谷歌锁)", "erase frp"),
@@ -85,4 +77,37 @@ class MainViewModel : ViewModel() {
     
     val fbCommands: List<FbCommand> get() = _fbCommands
     
+    private val _abPartitions = setOf(
+        "boot", "abl", "xbl", "xbl_config", "cpucp_dtb", "shrm", 
+        "aop", "aop_config", "tz", "devcfg", "featenabler", "hyp", 
+        "uefi", "uefisecapp", "spuservice", "modem", "modemfirmware", 
+        "bluetooth", "dsp", "keymaster", "qupfw", "multiimgoem", 
+        "multiimgqti", "cpucp", "xbl_ramdump", "imagefv", 
+        "init_boot", "vendor_boot", "dtbo", "vbmeta", "vbmeta_system",
+        "recovery"
+    )
+    
+    val abPartitions: Set<String> get() = _abPartitions
+    
+    val warnMessage = """
+        adbd 命令使用说明:
+           •adb pair [IP:配对端口] [配对码]
+           •adb connect [IP:无线调试端口]
+           •adb push [本地文件名] [远端路径]
+           •adb pull [远端路径] (可选本地落地名)
+        fastboot 命令使用说明:
+           •flash <分区> <路径>
+           •reboot <可选参数>
+           •oem <参数>
+           •getvar <参数>
+           •erase <参数>
+        1. adb使用kadb库实现，感谢github@[flyfishxu/Kadb]
+        2. fastboot原生链路实现，不保证所有设备可用
+        3. 我的个人项目github@[Com-kt/adbUSB]
+        4. 应用自身没有签名校验机制，随时都有可能会被寡改
+        5. fastboot线刷之前做好售后9008的准备，如果你拿不到9008免授权的话
+        6. 免责声明：开发者没有任何义务对所有人进行服务
+        7. 线刷文件夹路径：/storage/emulated/0/Android/data/com.adb.kitty/files/flash/
+        8. 开发者正在计划怎么适配9008模式/紧急下载模式
+    """.trimIndent()
 }

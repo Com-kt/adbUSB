@@ -48,7 +48,7 @@ class AdbSessionService : Service() {
         createNotificationChannel()
         
         // 1. 初始状态闪击启动前台服务
-        val initialText = "无线调试总线正在初始化... | ⏱️ 已持续运行: 00:00:00"
+        val initialText = "正在初始化... | ⏱️ 已持续运行: 00:00:00"
         
         // 因为 minSdk >= 28，我们只需要专门针对 Android 14 (API 34) 以上进行安全常量绑定即可
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) { // API 34+
@@ -77,9 +77,9 @@ class AdbSessionService : Service() {
                 
                 // 1. 动态诊断当前长连接状态文本 (statusText)
                 val statusText = if (globalKadbInstance != null) {
-                    "无线调试已连通"
+                    "adbd已连接"
                 } else {
-                    "无线调试总线空闲"
+                    "adbd空闲中"
                 }
 
                 // 2. 将秒数换算并格式化为标准的时分秒文本 (timeString -> HH:mm:ss)
