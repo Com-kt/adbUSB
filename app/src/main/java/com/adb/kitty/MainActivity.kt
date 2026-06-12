@@ -1366,6 +1366,7 @@ class MainActivity : AppCompatActivity() {
      * @param filePath 本地文件路径
      */
     suspend fun performFlash(partition: String, fileName: String) = withContext(Dispatchers.IO) {
+        val startTime = System.currentTimeMillis()
         val file = File(flashFolder, fileName)
         if (!file.exists()) {
             withContext(Dispatchers.Main) { 
@@ -1375,7 +1376,7 @@ class MainActivity : AppCompatActivity() {
         }
         
         withContext(Dispatchers.Main) { 
-            appendLog("📂 即将刷入的文件: ${file.name}")
+            appendLog("📂 即将刷入: ${file.name} -> 目标: $targetPartition")
         }
         
         val activeSlot = getActiveSlot()
@@ -1449,24 +1450,23 @@ class MainActivity : AppCompatActivity() {
         }
         
         val endTime = System.currentTimeMillis()
-        val thresholdBytes = 512 * 1024
-        val fileSizeMB = file.length() / (1024.0 * 1024.0)
         val durationSeconds = (endTime - startTime) / 1000.0
+        val thresholdBytes = 512 * 1024 // 512KB
 
         withContext(Dispatchers.Main) {
             if (flashResult.status == "OKAY") {
-                val sb = StringBuilder()
-                sb.append("✅ [成功] 分区 $partition 刷写完成")
-                sb.append("⏱️ 耗时: ${"%.2f".format(durationSeconds)}秒")
-        
-                // 只有在文件足够大时，才展示传输速度，避免误导
+                val logMessage = StringBuilder()
+                logMessage.append("✅ [成功] 分区 $targetPartition 刷写完成\n")
+                logMessage.append("⏱️ 耗时: ${"%.2f".format(durationSeconds)}秒")
+            
                 if (file.length() >= thresholdBytes && durationSeconds > 0) {
+                    val fileSizeMB = file.length() / (1024.0 * 1024.0)
                     val speedMbps = fileSizeMB / durationSeconds
-                    sb.append(" | 平均速度: ${"%.2f".format(speedMbps)} MB/s")
+                    logMessage.append(" | 平均速度: ${"%.2f".format(speedMbps)} MB/s")
                 } else {
-                    sb.append("刷写的分区过小，因此不展示传输速度")
+                    logMessage.append("刷写的分区过小，因此不展示传输速度")
                 }
-                appendLog(sb.toString())
+                appendLog(logMessage.toString())
             } else {
                 appendLog("❌ [失败] 分区 $partition 刷写失败: ${flashResult.payload} (已耗时: ${"%.2f".format(durationSeconds)}秒)")
             }
