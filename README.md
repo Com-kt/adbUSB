@@ -1,16 +1,19 @@
 # 加入我们的频道
 [![Telegram](image/telegram_icon.webp)](https://t.me/SkisMode)
 
-# Work
-> [!WARNING]
-> 
-> THIS PROJECT IS NOT MAINTAINED ANYMORE.
+# Version
+- 对于 Release 版本，您可以在 [release](https://github.com/Com-kt/adbUSB/releases) 中找到它们
+- 对于 Beta 版本，您可以在 [beta](https://github.com/Com-kt/adbUSB/actions) 中找到它们
+- 对于 linux 平台工具，您可以在 [platform-tools](linux/platform-tools) 中找到它们，这些平台工具来源于 [android-sdk](https://github.com/HomuHomu833/android-sdk-custom)
 
 # Code
-- [x] USB mode
+- [x] USB
     - [x] Host (Android 9+)
     - [ ] accessory (Android 12+)
     - [x] UsbManager API (Android 9+)
+- [ ] EDL
+    - [ ] 9008
+    - [ ] 900e
 - [x] Fastboot
     - [x] reboot (Android 9+)
     - [x] oem (Android 9+)
@@ -136,4 +139,5 @@
 
 - [Kadb](https://github.com/flyfishxu/Kadb)
 - [android-sdk](https://github.com/HomuHomu833/android-sdk-custom)
-- [RootService](https://github.com/topjohnwu/libsu)
+- [topjohnwu-RootService](https://github.com/topjohnwu/libsu)
+- [bkerler-edl](https://github.com/bkerler/edl)

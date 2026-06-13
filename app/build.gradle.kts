@@ -32,7 +32,6 @@ android {
     
     packaging {
         jniLibs {
-            keepDebugSymbols.add("**/libfastboot.so")
             useLegacyPackaging = true
         }
         resources {
@@ -86,12 +85,6 @@ android {
         }
     }
     
-    sourceSets {
-        getByName("main") {
-            jniLibs.srcDirs("src/main/jniLibs")
-        }
-    }
-
     buildTypes {
         release {
             isMinifyEnabled = false
