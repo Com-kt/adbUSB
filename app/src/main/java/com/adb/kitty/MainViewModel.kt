@@ -11,13 +11,9 @@ package com.adb.kitty
 import android.hardware.usb.*
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
+import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.isActive
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withTimeoutOrNull
 import java.io.*
 import java.nio.*
 import java.security.*
@@ -110,4 +106,9 @@ class MainViewModel : ViewModel() {
         7. 线刷文件夹路径：/storage/emulated/0/Android/data/com.adb.kitty/files/flash/
         8. 开发者正在计划怎么适配9008模式/紧急下载模式
     """.trimIndent()
+    
+    private val _bootPartitions = setOf(".img", ".elf", ".bin", ".mbn")
+    
+    val bootPartitions: Set<String> get() = _bootPartitions
+    
 }

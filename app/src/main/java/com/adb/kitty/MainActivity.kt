@@ -91,14 +91,6 @@ import okio.Buffer
 import com.flyfishxu.kadb.Kadb
 import org.json.*
 
-data class AdbCommand(val description: String, val command: String)
-
-data class FbCommand(val description: String, val command: String)
-
-data class FastbootResponse(val status: String, val payload: String, val allLines: List<String>)
-
-data class AdbDevice(val ip: String, val port: Int, val wifiSsid: String, val lastConnectedTime: Long)
-
 class MainActivity : AppCompatActivity() {
 
     private val TAG = "MainActivity"
@@ -1288,40 +1280,33 @@ class MainActivity : AppCompatActivity() {
      * 核心融合方法：执行任意 Fastboot 命令
      */
     suspend fun executeCommandSync(command: String) = withContext(Dispatchers.IO) {
-        // 清理并拆分命令
         val cleanCmd = command.removePrefix("fastboot ").trim()
         if (cleanCmd.isEmpty()) return@withContext
         val parts = cleanCmd.split(Regex("\\s+"))
         val action = parts[0].lowercase()
 
-        // 🌟 1. 【核心路由分流】判断是否需要通过 libfastboot.so 可执行文件来完成
-        val requiresBinary = when {
-            // 情况 A：参数以 "-" 开头（例如 -help, --version, -s 等参数），直接走二进制文件
-            action.startsWith("-") -> true
-            
-            // 情况 B：你已经完美适配好协议的纯文本直连指令，走物理 USB 通道
-            action == "getvar" || action == "oem" || action == "reboot" || action == "erase" || action == "flash" -> false
-            
-            // 情况 C：其余复杂的刷机、文件操作或未适配的命令（flash, boot, reboot, devices ），默认全部走二进制文件
-            else -> true
-        }
-
-        if (requiresBinary) {
-            // 🚀 【走二进制可执行文件独立进程分支】
-           // executeViaFastbootBinary(parts)
-            return@withContext
-        }
-        
-        if (action == "flash") {
-            if (parts.size >= 3) {
-                performFlash(parts[1], parts[2]) 
-            } else {
-                withContext(Dispatchers.Main) { appendLog("❌ 格式错误: flash <分区> <文件名>") }
+        // 🌟 2. 【分流路由】先处理需要复杂逻辑的“高阶”命令
+        when (action) {
+            "flash" -> {
+                if (parts.size >= 3) {
+                    performFlash(parts[1], parts[2])
+                } else {
+                    withContext(Dispatchers.Main) { appendLog("❌ 格式错误: flash <分区> <文件名>") }
+                }
+                return@withContext
             }
-            return@withContext // flash 操作已完成，直接退出该函数，不走后续的通用发送逻辑
+            "boot" -> {
+                if (parts.size >= 2) {
+                    performBoot(parts[1])
+                } else {
+                    withContext(Dispatchers.Main) { appendLog("❌ 格式错误: boot <文件名>") }
+                }
+                return@withContext
+            }
         }
 
-        // 🔌 2. 【走原生的 USB 协议转换直连分支】（保持你原有的精良设计）
+    // 🔌 3. 【原生协议转换】处理标准 Fastboot 指令
+    // 只有走到这里的指令，才会进入 USB 协议发送流程
         val protocolCmd = when (action) {
             "getvar" -> {
                 if (parts.size >= 2) "${parts[0]}:${parts.drop(1).joinToString(" ")}" else parts[0]
@@ -1341,17 +1326,17 @@ class MainActivity : AppCompatActivity() {
         }
 
         withContext(Dispatchers.Main) {
-            appendLog("🚀 [USB直连] 发送指令: $protocolCmd")
+            appendLog("🚀 [USB直连] 发送: $protocolCmd")
         }
 
+        // 4. 发送指令并等待响应
         sendFastbootCommandDirect(protocolCmd)
 
-        // 3. 传入实时回调，刷新前台 UI
         val result = waitForTerminalResponse(10000) { infoText ->
             appendLog("FB << (bootloader) $infoText")
         }
-        
-        // 4. 原生通道最终状态结算
+
+        // 5. 状态结算
         withContext(Dispatchers.Main) {
             when (result.status) {
                 "OKAY" -> appendLog("FB << OKAY [执行成功] ${result.payload}")
@@ -1469,6 +1454,80 @@ class MainActivity : AppCompatActivity() {
             } else {
                 appendLog("❌ [失败] 分区 $partition 刷写失败: ${flashResult.payload} (已耗时: ${"%.2f".format(durationSeconds)}秒)")
             }
+        }
+    }
+    
+    suspend fun performBoot(fileName: String) = withContext(Dispatchers.IO) {
+        val startTime = System.currentTimeMillis()
+        val file = File(flashFolder, fileName)
+        val extension = "." + fileName.substringAfterLast(".", "").lowercase()
+
+        if (fileName.endsWith(".xml", true) || fileName.endsWith(".txt", true) || fileName.endsWith(".py", true)) {
+            withContext(Dispatchers.Main) { 
+                appendLog("❌ 错误: 该文件类型无法引导 (XML/TXT/PY)") 
+            }
+            return@withContext
+        }
+        
+        if (!viewModel.bootPartitions.contains(extension)) {
+            withContext(Dispatchers.Main) { 
+                appendLog("⚠️ 警告: 文件后缀 $extension 可能无法被设备引导，将尝试发送...") 
+            }
+        }
+        
+        if (!file.exists()) {
+            withContext(Dispatchers.Main) { 
+                appendLog("❌ 错误: 找不到文件 -> ${file.absolutePath}") 
+            }
+            return@withContext
+        }
+
+        withContext(Dispatchers.Main) { 
+            appendLog("🚀 准备启动 (RAM Boot): ${file.name}") 
+        }
+
+        try {
+            // 3. 下载到内存
+            val sizeHex = String.format("%08x", file.length())
+            sendFastbootCommandDirect("download:$sizeHex")
+        
+            val handshake = waitForTerminalResponse(10000) { }
+            if (handshake.status != "DATA") {
+                withContext(Dispatchers.Main) { appendLog("❌ 拒绝下载: ${handshake.payload}") }
+                return@withContext
+            }
+
+            val buffer = ByteArray(65536)
+            FileInputStream(file).use { fis ->
+                var bytesRead: Int
+                while (fis.read(buffer).also { bytesRead = it } != -1) {
+                    val written = usbConn?.bulkTransfer(epOut, buffer, bytesRead, 5000) ?: -1
+                    if (written != bytesRead) throw Exception("USB 传输中断")
+                }
+            }
+
+            val downloadConfirm = waitForTerminalResponse(30000) { }
+            if (downloadConfirm.status != "OKAY") {
+                withContext(Dispatchers.Main) { appendLog("❌ 下载被拒绝: ${downloadConfirm.payload}") }
+                return@withContext
+            }
+
+            // 4. 触发 Boot
+            withContext(Dispatchers.Main) { appendLog("⚡ 发送 boot 指令…") }
+            sendFastbootCommandDirect("boot")
+
+            val bootResult = waitForTerminalResponse(30000) { }
+            val duration = (System.currentTimeMillis() - startTime) / 1000.0
+
+            withContext(Dispatchers.Main) {
+                if (bootResult.status == "OKAY") {
+                    appendLog("✅ [成功] 已发送 boot 指令 (耗时: ${"%.2f".format(duration)}秒)")
+                } else {
+                    appendLog("❌ [失败] Boot 指令被拒绝: ${bootResult.payload}")
+                }
+            }
+        } catch (e: Exception) {
+            withContext(Dispatchers.Main) { appendLog("❌ 异常: ${e.message}") }
         }
     }
     

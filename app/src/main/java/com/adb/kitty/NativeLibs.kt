@@ -8,11 +8,33 @@
  */
 package com.adb.kitty
 
-import android.content.Context
-import java.io.BufferedReader
-import java.io.File
-import java.io.InputStreamReader
-import java.io.OutputStream
+import android.content.*
+import android.os.*
+import android.util.*
+
+import java.io.*
+import java.nio.*
+import java.security.*
+import java.text.*
+import java.net.*
+import java.util.*
+import java.util.zip.*
+import java.time.*
+import java.time.format.*
+
+import javax.crypto.*
+import javax.net.ssl.*
+
+import okio.*
+import org.json.*
+
+data class AdbCommand(val description: String, val command: String)
+
+data class FbCommand(val description: String, val command: String)
+
+data class FastbootResponse(val status: String, val payload: String, val allLines: List<String>)
+
+data class AdbDevice(val ip: String, val port: Int, val wifiSsid: String, val lastConnectedTime: Long)
 
 object NativeLibs {
     init {
