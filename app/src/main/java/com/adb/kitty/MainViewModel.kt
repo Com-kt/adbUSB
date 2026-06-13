@@ -93,6 +93,7 @@ class MainViewModel : ViewModel() {
            •adb pull [远端路径] (可选本地落地名)
         fastboot 命令使用说明:
            •flash <分区> <路径>
+           •boot <文件名>
            •reboot <可选参数>
            •oem <参数>
            •getvar <参数>

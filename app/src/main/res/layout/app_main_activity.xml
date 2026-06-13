@@ -62,21 +62,9 @@
         android:layout_marginEnd="@dimen/activity_xml_layout_marginEnd"
         android:layout_marginStart="@dimen/activity_xml_layout_marginStart"
         app:layout_constraintTop_toBottomOf="@+id/etCommand"
-        app:layout_constraintBottom_toTopOf="@+id/flashAll"
+        app:layout_constraintBottom_toTopOf="@+id/scrollView"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent" />
-        
-    <Button
-        android:id="@+id/flashAll"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="@string/app_main_activity_xml_flashAll"
-        android:layout_marginEnd="@dimen/activity_xml_layout_marginEnd"
-        android:layout_marginStart="@dimen/activity_xml_layout_marginStart"
-        app:layout_constraintTop_toBottomOf="@+id/btnSend"
-        app:layout_constraintBottom_toTopOf="@+id/scrollView"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent" />
 
     <androidx.core.widget.NestedScrollView
         android:layout_width="match_parent"
@@ -86,7 +74,7 @@
         android:layout_marginStart="@dimen/activity_xml_layout_marginStart"
         android:padding="@dimen/dialog_simple_xml_layout_margin"
         android:id="@+id/scrollView"
-        app:layout_constraintTop_toBottomOf="@+id/flashAll"
+        app:layout_constraintTop_toBottomOf="@+id/btnSend"
         app:layout_constraintBottom_toTopOf="@+id/bakck"
         app:layout_constraintLeft_toLeftOf="parent"
         app:layout_constraintRight_toRightOf="parent" >

@@ -307,8 +307,6 @@ class MainActivity : AppCompatActivity() {
         
         binding.appMainActivity.ipTest.setOnClickListener { IpTestWork() }
         
-        binding.appMainActivity.flashAll.setOnClickListener {  }
-        
         binding.appMainActivity.btnSend.setOnClickListener {
             val cmd = binding.appMainActivity.etCommand.text.toString().trim()
             if (cmd.isEmpty()) return@setOnClickListener
@@ -353,29 +351,6 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         }
-      /*  binding.appMainActivity.btnSend.setOnClickListener {
-            val cmd = binding.appMainActivity.etCommand.text.toString().trim()
-            if (cmd.isEmpty()) return@setOnClickListener
-            
-            binding.appMainActivity.etCommand.setText("")
-
-            if (isFastbootMode) {
-                lifecycleScope.launch(Dispatchers.IO) {
-                    try {
-                        withContext(Dispatchers.Main) {
-                           appendLog("[发送] FB >> $cmd")
-                        }
-                        executeCommandSync(cmd)
-                    } catch (e: Exception) {
-                        withContext(Dispatchers.Main) { appendLog("[错误] ${e.message}") }
-                    }
-                }
-            } else if (isAdbAuthorized) {
-                sendAdbShell(cmd)
-            } else {
-                Toast.makeText(this, "设备未就绪或未授权", Toast.LENGTH_SHORT).show()
-            }
-        }*/
         refreshUiText()
     }
     
@@ -1595,13 +1570,12 @@ class MainActivity : AppCompatActivity() {
                 else -> "状态：未连接"
             }
             binding.tvStatus.text = status
-            val statusColor = if (isAdbAuthorized || isFastbootMode) {
+            val statusColor = if (isUsbAttached || isAdbAuthorized || isFastbootMode) {
                 ContextCompat.getColor(this, R.color.status_connected_green)
             } else {
                 ContextCompat.getColor(this, R.color.status_disconnected_red)
             }
             binding.tvStatus.setTextColor(statusColor)
-            binding.appMainActivity.flashAll.isEnabled = isFastbootMode
         }
     }
 
