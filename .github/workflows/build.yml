@@ -122,11 +122,15 @@ jobs:
           path: compose/build/outputs/apk/release/*
           archive: true
           
+      - name: Rename Lint Report
+        run: |
+          mv compose/build/reports/lint-results-debug.html compose/build/reports/compose-lint-results-${{ github.run_id }}.html
+          
       - name: Upload Compose Lint Report HTML
         uses: actions/upload-artifact@v7
         with:
           name: compose-lint-reports-html
-          path: compose/build/reports/lint-results-debug.html
+          path: compose/build/reports/compose-lint-results-${{ github.run_id }}.html
           archive: false
           
       - name: Upload Compose Lint Report
