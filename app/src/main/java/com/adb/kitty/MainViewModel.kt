@@ -8,19 +8,56 @@
  */
 package com.adb.kitty
 
+import android.*
+import android.util.*
+import android.content.pm.*
+import android.app.*
+import android.graphics.*
+import android.animation.*
+
+import android.os.*
+import android.view.*
+import android.widget.*
+import android.content.*
 import android.hardware.usb.*
-import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
+
+import android.net.*
+import android.net.wifi.*
+import android.net.nsd.*
+import android.text.method.*
+
+import androidx.core.view.*
+import androidx.core.content.*
+import androidx.core.app.*
+/*******************************
+*        kotlinx 协程         *
+*    suspend 都给我挂起     *
+********************************/
+import androidx.lifecycle.*
+import androidx.lifecycle.viewmodel.*
+import androidx.lifecycle.viewmodel.internal.*
 import kotlinx.coroutines.*
-import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.channels.*
+import kotlinx.coroutines.flow.*
+
+import kotlin.*
+import kotlin.coroutines.*
+import kotlin.math.*
+
 import java.io.*
 import java.nio.*
 import java.security.*
-import javax.crypto.*
 import java.text.*
+import java.net.*
 import java.util.*
-import java.util.zip.CRC32
+import java.util.zip.*
+import java.time.*
+import java.time.format.*
+import javax.crypto.*
+import javax.net.ssl.*
+import okio.*
+import com.flyfishxu.kadb.Kadb
+import org.json.*
 
 class MainViewModel : ViewModel() {
     
@@ -73,18 +110,6 @@ class MainViewModel : ViewModel() {
     
     val fbCommands: List<FbCommand> get() = _fbCommands
     
-    private val _abPartitions = setOf(
-        "boot", "abl", "xbl", "xbl_config", "cpucp_dtb", "shrm", 
-        "aop", "aop_config", "tz", "devcfg", "featenabler", "hyp", 
-        "uefi", "uefisecapp", "spuservice", "modem", "modemfirmware", 
-        "bluetooth", "dsp", "keymaster", "qupfw", "multiimgoem", 
-        "multiimgqti", "cpucp", "xbl_ramdump", "imagefv", 
-        "init_boot", "vendor_boot", "dtbo", "vbmeta", "vbmeta_system",
-        "recovery"
-    )
-    
-    val abPartitions: Set<String> get() = _abPartitions
-    
     val warnMessage = """
         adbd 命令使用说明:
            •adb pair [IP:配对端口] [配对码]
@@ -110,8 +135,36 @@ class MainViewModel : ViewModel() {
         8. 开发者正在计划怎么适配9008模式/紧急下载模式
     """.trimIndent()
     
-    private val _bootPartitions = setOf(".img", ".elf", ".bin", ".mbn")
-    
-    val bootPartitions: Set<String> get() = _bootPartitions
-    
+    private var _fastbootManager: FastbootManager? = null
+    val fastbootManager: FastbootManager? get() = _fastbootManager
+
+    fun initFastboot(
+        usbConn: UsbDeviceConnection,
+        epOut: UsbEndpoint,
+        epIn: UsbEndpoint,
+        responseChannel: Channel<String>,
+        flashFolder: File
+    ) {
+        _fastbootManager = FastbootManager(
+            scope = viewModelScope,
+            usbConn = usbConn,
+            epOut = epOut,
+            epIn = epIn,
+            responseChannel = responseChannel,
+            flashFolder = flashFolder
+        )
+        
+        _fastbootManager?.startFastbootReader()
+    }
+
+    fun runCommand(cmd: String) {
+        viewModelScope.launch {
+            _fastbootManager?.executeCommandSync(cmd)
+        }
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        // ViewModel 销毁时，可以清理资源
+    }
 }

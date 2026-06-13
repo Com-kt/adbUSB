@@ -32,8 +32,6 @@ data class AdbCommand(val description: String, val command: String)
 
 data class FbCommand(val description: String, val command: String)
 
-data class FastbootResponse(val status: String, val payload: String, val allLines: List<String>)
-
 data class AdbDevice(val ip: String, val port: Int, val wifiSsid: String, val lastConnectedTime: Long)
 
 object NativeLibs {
