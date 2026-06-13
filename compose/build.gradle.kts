@@ -62,7 +62,6 @@ android {
     }
     
     compileOptions {
-        kotlinCompilerExtensionVersion = "1.5.15"
         sourceCompatibility = JavaVersion.VERSION_25
         targetCompatibility = JavaVersion.VERSION_25
     }
