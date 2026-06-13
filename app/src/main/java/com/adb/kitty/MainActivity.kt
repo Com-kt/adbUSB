@@ -1365,9 +1365,10 @@ class MainActivity : AppCompatActivity() {
      * @param partition 分区名称 (例如 "boot", "system")
      * @param filePath 本地文件路径
      */
-    suspend fun performFlash(partition: String, fileName: String) = withContext(Dispatchers.IO) {
+    suspend fun performFlash(partition: String, inputPath: String) = withContext(Dispatchers.IO) {
         val startTime = System.currentTimeMillis()
-        val file = File(flashFolder, fileName)
+        val cleanFileName = inputPath.removePrefix("/")
+        val file = File(flashFolder, cleanFileName)
         if (!file.exists()) {
             withContext(Dispatchers.Main) { 
                 appendLog("❌ 错误: 找不到镜像文件 -> $file.absolutePath") 
