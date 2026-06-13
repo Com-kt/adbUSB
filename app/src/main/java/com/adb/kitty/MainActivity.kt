@@ -97,6 +97,7 @@ class MainActivity : AppCompatActivity() {
     private var epOut: UsbEndpoint? = null
     private var rsaKeyPair: KeyPair? = null
     private var readerJob: Job? = null
+    private var currentShellJob: Job? = null
     private var mLocalId = 1
     private var accessoryPfd: ParcelFileDescriptor? = null
   //  private var kadbInstance: Kadb? = null
