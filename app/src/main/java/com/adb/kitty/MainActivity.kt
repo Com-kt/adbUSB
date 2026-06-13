@@ -80,6 +80,7 @@ import javax.net.ssl.SSLContext
 import javax.net.ssl.SSLSocket
 import okio.Buffer
 import com.flyfishxu.kadb.Kadb
+import com.flyfishxu.kadb.shell.*
 import org.json.*
 
 class MainActivity : AppCompatActivity() {
@@ -970,38 +971,52 @@ class MainActivity : AppCompatActivity() {
     
     private suspend fun handleStreamingCommand(kadb: Kadb, command: String) {
         withContext(Dispatchers.IO) {
-            // 使用 openShell 开启持久管道
+            // kadb.openShell() 返回的就是 AdbShellStream
             kadb.openShell(command).use { shellStream ->
-                // 使用 okio 的缓冲读取，这是处理超长输出最内存友好的方式
-                val reader = shellStream.source.buffer()
             
-                // 简单的缓冲区，防止高频 UI 刷新导致界面卡顿
-                val lineBuffer = mutableListOf<String>()
+                // 简单的批处理缓冲，避免高频刷新 UI
+                val outputBuffer = StringBuilder()
                 var lastUpdate = System.currentTimeMillis()
 
                 try {
                     while (true) {
-                        // readUtf8Line() 会阻塞，直到有新的一行数据，或者流关闭
-                        val line = reader.readUtf8Line() ?: break 
+                        // 直接调用库自带的 read() 方法，它是阻塞的，非常适合协程
+                        val packet = shellStream.read()
                     
-                        lineBuffer.add(line)
+                        val content = when (packet) {
+                            is AdbShellPacket.StdOut -> String(packet.payload)
+                            is AdbShellPacket.StdError -> "[Error] " + String(packet.payload)
+                            is AdbShellPacket.Exit -> {
+                                // 收到 Exit 包，任务结束，跳出循环
+                                withContext(Dispatchers.Main) { 
+                                    appendLog("[系统] 命令执行结束，退出码: ${packet.payload[0].toUByte()}") 
+                                }
+                                break
+                            }
+                        }
 
-                        // 每一秒或缓冲区达到 50 行时，统一推送到主线程刷新一次
-                        // 这既保证了实时性，又不会把 UI 线程冲垮
-                        if (lineBuffer.size >= 50 || System.currentTimeMillis() - lastUpdate > 1000) {
-                            val snapshot = lineBuffer.toList()
-                            lineBuffer.clear()
+                        // 实时追加到缓冲
+                        outputBuffer.append(content)
+
+                        // 性能优化：每 500ms 或数据块积累足够多时才刷新 UI
+                        if (System.currentTimeMillis() - lastUpdate > 500) {
+                            val snapshot = outputBuffer.toString()
+                            outputBuffer.clear()
                             lastUpdate = System.currentTimeMillis()
-
+                        
                             withContext(Dispatchers.Main) {
-                                snapshot.forEach { appendLog(it) }
+                                appendLog(snapshot)
                             }
                         }
                     }
                 } catch (e: Exception) {
-                    // 异常处理：比如连接断开
+                    // 捕获协程取消或其他异常
                     withContext(Dispatchers.Main) {
-                        appendLog("[流中止] $e")
+                        if (e is CancellationException) {
+                            appendLog("[系统] 用户已手动终止任务")
+                        } else {
+                            appendLog("[Shell 异常] $e")
+                        }
                     }
                 }
             }
