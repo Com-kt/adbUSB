@@ -409,6 +409,10 @@ class MainActivity : AppCompatActivity() {
               FbSeLinuxCmd()
                 true
            }
+              R.id.action_main_11 -> {
+              stopCurrentCommand()
+                true
+           }
              else -> super.onOptionsItemSelected(item)
         }
     }
@@ -939,6 +943,15 @@ class MainActivity : AppCompatActivity() {
                     }
                 }
             }
+        }
+    }
+    
+    fun stopCurrentCommand() {
+        if (currentShellJob?.isActive == true) {
+            currentShellJob?.cancel()
+            appendLog("[系统] 正在停止...")
+        } else {
+            appendLog("[系统] 当前没有运行中的任务")
         }
     }
     

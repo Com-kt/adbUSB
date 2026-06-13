@@ -19,6 +19,7 @@
     <string name="action_main_8">cpu内核提频[玄学]</string>
     <string name="action_main_9">还原内核频率</string>
     <string name="action_main_10">尝试设置SeLinux为宽容</string>
+    <string name="action_main_11">停止当前Shell的输出</string>
     <string name="app_main_activity_xml_btnConnect">扫描/识别 USB 设备</string>
     <string name="app_main_activity_xml_ipTest">测试 ipv4 / ipv6 地址</string>
     <string name="app_main_activity_xml_etCommand">输入 adb 命令 / fastboot 命令</string>
