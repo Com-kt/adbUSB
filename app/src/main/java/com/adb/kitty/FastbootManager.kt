@@ -99,7 +99,7 @@ class FastbootManager(
         readerJob = scope.launch(Dispatchers.IO) {
             val buffer = ByteArray(1024)
             while (isActive) {
-                val read = usbConn?.bulkTransfer(epIn, buffer, buffer.size, 1000) ?: -1
+                val read = usbConn.bulkTransfer(epIn, buffer, buffer.size, 1000)
                 if (read > 0) {
                     val response = String(buffer, 0, read).trim()
                     withContext(Dispatchers.Main) { log("FB >> $response") }
@@ -139,7 +139,7 @@ class FastbootManager(
 
     private fun sendFastbootCommandDirect(command: String) {
         val data = command.toByteArray()
-        usbConn?.bulkTransfer(epOut, data, data.size, 1000)
+        usbConn.bulkTransfer(epOut, data, data.size, 1000)
     }
     
     suspend fun executeCommandSync(command: String) = withContext(Dispatchers.IO) {
@@ -270,7 +270,7 @@ class FastbootManager(
                 var bytesRead: Int
                 while (fis.read(buffer).also { bytesRead = it } != -1) {
                     // 使用 bulkTransfer 循环发送
-                    val written = usbConn?.bulkTransfer(epOut, buffer, bytesRead, 5000) ?: -1
+                    val written = usbConn.bulkTransfer(epOut, buffer, bytesRead, 5000)
                     if (written != bytesRead) {
                         throw Exception("USB 传输中断 (发送字节数不匹配)")
                     }
@@ -366,7 +366,7 @@ class FastbootManager(
             FileInputStream(file).use { fis ->
                 var bytesRead: Int
                 while (fis.read(buffer).also { bytesRead = it } != -1) {
-                    val written = usbConn?.bulkTransfer(epOut, buffer, bytesRead, 5000) ?: -1
+                    val written = usbConn.bulkTransfer(epOut, buffer, bytesRead, 5000)
                     if (written != bytesRead) throw Exception("USB 传输中断")
                 }
             }
