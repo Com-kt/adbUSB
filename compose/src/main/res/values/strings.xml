@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- /*
+ * Copyright (c) 2026-2030 小猫猫. All rights reserved.
+ * 
+ * LICENSE NOTE:
+ * Any redistribution must retain this copyright notice and license disclaimer.
+ *
+ * by: 小猫猫
+ */ -->
+<resources>
+    <string name="app_name">userKitty</string>
+    <string name="action_main_1">快捷adb</string>
+    <string name="action_main_2">快捷fastboot</string>
+    <string name="action_main_3">触发无线调试扫描</string>
+    <string name="action_main_4">注意事项</string>
+    <string name="action_main_5">测试帧率[启动][root]</string>
+    <string name="action_main_6">测试帧率[停止][root]</string>
+    <string name="action_main_7">打印已输出的日志</string>
+    <string name="action_main_8">cpu内核提频[玄学]</string>
+    <string name="action_main_9">还原内核频率</string>
+    <string name="action_main_10">尝试设置SeLinux为宽容</string>
+    <string name="action_main_11">停止当前Shell的输出</string>
+    <string name="app_main_activity_xml_btnConnect">扫描/识别 USB 设备</string>
+    <string name="app_main_activity_xml_ipTest">测试 ipv4 / ipv6 地址</string>
+    <string name="app_main_activity_xml_etCommand">输入 adb 命令 / fastboot 命令</string>
+    <string name="app_main_activity_xml_btnSend">发送命令</string>
+    <string name="app_main_activity_xml_tvLog">前言:\n•adb pair [IP:配对端口] [配对码]\n•adb connect [IP:无线调试端口]\n•adb push [本地文件名] [远端路径]\n•adb pull [远端路径] (可选本地落地名)\n•adb install [本地文件名]\n•adb uninstall [包名]\n日志输出… \n</string>
+    <string name="app_main_activity_xml_bakck">WLAN-USB-IPV6-ROOT-TEST</string>
+</resources>

@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- /*
+ * Copyright (c) 2026-2030 小猫猫. All rights reserved.
+ * 
+ * LICENSE NOTE:
+ * Any redistribution must retain this copyright notice and license disclaimer.
+ *
+ * by: 小猫猫
+ */ -->
+<androidx.constraintlayout.widget.ConstraintLayout 
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    tools:context=".MainActivity">
+    
+    <Button
+        android:id="@+id/btnConnect"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/app_main_activity_xml_btnConnect"
+        android:layout_marginTop="1dp"
+        android:layout_marginEnd="@dimen/activity_xml_layout_marginEnd"
+        android:layout_marginStart="@dimen/activity_xml_layout_marginStart"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent" />
+        
+    <Button
+        android:id="@+id/ipTest"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/app_main_activity_xml_ipTest"
+        android:layout_marginEnd="@dimen/activity_xml_layout_marginEnd"
+        android:layout_marginStart="@dimen/activity_xml_layout_marginStart"
+        app:layout_constraintTop_toBottomOf="@+id/btnConnect"
+        app:layout_constraintBottom_toTopOf="@+id/etCommand"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent" />
+
+    <EditText
+        android:id="@+id/etCommand"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:importantForAutofill="no"
+        android:inputType="text" 
+        android:hint="@string/app_main_activity_xml_etCommand"
+        android:layout_marginEnd="@dimen/activity_xml_layout_marginEnd"
+        android:layout_marginStart="@dimen/activity_xml_layout_marginStart"
+        app:layout_constraintTop_toBottomOf="@+id/ipTest"
+        app:layout_constraintBottom_toTopOf="@+id/btnSend"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent" />
+
+    <Button
+        android:id="@+id/btnSend"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/app_main_activity_xml_btnSend"
+        android:layout_marginEnd="@dimen/activity_xml_layout_marginEnd"
+        android:layout_marginStart="@dimen/activity_xml_layout_marginStart"
+        app:layout_constraintTop_toBottomOf="@+id/etCommand"
+        app:layout_constraintBottom_toTopOf="@+id/scrollView"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent" />
+
+    <androidx.core.widget.NestedScrollView
+        android:layout_width="match_parent"
+        android:layout_height="500dp"
+        android:layout_margin="8dp"
+        android:layout_marginEnd="@dimen/activity_xml_layout_marginEnd"
+        android:layout_marginStart="@dimen/activity_xml_layout_marginStart"
+        android:padding="@dimen/dialog_simple_xml_layout_margin"
+        android:id="@+id/scrollView"
+        app:layout_constraintTop_toBottomOf="@+id/btnSend"
+        app:layout_constraintBottom_toTopOf="@+id/bakck"
+        app:layout_constraintLeft_toLeftOf="parent"
+        app:layout_constraintRight_toRightOf="parent" >
+        
+        <HorizontalScrollView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content">
+
+        <TextView
+            android:id="@+id/tvLog"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:padding="@dimen/dialog_simple_xml_layout_margin"
+            android:fontFamily="monospace"
+            android:textIsSelectable="true"
+            android:textSize="@dimen/app_main_activity_xml_textSize_tvLog"
+            android:text="@string/app_main_activity_xml_tvLog" />
+            
+        </HorizontalScrollView>
+    </androidx.core.widget.NestedScrollView>
+    
+    <TextView
+        android:id="@+id/bakck"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/app_main_activity_xml_bakck"
+        android:textStyle="bold"
+        android:gravity="center"
+        android:layout_marginBottom="3dp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent" />
+</androidx.constraintlayout.widget.ConstraintLayout>

@@ -108,3 +108,16 @@ jobs:
           path: app/build/outputs/logs/*
           archive: true
          
+      - name: Upload Compose Debug APKs
+        uses: actions/upload-artifact@v7
+        with:
+          name: compose-debug-apks
+          path: compose/build/outputs/apk/debug/*
+          archive: true
+
+      - name: Upload Compose Release APKs
+        uses: actions/upload-artifact@v7
+        with:
+          name: compose-release-apks
+          path: compose/build/outputs/apk/release/*
+          archive: true

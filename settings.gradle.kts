@@ -6,6 +6,10 @@
  *
  * by: 小猫猫
  */
+@file:Suppress("UnstableApiUsage")
+
+enableFeaturePreview("TYPESAFE_PROJECT_ACCESSORS")
+
 pluginManagement {
   repositories {
     gradlePluginPortal()
@@ -32,3 +36,4 @@ dependencyResolutionManagement {
 rootProject.name = "adbUSB"
 
 include(":app")
+include(":compose")
