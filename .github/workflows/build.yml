@@ -121,3 +121,17 @@ jobs:
           name: compose-release-apks
           path: compose/build/outputs/apk/release/*
           archive: true
+          
+      - name: Upload Compose Lint Report HTML
+        uses: actions/upload-artifact@v7
+        with:
+          name: compose-lint-reports-html
+          path: compose/build/reports/lint-results-debug.html
+          archive: false
+          
+      - name: Upload Compose Lint Report
+        uses: actions/upload-artifact@v7
+        with:
+          name: compose-lint-reports
+          path: compose/build/reports/*
+          archive: true
