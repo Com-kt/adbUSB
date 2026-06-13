@@ -20,9 +20,9 @@
     - [x] getvar (Android 9+)
     - [x] erase (Android 9+)
     - [x] flash (Android 9+)
-    - [ ] boot (Android 9+)
-    - [ ] format (Android 9+)
-    - [ ] set active (Android 9+)
+    - [x] boot (Android 9+)
+    - [x] format (Android 9+)
+    - [x] set active (Android 9+)
     - [x] interface
         - [x] 255/66/3
         - [ ] 255/68/3

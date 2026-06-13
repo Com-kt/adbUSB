@@ -97,7 +97,9 @@ class MainViewModel : ViewModel() {
            •reboot <可选参数>
            •oem <参数>
            •getvar <参数>
-           •erase <参数>
+           •erase <分区>
+           •format <分区>
+           •set_active <a或b>
         1. adb使用kadb库实现，感谢github@[flyfishxu/Kadb]
         2. fastboot原生链路实现，不保证所有设备可用
         3. 我的个人项目github@[Com-kt/adbUSB]

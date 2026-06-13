@@ -1293,7 +1293,13 @@ class MainActivity : AppCompatActivity() {
                 cleanCmd 
             }
             "erase" -> {
-                if (parts.size >= 2) "${parts[0]}:${parts.drop(1).joinToString(" ")}" else parts[0]
+                if (parts.size >= 2) "$action:${parts[1]}" else ""
+            }
+            "format" -> {
+                if (parts.size >= 2) "$action:${parts[1]}" else ""
+            }
+            "set_active" -> {
+                if (parts.size >= 2) "$action:${parts[1]}" else ""
             }
             else -> {
                 cleanCmd
