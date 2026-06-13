@@ -336,6 +336,10 @@ class MainActivity : AppCompatActivity() {
                     // 4. 拦截有线/无线特权文件提取
                     cmd.startsWith("adb pull") -> handleLocalAdbPull(cmd)
                     
+                    cmd.startsWith("adb install") -> handleLocalAdbInstall(cmd)
+                    
+                    cmd.startsWith("adb uninstall") -> handleLocalAdbUninstall(cmd)
+                    
                     // 5. 默认兜底：其余命令全部走纯正的 adb shell
                     else -> sendAdbShell(cmd)
                     }
@@ -810,45 +814,181 @@ class MainActivity : AppCompatActivity() {
     private fun fastbootCmds(command: String) {
         viewModel.runCommand(command)
     }
+    
+    private fun handleLocalAdbInstall(command: String) {
+        val parts = command.split("\\s+".toRegex()).filter { it.isNotBlank() }
+        if (parts.size < 3) {
+            appendLog("[错误] 请使用: adb install [本地路径/文件名]")
+            return
+        }
+
+        val pathInput = parts[2]
+        val file = if (pathInput.startsWith("/")) File(pathInput) else File(flashFolder, pathInput)
+
+        if (!file.exists()) {
+            appendLog("[错误] 找不到文件或路径: ${file.absolutePath}")
+            return
+        }
+
+        // 1. 判断是单 APK 还是 多 APK (目录 或 apks/xapk 后缀)
+        val ext = file.extension.lowercase()
+        val isMultiple = file.isDirectory || ext == "apks" || ext == "xapk"
+
+        lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                val kadb = kadbInstance ?: throw IllegalStateException("数据通道未建立")
+            
+                if (isMultiple) {
+                    // 2. 多文件安装逻辑
+                    appendLog("[Install] 检测到多文件模式 (Split APKs)...")
+                
+                    // 如果是目录，列出目录下所有的 apk
+                    val apkList = if (file.isDirectory) {
+                        file.listFiles { _, name -> name.lowercase().endsWith(".apk") }?.toList() ?: emptyList()
+                    } else {
+                        // 注意：如果用户直接给了一个 .apks/.xapk 文件，Kadb 的 installMultiple 需要的是 List<File>
+                        // 如果它是压缩包，你可能需要先解压。这里假设它是一个包含多个 APK 的逻辑集合或你可以直接处理的列表
+                        listOf(file) 
+                    }
+
+                    if (apkList.isEmpty()) {
+                        withContext(Dispatchers.Main) { appendLog("[错误] 目录下未找到 .apk 文件") }
+                        return@launch
+                    }
+
+                    kadb.installMultiple(apkList)
+                    withContext(Dispatchers.Main) { appendLog("[成功] 多组件安装完成") }
+                } else {
+                    // 3. 单文件安装逻辑
+                    appendLog("[Install] 正在安装: ${file.name}")
+                    kadb.install(file)
+                    withContext(Dispatchers.Main) { appendLog("[成功] 安装完成: ${file.name}") }
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) { 
+                    appendLog("[安装失败] ${e.message}") 
+                }
+            }
+        }
+    }
     /**
-     * 🛰️ 100% 对齐 2.x 的高级特权 Shell 命令单步发射
+     * 🗑️ 智能处理 adb uninstall 命令
      */
+    private fun handleLocalAdbUninstall(command: String) {
+        val parts = command.split("\\s+".toRegex()).filter { it.isNotBlank() }
+        if (parts.size < 3) {
+            appendLog("[错误] 请使用: adb uninstall [包名]")
+            return
+        }
+
+        val packageName = parts[2]
+        appendLog("[Uninstall] 正在尝试卸载: $packageName")
+
+        lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                val kadb = kadbInstance ?: throw IllegalStateException("数据通道未建立")
+            
+                // 🌟 直接调用 Kadb 内置的 uninstall
+                kadb.uninstall(packageName)
+            
+                withContext(Dispatchers.Main) { 
+                    appendLog("[成功] 已卸载: $packageName") 
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) { 
+                    appendLog("[卸载失败] 无法完成: ${e.message}") 
+                }
+            }
+        }
+    }
+    
     private suspend fun sendAdbShell(command: String) {
-        // 1. 在主线程先行回显用户输入的命令
         withContext(Dispatchers.Main) {
             isAdbAuthorized = true
             appendLog("ADB >> $command")
         }
-    
-        val cleanCmd = command.removePrefix("adb shell ").trim()
-    
-        try {
-            // 🌟 核心防空：直接安全读取当前本地持有的实例，若为空则直接抛出
-            val kadb = kadbInstance ?: throw IllegalStateException("通道连接未就绪")
+        // 1. 如果有旧任务正在运行，先停止它
+        if (currentShellJob?.isActive == true) {
+            currentShellJob?.cancel()
+            appendLog("[系统] 停止了上一个任务...")
+        }
+
+        // 2. 启动新任务并保存 Job
+        currentShellJob = lifecycleScope.launch(Dispatchers.IO) {
+            val cleanCmd = command.removePrefix("adb shell ").trim()
+            val isLongRunning = cleanCmd.contains("logcat") || cleanCmd.contains("top") || cleanCmd.contains("dumpsys") || cleanCmd.contains("cat /proc/")
         
-            // 🌟 2. 挂起等待：切到 IO 线程执行命令，在远端响应返回前，后面的代码绝对不会偷跑
-            val response = withContext(Dispatchers.IO) {
-                kadb.shell(cleanCmd)
-            }
-        
-            // 3. 切回主线程打印全量回显
-            withContext(Dispatchers.Main) {
-                // 如果远端返回的内容不为空则打印，否则给个友好提示
-                if (response.allOutput.isNotBlank()) {
-                    appendLog(response.allOutput.trim())
+            try {
+                val kadb = kadbInstance ?: throw IllegalStateException("通道连接未就绪")
+            
+                if (isLongRunning) {
+                    handleStreamingCommand(kadb, cleanCmd)
                 } else {
-                    appendLog("[系统] 命令已执行，远端无标准输出回显")
+                    handleBufferedCommand(kadb, cleanCmd, 30_000L)
                 }
-                appendLog("[流结束]")
+            } catch (e: CancellationException) {
+                // 协程被取消时会走到这里
+                withContext(Dispatchers.Main) { appendLog("[系统] 任务已手动停止") }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) { 
+                    appendLog("[Shell 异常] ${e.message}")
+                    if (e is IOException || e.message?.contains("closed") == true) {
+                        kadbInstance = null
+                        isAdbAuthorized = false
+                        updateStatus("连接已断开")
+                    }
+                }
             }
-        } catch (e: Exception) {
-            withContext(Dispatchers.Main) {
-                appendLog("[Shell 异常] 传输阻断: ${e.message}")
-                // 如果发生了物理断开（如 Pipe broken/Socket closed），及时将全局句柄归零置空
-                if (e is java.io.IOException || e.message?.contains("closed") == true) {
-                    kadbInstance = null
-                    isAdbAuthorized = false
-                    updateStatus("连接已断开")
+        }
+    }
+    
+    private suspend fun handleBufferedCommand(kadb: Kadb, command: String, timeout: Long) {
+        val response = withContext(Dispatchers.IO) {
+            withTimeout(timeout) {
+                kadb.shell(command)
+            }
+        }
+        withContext(Dispatchers.Main) {
+            if (response.allOutput.isNotBlank()) appendLog(response.allOutput.trim())
+            else appendLog("[系统] 执行完成，无输出")
+        }
+    }
+    
+    private suspend fun handleStreamingCommand(kadb: Kadb, command: String) {
+        withContext(Dispatchers.IO) {
+            // 使用 openShell 开启持久管道
+            kadb.openShell(command).use { shellStream ->
+                // 使用 okio 的缓冲读取，这是处理超长输出最内存友好的方式
+                val reader = shellStream.source.buffer()
+            
+                // 简单的缓冲区，防止高频 UI 刷新导致界面卡顿
+                val lineBuffer = mutableListOf<String>()
+                var lastUpdate = System.currentTimeMillis()
+
+                try {
+                    while (true) {
+                        // readUtf8Line() 会阻塞，直到有新的一行数据，或者流关闭
+                        val line = reader.readUtf8Line() ?: break 
+                    
+                        lineBuffer.add(line)
+
+                        // 每一秒或缓冲区达到 50 行时，统一推送到主线程刷新一次
+                        // 这既保证了实时性，又不会把 UI 线程冲垮
+                        if (lineBuffer.size >= 50 || System.currentTimeMillis() - lastUpdate > 1000) {
+                            val snapshot = lineBuffer.toList()
+                            lineBuffer.clear()
+                            lastUpdate = System.currentTimeMillis()
+
+                            withContext(Dispatchers.Main) {
+                                snapshot.forEach { appendLog(it) }
+                            }
+                        }
+                    }
+                } catch (e: Exception) {
+                    // 异常处理：比如连接断开
+                    withContext(Dispatchers.Main) {
+                        appendLog("[流中止] $e")
+                    }
                 }
             }
         }

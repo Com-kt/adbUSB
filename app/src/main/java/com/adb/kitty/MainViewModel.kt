@@ -116,6 +116,8 @@ class MainViewModel : ViewModel() {
            •adb connect [IP:无线调试端口]
            •adb push [本地文件名] [远端路径]
            •adb pull [远端路径] (可选本地落地名)
+           •adb install [本地文件名]
+           •adb uninstall [包名]
         fastboot 命令使用说明:
            •flash <分区> <路径>
            •boot <文件名>
