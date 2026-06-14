@@ -104,33 +104,24 @@ android {
         release {
             isMinifyEnabled = true
             isShrinkResources = true
+            vcsInfo.include = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"), 
                 "proguard-rules.pro"
             )
             optimization.keepRules {
-                // 1. 忽略普通的单体依赖库
-                val singleLibs = listOf(
-                    libs.mt.dataFilesProvider,
-                    libs.lsposed.hiddenapibypass,
-                    libs.com.flyfishxu.kadb,
-                    libs.org.conscrypt.openjdk.uber
-                )
-                singleLibs.forEach { provider ->
-                    val dep = provider.get()
-                    ignoreFrom("${dep.group}:${dep.name}")
-                }
-                    
-                // 2. 核心避坑：迭代处理 bundles 依赖组 (coroutines 和 libsu)
-                val bundleLibs = listOf(
-                    libs.bundles.coroutines.runtime,
-                    libs.bundles.libsu
-                )
-                bundleLibs.forEach { bundleProvider ->
-                    bundleProvider.get().forEach { dep ->
-                        ignoreFrom("${dep.group}:${dep.name}")
-                    }
-                }
+                // 强行忽略 R8 报错提示中列出的精确字符串坐标
+                ignoreFrom("com.github.L-JINBIN:MTDataFilesProvider")
+                ignoreFrom("com.flyfishxu:kadb")
+                ignoreFrom("org.conscrypt:conscrypt-openjdk-uber")
+                ignoreFrom("org.jetbrains.kotlinx:kotlinx-coroutines-core")
+                ignoreFrom("org.jetbrains.kotlinx:kotlinx-coroutines-android")
+                ignoreFrom("org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm")
+                ignoreFrom("com.github.topjohnwu.libsu:service")
+                ignoreFrom("com.github.topjohnwu.libsu:io")
+                ignoreFrom("com.github.topjohnwu.libsu:core")
+                ignoreFrom("org.lsposed.hiddenapibypass:hiddenapibypass")
+                ignoreFrom("io.nayuki:qrcodegen")
             }
             signingConfig = signingConfigs.getByName("adb")
         }
