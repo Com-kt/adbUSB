@@ -81,7 +81,7 @@ fun CenterAlignedTopAppBarExample() {
         floatingActionButtonPosition = FabPosition.End,
         
         topBar = {
-            TopAppBar(
+            CenterAlignedTopAppBar(
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.primaryContainer,
                     titleContentColor = MaterialTheme.colorScheme.primary,
@@ -154,7 +154,7 @@ fun CenterAlignedTopAppBarExample() {
     ) { innerPadding ->
         Column(modifier = Modifier.padding(innerPadding).padding(16.dp).fillMaxSize()) {
             
-            Box(modifier = Modifier.weight(1f)) {
+            Box(modifier = Modifier.wrapContentHeight()) {
                 ExposedDropdownMenuBox(
                     expanded = expanded,
                     onExpandedChange = { expanded = !expanded }
@@ -196,7 +196,7 @@ fun CenterAlignedTopAppBarExample() {
                 modifier = Modifier
                 .weight(1f) // 核心：占据除搜索框外剩余的所有空间 (实现你的1:1需求)
                 .fillMaxWidth()
-                .padding(top = 16.dp, bottom = 80.dp)
+                .padding(top = 16.dp, bottom = 75.dp)
                 .border(1.dp, MaterialTheme.colorScheme.outline) // 给日志区域加个边框
                 .verticalScroll(vScrollState) // 类似 ScrollView
             ) {
