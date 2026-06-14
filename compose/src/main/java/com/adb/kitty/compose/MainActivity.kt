@@ -174,6 +174,22 @@ fun CenterAlignedTopAppBarExample() {
                     colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors()
                 )
                 
+                ExposedDropdownMenu(
+                    expanded = expanded && filteredItems.isNotEmpty(), 
+                    onDismissRequest = { expanded = false }
+                ) {
+                    filteredItems.forEach { item ->
+                        DropdownMenuItem(
+                            text = { Text(item) },
+                            onClick = {
+                                query = item
+                                expanded = false // 点击后收起菜单，键盘依然保持显示
+                            },
+                            contentPadding = ExposedDropdownMenuDefaults.ItemContentPadding
+                        )
+                    }
+                }
+                
                 val vScrollState = rememberScrollState()
                 val hScrollState = rememberScrollState()
                 Column(
@@ -193,23 +209,6 @@ fun CenterAlignedTopAppBarExample() {
                             text = "这是你的日志内容...\n你可以尝试输入很长很长的文本看看横向滚动效果。\n日志通常使用等宽字体显示效果更好。\n...\n(更多行数)\n...",
                             fontFamily = FontFamily.Monospace,
                             style = MaterialTheme.typography.bodyMedium
-                        )
-                    }
-                }
-
-                // 3. 建议下拉菜单
-                ExposedDropdownMenu(
-                    expanded = expanded && filteredItems.isNotEmpty(), 
-                    onDismissRequest = { expanded = false }
-                ) {
-                    filteredItems.forEach { item ->
-                        DropdownMenuItem(
-                            text = { Text(item) },
-                            onClick = {
-                                query = item
-                                expanded = false // 点击后收起菜单，键盘依然保持显示
-                            },
-                            contentPadding = ExposedDropdownMenuDefaults.ItemContentPadding
                         )
                     }
                 }
