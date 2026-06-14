@@ -108,3 +108,9 @@ jobs:
           path: compose/build/outputs/logs/*
           archive: true
          
+      - name: Upload D8
+        uses: actions/upload-artifact@v7
+        with:
+          name: d8-pro
+          path: compose/build/outputs/mapping/release/*
+          archive: true

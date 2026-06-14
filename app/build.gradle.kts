@@ -6,6 +6,7 @@
  *
  * by: 小猫猫
  */
+import org.jetbrains.kotlin.gradle.dsl.KotlinVersion
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.tasks.KotlinJvmCompile
 import java.text.SimpleDateFormat
@@ -13,7 +14,6 @@ import java.util.Date
 
 plugins {
     alias(libs.plugins.android.application)
-    alias(libs.plugins.kotlin.android)
 }
 
 val propCompileSdk = providers.gradleProperty("COMPILE_SDK").get().toInt()
@@ -31,12 +31,19 @@ android {
     ndkVersion = "$propNdk"
     
     packaging {
+        dex {
+            useLegacyPackaging = true
+        }
         jniLibs {
             useLegacyPackaging = true
         }
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
+    }
+    
+    androidResources {
+        generateLocaleConfig = true
     }
     
     defaultConfig {
@@ -62,6 +69,14 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_25
         targetCompatibility = JavaVersion.VERSION_25
+    }
+    
+    kotlin {
+        compilerOptions {
+            languageVersion = KotlinVersion.KOTLIN_2_4
+            apiVersion = KotlinVersion.KOTLIN_2_4
+            jvmTarget = JvmTarget.JVM_25
+        }
     }
     
     externalNativeBuild {
@@ -113,15 +128,6 @@ android {
         includeInBundle = false
     }
 }
-
-tasks.withType<KotlinJvmCompile>()
-    .configureEach {
-        compilerOptions
-            .jvmTarget
-            .set(
-                JvmTarget.JVM_25
-            )
-    }
 
 dependencies {
     runtimeOnly(libs.bundles.coroutines.runtime)

@@ -6,6 +6,7 @@
  *
  * by: 小猫猫
  */
+import org.jetbrains.kotlin.gradle.dsl.KotlinVersion
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.tasks.KotlinJvmCompile
 import java.text.SimpleDateFormat
@@ -13,7 +14,6 @@ import java.util.Date
 
 plugins {
     alias(libs.plugins.android.application)
-    alias(libs.plugins.kotlin.android)
     alias(libs.plugins.compose.compiler)
     alias(libs.plugins.ksp)
 }
@@ -33,12 +33,19 @@ android {
     ndkVersion = "$propNdk"
     
     packaging {
+        dex {
+            useLegacyPackaging = true
+        }
         jniLibs {
             useLegacyPackaging = true
         }
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
+    }
+    
+    androidResources {
+        generateLocaleConfig = true
     }
     
     defaultConfig {
@@ -70,7 +77,9 @@ android {
     
     kotlin {
         compilerOptions {
-            jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.fromTarget("25"))
+            languageVersion = KotlinVersion.KOTLIN_2_4
+            apiVersion = KotlinVersion.KOTLIN_2_4
+            jvmTarget = JvmTarget.JVM_25
         }
     }
     
@@ -97,8 +106,36 @@ android {
     
     buildTypes {
         release {
-            isMinifyEnabled = false
-            isShrinkResources = false
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"), 
+                "proguard-rules.pro"
+            )
+            optimization.keepRules {
+                // 1. 忽略普通的单体依赖库
+                val singleLibs = listOf(
+                    libs.mt.dataFilesProvider,
+                    libs.lsposed.hiddenapibypass,
+                    libs.com.flyfishxu.kadb,
+                    libs.org.conscrypt.openjdk.uber
+                )
+                singleLibs.forEach { provider ->
+                    val dep = provider.get()
+                    ignoreFrom("${dep.group}:${dep.name}")
+                }
+                    
+                // 2. 核心避坑：迭代处理 bundles 依赖组 (coroutines 和 libsu)
+                val bundleLibs = listOf(
+                    libs.bundles.coroutines.runtime,
+                    libs.bundles.libsu
+                )
+                bundleLibs.forEach { bundleProvider ->
+                    bundleProvider.get().forEach { dep ->
+                        ignoreFrom("${dep.group}:${dep.name}")
+                    }
+                }
+            }
             signingConfig = signingConfigs.getByName("adb")
         }
         debug {
@@ -112,6 +149,7 @@ android {
         aidl = true
         buildConfig = true
         compose = true
+        prefab = true
     }
     
     lint {
@@ -123,15 +161,6 @@ android {
         includeInBundle = false
     }
 }
-
-tasks.withType<KotlinJvmCompile>()
-    .configureEach {
-        compilerOptions
-            .jvmTarget
-            .set(
-                JvmTarget.JVM_25
-            )
-    }
 
 dependencies {
     runtimeOnly(libs.bundles.coroutines.runtime)
