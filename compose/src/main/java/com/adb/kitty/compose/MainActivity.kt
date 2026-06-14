@@ -49,55 +49,27 @@ class MainActivity : ComponentActivity() {
 }
 
 @Keep
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun CustomizableSearchBar(
+fun SimpleSearchBar(
     query: String,
     onQueryChange: (String) -> Unit,
-    onSearch: (String) -> Unit,
-    searchResults: List<String>,
-    onResultClick: (String) -> Unit,
-    modifier: Modifier = Modifier,
-    placeholder: @Composable () -> Unit = { Text("Search") },
-    leadingIcon: @Composable (() -> Unit)? = null,
-    trailingIcon: @Composable (() -> Unit)? = null,
-    supportingContent: (@Composable (String) -> Unit)? = null,
-    leadingContent: (@Composable () -> Unit)? = null,
+    modifier: Modifier = Modifier
 ) {
-    var expanded by rememberSaveable { mutableStateOf(false) }
-
-    Box(modifier.fillMaxSize().semantics { isTraversalGroup = true }) {
-        SearchBar(
-            modifier = Modifier.align(Alignment.TopCenter).semantics { traversalIndex = 0f },
-            inputField = {
-                SearchBarDefaults.InputField(
-                    query = query,
-                    onQueryChange = onQueryChange,
-                    onSearch = { onSearch(query); expanded = false },
-                    expanded = expanded,
-                    onExpandedChange = { expanded = it },
-                    placeholder = placeholder,
-                    leadingIcon = leadingIcon,
-                    trailingIcon = trailingIcon
-                )
-            },
-            expanded = expanded,
-            onExpandedChange = { expanded = it },
-        ) {
-            LazyColumn {
-                items(count = searchResults.size) { index ->
-                    val resultText = searchResults[index]
-                    ListItem(
-                        headlineContent = { Text(resultText) },
-                        modifier = Modifier
-                            .clickable { onResultClick(resultText); expanded = false }
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 4.dp)
-                    )
-                }
-            }
-        }
-    }
+    OutlinedTextField(
+        value = query,
+        onValueChange = onQueryChange,
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(16.dp), // 适当的内边距
+        placeholder = { Text("搜索甜点...") },
+        leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+        shape = RoundedCornerShape(28.dp), // 药丸形圆角，符合现代审美
+        singleLine = true,
+        colors = OutlinedTextFieldDefaults.colors(
+            focusedBorderColor = MaterialTheme.colorScheme.primary,
+            unfocusedBorderColor = MaterialTheme.colorScheme.outline
+        )
+    )
 }
 
 @Keep
@@ -202,18 +174,30 @@ fun CenterAlignedTopAppBarExample() {
             )
         },
     ) { innerPadding ->
-        // 使用 Box 接收 innerPadding，确保内容不被 TopAppBar 遮挡
-        Box(modifier = Modifier.padding(innerPadding)) {
-            CustomizableSearchBar(
+        
+        // 核心布局：Column 垂直排列搜索框和列表
+        Column(modifier = Modifier.padding(innerPadding)) {
+            
+            SimpleSearchBar(
                 query = query,
-                onQueryChange = { newQuery -> query = newQuery },
-                onSearch = { /* 搜索逻辑 */ },
-                searchResults = filteredItems,
-                onResultClick = { clickedItem -> query = clickedItem },
-                placeholder = { Text("搜索甜点...") }, 
-                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-                trailingIcon = { Icon(Icons.Default.MoreVert, contentDescription = null) }
+                onQueryChange = { query = it }
             )
+            
+            // 结果列表，使用 weight(1f) 占据剩余所有空间
+            LazyColumn(
+                modifier = Modifier.fillMaxWidth().weight(1f),
+                contentPadding = PaddingValues(horizontal = 16.dp)
+            ) {
+                items(filteredItems.size) { index ->
+                    Text(
+                        text = filteredItems[index],
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 12.dp)
+                    )
+                    HorizontalDivider()
+                }
+            }
         }
     }
 }
