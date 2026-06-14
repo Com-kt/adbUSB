@@ -1,6 +1,6 @@
 package com.adb.kitty.compose
 
-import android.os.Bundle
+import android.os.*
 import androidx.activity.*
 import androidx.activity.compose.*
 import androidx.compose.foundation.*
@@ -17,15 +17,21 @@ import androidx.compose.ui.graphics.*
 import androidx.compose.ui.input.nestedscroll.*
 import androidx.compose.ui.text.style.*
 import androidx.compose.ui.tooling.preview.*
-import com.adb.kitty.compose.ui.theme.ComposeEmptyActivityTheme
+import com.adb.kitty.compose.ui.theme.*
 import com.adb.kitty.compose.R
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge(
-            statusBarStyle = SystemBarStyle.auto(Color.TRANSPARENT, Color.TRANSPARENT),
-            navigationBarStyle = SystemBarStyle.auto(Color.TRANSPARENT, Color.TRANSPARENT)
+            statusBarStyle = SystemBarStyle.auto(
+                lightStyle = Color.Transparent.toArgb(), 
+                darkStyle = Color.Transparent.toArgb()
+            ),
+            navigationBarStyle = SystemBarStyle.auto(
+                lightStyle = Color.Transparent.toArgb(), 
+                darkStyle = Color.Transparent.toArgb()
+            )
         )
         setContent {
             ComposeEmptyActivityTheme {
