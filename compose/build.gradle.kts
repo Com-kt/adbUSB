@@ -150,4 +150,5 @@ dependencies {
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.bundles.compose)
     implementation(libs.bundles.compose.lifecycle)
+    debugImplementation(libs.bundles.compose.debug)
 }

@@ -86,21 +86,19 @@ androidx-lifecycle-viewmodel-compose = { group = "androidx.lifecycle", name = "l
 androidx-lifecycle-viewmodel-savedstate = { group = "androidx.lifecycle", name = "lifecycle-viewmodel-savedstate", version.ref = "lifecycle" }
 androidx-compose-material-icons-extended = { group = "androidx.compose.material", name = "material-icons-extended" }
 androidx-compose-material3 = { group = "androidx.compose.material3", name = "material3", version.ref = "material3" }
+androidx-compose-ui-test-manifest = { group = "androidx.compose.ui", name = "ui-test-manifest" }
 androidx-compose-ui-tooling = { group = "androidx.compose.ui", name = "ui-tooling" }
 androidx-compose-ui-tooling-preview = { group = "androidx.compose.ui", name = "ui-tooling-preview" }
 androidx-compose-foundation = { group = "androidx.compose.foundation", name = "foundation", version.ref = "foundation" }
 androidx-compose-animation = { group = "androidx.compose.animation", name = "animation", version.ref = "foundation" }
-androidx-ui-test-manifest = { group = "androidx.compose.ui", name = "ui-test-manifest" }
 androidx-ui-graphics = { group = "androidx.compose.ui", name = "ui-graphics" }
 
 [bundles]
 # 捆绑式引入
 compose = [
     "androidx-compose-ui",
-    "androidx-compose-ui-tooling",
     "androidx-compose-ui-tooling-preview",
     "androidx-ui-graphics",
-    "androidx-ui-test-manifest",
     "androidx-compose-material-icons-extended",
     "androidx-compose-material3",
     "androidx-activity-compose",
@@ -115,6 +113,11 @@ compose-lifecycle = [
     "androidx-lifecycle-process",
     "androidx-lifecycle-reactivestreams-ktx",
     "androidx-lifecycle-service"
+]
+compose-debug = [
+    "androidx-compose-ui-tooling",
+    "androidx-compose-ui-tooling-preview",
+    "androidx-compose-ui-test-manifest"
 ]
 lifecycle = [
     "androidx-lifecycle-livedata-ktx",
