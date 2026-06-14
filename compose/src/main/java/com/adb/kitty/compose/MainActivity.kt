@@ -189,28 +189,27 @@ fun CenterAlignedTopAppBarExample() {
                         )
                     }
                 }
-                
-                val vScrollState = rememberScrollState()
-                val hScrollState = rememberScrollState()
-                Column(
+            }
+            val vScrollState = rememberScrollState()
+            val hScrollState = rememberScrollState()
+            Column(
+                modifier = Modifier
+                .weight(1f) // 核心：占据除搜索框外剩余的所有空间 (实现你的1:1需求)
+                .fillMaxWidth()
+                .padding(top = 16.dp)
+                .border(1.dp, MaterialTheme.colorScheme.outline) // 给日志区域加个边框
+                .verticalScroll(vScrollState) // 类似 ScrollView
+            ) {
+                Row(
                     modifier = Modifier
-                    .weight(1f) // 核心：占据除搜索框外剩余的所有空间 (实现你的1:1需求)
-                    .fillMaxWidth()
-                    .padding(top = 16.dp)
-                    .border(1.dp, MaterialTheme.colorScheme.outline) // 给日志区域加个边框
-                    .verticalScroll(vScrollState) // 类似 ScrollView
+                        .horizontalScroll(hScrollState) // 类似 HorizontalScrollView
+                        .padding(8.dp)
                 ) {
-                    Row(
-                        modifier = Modifier
-                            .horizontalScroll(hScrollState) // 类似 HorizontalScrollView
-                            .padding(8.dp)
-                    ) {
-                        Text(
-                            text = "这是你的日志内容...\n你可以尝试输入很长很长的文本看看横向滚动效果。\n日志通常使用等宽字体显示效果更好。\n...\n(更多行数)\n...",
-                            fontFamily = FontFamily.Monospace,
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                    }
+                    Text(
+                        text = "这是你的日志内容...\n你可以尝试输入很长很长的文本看看横向滚动效果。\n日志通常使用等宽字体显示效果更好。\n...\n(更多行数)\n...",
+                        fontFamily = FontFamily.Monospace,
+                        style = MaterialTheme.typography.bodyMedium
+                    )
                 }
             }
         }
