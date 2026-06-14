@@ -1,57 +1,97 @@
 package com.adb.kitty.compose
 
 import android.os.Bundle
-import androidx.activity.ComponentActivity
-import androidx.activity.compose.setContent
-import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.ui.Alignment
+import androidx.activity.*
+import androidx.activity.compose.*
+import androidx.compose.foundation.*
+import androidx.compose.foundation.lazy.
+import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.*
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.automirrored.filled.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.*
+import androidx.compose.ui.unit.
+import androidx.compose.ui.text.style.*
+import androidx.compose.ui.tooling.preview.*
 import com.adb.kitty.compose.ui.theme.ComposeEmptyActivityTheme
+import com.adb.kitty.compose.R
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
+        enableEdgeToEdge(
+            statusBarStyle = SystemBarStyle.auto(Color.TRANSPARENT, Color.TRANSPARENT),
+            navigationBarStyle = SystemBarStyle.auto(Color.TRANSPARENT, Color.TRANSPARENT)
+        )
         setContent {
             ComposeEmptyActivityTheme {
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    Greeting(
-                        name = "Android",
-                        modifier = Modifier.padding(innerPadding)
-                    )
-                }
+                // 直接调用该组件即可
+                MediumTopAppBarExample()
             }
         }
     }
 }
 
 @Composable
-fun Greeting(name: String, modifier: Modifier = Modifier) {
-    Row(
-        modifier = modifier.fillMaxSize(),
-        horizontalArrangement = Arrangement.Center,
-        verticalAlignment = Alignment.CenterVertically
+fun ScrollContent(innerPadding: PaddingValues) {
+    LazyColumn(
+        contentPadding = innerPadding,
+        modifier = Modifier.fillMaxSize()
     ) {
-        Text(
-            text = "Hello $name!"
-        )
+        items(50) { index ->
+            Text(
+                text = "这是第 $index 项内容",
+                modifier = Modifier.padding(16.dp)
+            )
+        }
     }
 }
 
-@Preview(showBackground = true)
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Preview
+// [START android_compose_components_mediumtopappbar]
 @Composable
-fun GreetingPreview() {
-    ComposeEmptyActivityTheme {
-        Greeting("Android")
+fun MediumTopAppBarExample() {
+    val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior(rememberTopAppBarState())
+
+    Scaffold(
+        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
+        topBar = {
+            MediumTopAppBar(
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    titleContentColor = MaterialTheme.colorScheme.primary,
+                ),
+                title = {
+                    Text(
+                        "Medium Top App Bar",
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                },
+                navigationIcon = {
+                    IconButton(onClick = { /* do something */ }) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Localized description"
+                        )
+                    }
+                },
+                actions = {
+                    IconButton(onClick = { /* do something */ }) {
+                        Icon(
+                            imageVector = Icons.Filled.Menu,
+                            contentDescription = "Localized description"
+                        )
+                    }
+                },
+                scrollBehavior = scrollBehavior
+            )
+        },
+    ) { innerPadding ->
+        ScrollContent(innerPadding)
     }
 }
