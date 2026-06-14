@@ -19,7 +19,6 @@ import androidx.compose.ui.unit.*
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.input.nestedscroll.*
 import androidx.compose.ui.text.style.*
-import androidx.compose.ui.tooling.preview.*
 import com.adb.kitty.compose.ui.theme.*
 import com.adb.kitty.compose.R
 
