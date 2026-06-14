@@ -26,7 +26,9 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.Locale
+import androidx.annotation.Keep
 
+@Keep
 class RefreshRateInspector(
     private val context: Context,
     private val lifecycleOwner: LifecycleOwner,

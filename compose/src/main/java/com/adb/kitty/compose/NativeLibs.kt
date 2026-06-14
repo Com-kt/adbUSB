@@ -28,12 +28,18 @@ import javax.net.ssl.*
 import okio.*
 import org.json.*
 
+import androidx.annotation.Keep
+
+@Keep
 data class AdbCommand(val description: String, val command: String)
 
+@Keep
 data class FbCommand(val description: String, val command: String)
 
+@Keep
 data class AdbDevice(val ip: String, val port: Int, val wifiSsid: String, val lastConnectedTime: Long)
 
+@Keep
 object NativeLibs {
     init {
         System.loadLibrary("native-lib")

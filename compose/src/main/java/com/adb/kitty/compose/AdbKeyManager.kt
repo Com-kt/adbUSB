@@ -15,7 +15,9 @@ import com.flyfishxu.kadb.cert.KadbCertPolicy
 import com.flyfishxu.kadb.cert.OkioFilePrivateKeyStore
 import okio.Path.Companion.toPath
 import java.io.File
+import androidx.annotation.Keep
 
+@Keep
 class AdbKeyManager(private val context: Context) {
 
     companion object {

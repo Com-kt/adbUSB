@@ -12,7 +12,9 @@ import java.net.Inet4Address
 import java.net.Inet6Address
 import java.net.NetworkInterface
 import java.util.Collections
+import androidx.annotation.Keep
 
+@Keep
 data class MultiNetworkIp(
     val wifiIpv4: String? = null,
     val wifiIpv6: String? = null,
@@ -22,6 +24,7 @@ data class MultiNetworkIp(
     val vpnIpv6: String? = null
 )
 
+@Keep
 class IpManager {
 
     fun getAllLocalIpAddresses(): MultiNetworkIp {

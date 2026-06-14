@@ -1,6 +1,7 @@
 package com.adb.kitty.compose
 
 import android.os.*
+import androidx.annotation.*
 import androidx.activity.*
 import androidx.activity.compose.*
 import androidx.compose.foundation.*
@@ -22,6 +23,7 @@ import androidx.compose.ui.text.style.*
 import com.adb.kitty.compose.ui.theme.*
 import com.adb.kitty.compose.R
 
+@Keep
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -44,6 +46,7 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+@Keep
 @Composable
 fun ScrollContent(innerPadding: PaddingValues) {
     LazyColumn(
@@ -59,7 +62,7 @@ fun ScrollContent(innerPadding: PaddingValues) {
     }
 }
 
-
+@Keep
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CenterAlignedTopAppBarExample() {

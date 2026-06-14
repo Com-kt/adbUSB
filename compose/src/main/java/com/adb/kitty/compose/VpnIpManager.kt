@@ -12,7 +12,9 @@ import android.content.Context
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import java.net.Inet6Address
+import androidx.annotation.Keep
 
+@Keep
 class VpnIpManager {
 
     fun getLocalVpnIpv6(context: Context): String? {

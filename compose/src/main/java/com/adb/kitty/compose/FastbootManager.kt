@@ -60,7 +60,9 @@ import javax.net.ssl.*
 import okio.*
 import com.flyfishxu.kadb.Kadb
 import org.json.*
+import androidx.annotation.Keep
 
+@Keep
 data class FastbootConfig(
     val abPartitions: Set<String> = setOf(
         "boot", "abl", "xbl", "xbl_config", "cpucp_dtb", "shrm", 
@@ -74,8 +76,10 @@ data class FastbootConfig(
     val bootPartitions: Set<String> = setOf(".img", ".elf", ".bin", ".mbn")
 )
 
+@Keep
 data class FastbootResponse(val status: String, val payload: String, val allLines: List<String>)
 
+@Keep
 class FastbootManager(
     private val scope: CoroutineScope,
     private val usbConn: UsbDeviceConnection,

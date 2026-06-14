@@ -15,7 +15,9 @@ import kotlinx.coroutines.*
 import java.io.File
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
+import androidx.annotation.Keep
 
+@Keep
 class GhzRootService : RootService() {
 
     private val validThermalZones = ArrayList<Pair<String, File>>()

@@ -70,15 +70,15 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: kotlin-tooling-metadata
-          path: compose/build/kotlinToolingMetadata/kotlin-tooling-metadata.json
-          archive: false
+          path: compose/build/*
+          archive: true
           
       - name: Upload Builds Report
         uses: actions/upload-artifact@v7
         with:
           name: builds-reports
-          path: build/reports/problems/problems-report.html
-          archive: false
+          path: build/reports/*
+          archive: true
 
       - name: Upload Debug APKs
         uses: actions/upload-artifact@v7

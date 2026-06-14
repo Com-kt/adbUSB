@@ -14,7 +14,9 @@ import java.io.IOException
 import java.net.ServerSocket
 import java.net.Socket
 import kotlin.concurrent.thread
+import androidx.annotation.Keep
 
+@Keep
 class UsbPortForwarder(
     private val conn: UsbDeviceConnection,
     private val epIn: UsbEndpoint,

@@ -1,4 +1,5 @@
 -keep class com.adb.kitty.compose.** { *; }
+-dontwarn com.adb.kitty.compose.** { *; }
 
 -keep class kotlinx.coroutines.** { *; }
 -dontwarn kotlinx.coroutines.**
@@ -20,8 +21,8 @@
 
 -keep class bin.mt.** { *; } 
 
--ignorewarnings
-
 -dontrepackage
 
 -keepattributes RuntimeInvisibleAnnotations, RuntimeInvisibleParameterAnnotations, RuntimeInvisibleTypeAnnotations
+
+-ignorewarnings

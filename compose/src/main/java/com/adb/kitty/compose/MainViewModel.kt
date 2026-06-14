@@ -58,7 +58,9 @@ import javax.net.ssl.*
 import okio.*
 import com.flyfishxu.kadb.Kadb
 import org.json.*
+import androidx.annotation.Keep
 
+@Keep
 class MainViewModel : ViewModel() {
     
     private val _adbCommands = listOf(

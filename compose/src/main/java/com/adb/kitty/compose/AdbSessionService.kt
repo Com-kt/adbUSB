@@ -22,7 +22,9 @@ import androidx.core.app.NotificationCompat
 import com.flyfishxu.kadb.Kadb
 import kotlinx.coroutines.*
 import java.util.Locale
+import androidx.annotation.Keep
 
+@Keep
 class AdbSessionService : Service() {
 
     private val NOTIFICATION_ID = 101
