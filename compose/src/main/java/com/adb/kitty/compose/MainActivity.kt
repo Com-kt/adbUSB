@@ -81,7 +81,7 @@ fun CenterAlignedTopAppBarExample() {
         floatingActionButtonPosition = FabPosition.End,
         
         topBar = {
-            CenterAlignedTopAppBar(
+            TopAppBar(
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.primaryContainer,
                     titleContentColor = MaterialTheme.colorScheme.primary,
@@ -152,41 +152,41 @@ fun CenterAlignedTopAppBarExample() {
             )
         },
     ) { innerPadding ->
-        
-        Column(modifier = Modifier.padding(innerPadding).padding(16.dp)) {
+        Column(modifier = Modifier.padding(innerPadding).padding(16.dp).fillMaxSize()) {
             
-            // 2. 使用 ExposedDropdownMenuBox
-            ExposedDropdownMenuBox(
-                expanded = expanded,
-                onExpandedChange = { expanded = !expanded }
-            ) {
-                OutlinedTextField(
-                    value = query,
-                    onValueChange = { 
-                        query = it
-                        expanded = it.isNotEmpty()
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryEditable, enabled = true),
-                    label = { Text("搜索甜点") },
-                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-                    colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors()
-                )
-                
-                ExposedDropdownMenu(
-                    expanded = expanded && filteredItems.isNotEmpty(), 
-                    onDismissRequest = { expanded = false }
+            Box(modifier = Modifier.weight(1f)) {
+                ExposedDropdownMenuBox(
+                    expanded = expanded,
+                    onExpandedChange = { expanded = !expanded }
                 ) {
-                    filteredItems.forEach { item ->
-                        DropdownMenuItem(
-                            text = { Text(item) },
-                            onClick = {
-                                query = item
-                                expanded = false // 点击后收起菜单，键盘依然保持显示
-                            },
-                            contentPadding = ExposedDropdownMenuDefaults.ItemContentPadding
-                        )
+                    OutlinedTextField(
+                        value = query,
+                        onValueChange = { 
+                            query = it
+                            expanded = it.isNotEmpty()
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryEditable, enabled = true),
+                        label = { Text("搜索甜点") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                        colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors()
+                    )
+                
+                    ExposedDropdownMenu(
+                        expanded = expanded && filteredItems.isNotEmpty(), 
+                        onDismissRequest = { expanded = false }
+                    ) {
+                        filteredItems.forEach { item ->
+                            DropdownMenuItem(
+                                text = { Text(item) },
+                                onClick = {
+                                    query = item
+                                    expanded = false // 点击后收起菜单，键盘依然保持显示
+                                },
+                                contentPadding = ExposedDropdownMenuDefaults.ItemContentPadding
+                            )
+                        }
                     }
                 }
             }
@@ -196,7 +196,7 @@ fun CenterAlignedTopAppBarExample() {
                 modifier = Modifier
                 .weight(1f) // 核心：占据除搜索框外剩余的所有空间 (实现你的1:1需求)
                 .fillMaxWidth()
-                .padding(top = 16.dp)
+                .padding(top = 16.dp, bottom = 80.dp)
                 .border(1.dp, MaterialTheme.colorScheme.outline) // 给日志区域加个边框
                 .verticalScroll(vScrollState) // 类似 ScrollView
             ) {
