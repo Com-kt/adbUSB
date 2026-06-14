@@ -9,6 +9,9 @@
  */ -->
 <resources>
     <string name="app_name">userKitty</string>
+    <string name="app_bar_name">调试工具</string>
+    <string name="push_cmd_name">发送命令</string>
+    
     <string name="action_main_1">快捷adb</string>
     <string name="action_main_2">快捷fastboot</string>
     <string name="action_main_3">触发无线调试扫描</string>

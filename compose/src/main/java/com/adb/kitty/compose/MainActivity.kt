@@ -41,13 +41,42 @@ class MainActivity : ComponentActivity() {
             )
         )
         setContent {
-            ComposeEmptyActivityTheme {
-                // 直接调用该组件即可
-                CenterAlignedTopAppBarExample()
+            // 获取 ViewModel
+            val viewModel: LogViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
+            var query by remember { mutableStateOf("") }
+
+            Scaffold(
+                floatingActionButton = {
+                    ExtendedFloatingActionButton(
+                        onClick = { viewModel.appendLog("新命令已推送") }, // 触发业务逻辑
+                        text = { Text("推送命令") },
+                        icon = { Icon(Icons.Default.Add, null) }
+                    )
+                }
+            ) { innerPadding ->
+                Column(modifier = Modifier.padding(innerPadding).padding(16.dp)) {
+                    
+                    SearchBar(
+                        query = query,
+                        onQueryChange = { query = it },
+                        items = viewModel.items,
+                        onItemSelected = { query = it }
+                    )
+                    
+                    Spacer(modifier = Modifier.height(16.dp))
+                    
+                    // 传入日志数据，UI 自动响应变化
+                    LogSection(
+                        logs = viewModel.logs,
+                        modifier = Modifier.weight(1f).fillMaxWidth()
+                    )
+                }
             }
         }
     }
 }
+
+/*
 
 @Keep
 @OptIn(ExperimentalMaterial3Api::class)
@@ -74,7 +103,7 @@ fun CenterAlignedTopAppBarExample() {
         floatingActionButton = {
             ExtendedFloatingActionButton(
                 onClick = {
-                  /* 处理你的点击事件 */ 
+                  /* 处理你的点击事件 *
                 },
                 icon = { 
                     Icon(
@@ -83,7 +112,9 @@ fun CenterAlignedTopAppBarExample() {
                     )
                 },
                 text = { 
-                    Text(text = "Extended FAB") 
+                    Text(
+                        text = stringResource(R.string.push_cmd_name)
+                    ) 
                 },
             )
         },
@@ -97,14 +128,14 @@ fun CenterAlignedTopAppBarExample() {
                 ),
                 title = {
                     Text(
-                        "Centered Top App Bar",
+                        text = stringResource(R.string.app_bar_name),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
                 },
                 navigationIcon = {
                     IconButton(onClick = {
-                         /* do something */ 
+                         /* do something *
                     }) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
@@ -226,3 +257,4 @@ fun CenterAlignedTopAppBarExample() {
         }
     }
 }
+*/
