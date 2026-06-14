@@ -51,67 +51,21 @@ class MainActivity : ComponentActivity() {
 @Keep
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SuggestionTextField(
-    items: List<String>,
-    modifier: Modifier = Modifier
-) {
-    var query by rememberSaveable { mutableStateOf("") }
-    var expanded by remember { mutableStateOf(false) }
-
-    // 过滤逻辑
-    val filteredItems by remember(query) {
-        derivedStateOf {
-            if (query.isEmpty()) emptyList() // 没输入时不显示建议
-            else items.filter { it.contains(query, ignoreCase = true) }
-        }
-    }
-
-    Box(modifier = modifier.padding(16.dp)) {
-        Column {
-            OutlinedTextField(
-                value = query,
-                onValueChange = {
-                    query = it
-                    expanded = it.isNotEmpty() // 有输入就展开菜单
-                },
-                modifier = Modifier.fillMaxWidth(),
-                label = { Text("输入关键词") },
-                trailingIcon = {
-                    // 这里可以加一个清除按钮
-                    if (query.isNotEmpty()) {
-                        IconButton(onClick = { query = ""; expanded = false }) {
-                            Icon(Icons.Default.Clear, contentDescription = "Clear")
-                        }
-                    }
-                }
-            )
-
-            // 下拉建议菜单
-            DropdownMenu(
-                expanded = expanded && filteredItems.isNotEmpty(),
-                onDismissRequest = { expanded = false },
-                modifier = Modifier.fillMaxWidth(0.9f) // 设置宽度与输入框一致
-            ) {
-                filteredItems.forEach { item ->
-                    DropdownMenuItem(
-                        text = { Text(item) },
-                        onClick = {
-                            query = item
-                            expanded = false // 点击后收起
-                        }
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Keep
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
 fun CenterAlignedTopAppBarExample() {
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior(rememberTopAppBarState())
     var showMenu by remember { mutableStateOf(false) }
+    
+    var query by rememberSaveable { mutableStateOf("") }
+    val items = remember { listOf("Cupcake", "Donut", "Eclair", "Froyo", "Gingerbread", "Honeycomb", "Ice Cream Sandwich", "Jelly Bean", "KitKat", "Lollipop", "Marshmallow", "Nougat", "Oreo", "Pie") }
+    
+    // 过滤建议列表
+    val filteredItems by remember(query) {
+        derivedStateOf {
+            if (query.isEmpty()) emptyList() 
+            else items.filter { it.contains(query, ignoreCase = true) }
+        }
+    }
+    var expanded by remember { mutableStateOf(false) }
 
     Scaffold(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
@@ -197,10 +151,45 @@ fun CenterAlignedTopAppBarExample() {
             )
         },
     ) { innerPadding ->
-        Box(modifier = Modifier.padding(innerPadding)) {
-            SuggestionTextField(
-                items = listOf("Cupcake", "Donut", "Eclair", "Gingerbread", "Oreo")
-            )
+        
+        Column(modifier = Modifier.padding(innerPadding).padding(16.dp)) {
+            
+            // 2. 使用 ExposedDropdownMenuBox
+            ExposedDropdownMenuBox(
+                expanded = expanded,
+                onExpandedChange = { expanded = !expanded }
+            ) {
+                OutlinedTextField(
+                    value = query,
+                    onValueChange = { 
+                        query = it
+                        expanded = true // 输入时自动展开
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .menuAnchor(), // !!! 关键：将输入框锚定到菜单
+                    label = { Text("搜索甜点") },
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                    colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors()
+                )
+
+                // 3. 建议下拉菜单
+                ExposedDropdownMenu(
+                    expanded = expanded,
+                    onDismissRequest = { expanded = false }
+                ) {
+                    filteredItems.forEach { item ->
+                        DropdownMenuItem(
+                            text = { Text(item) },
+                            onClick = {
+                                query = item
+                                expanded = false // 点击后收起菜单，键盘依然保持显示
+                            },
+                            contentPadding = ExposedDropdownMenuDefaults.ItemContentPadding
+                        )
+                    }
+                }
+            }
         }
     }
 }
