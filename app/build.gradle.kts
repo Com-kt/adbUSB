@@ -42,10 +42,6 @@ android {
         }
     }
     
-    androidResources {
-        generateLocaleConfig = true
-    }
-    
     defaultConfig {
         applicationId = "com.adb.kitty"
         minSdk = propMinSdk
