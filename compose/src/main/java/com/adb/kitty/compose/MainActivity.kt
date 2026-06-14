@@ -77,8 +77,10 @@ fun CenterAlignedTopAppBarExample() {
                   /* 处理你的点击事件 */ 
                 },
                 icon = { 
-                    Icon(Icons.Filled.AutoFixHigh,
-                    contentDescription = "Wand Stars")
+                    Icon(
+                        imageVector = wand_stars,
+                        contentDescription = "Wand Stars"
+                    )
                 },
                 text = { 
                     Text(text = "Extended FAB") 
