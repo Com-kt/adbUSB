@@ -73,9 +73,16 @@ fun CenterAlignedTopAppBarExample() {
         
         floatingActionButton = {
             ExtendedFloatingActionButton(
-                onClick = { /* 处理你的点击事件 */ },
-                icon = { Icon(Icons.Filled.Edit, contentDescription = "Edit") },
-                text = { Text(text = "Extended FAB") },
+                onClick = {
+                  /* 处理你的点击事件 */ 
+                },
+                icon = { 
+                    Icon(Icons.Filled.AutoFixHigh,
+                    contentDescription = "Wand Stars")
+                },
+                text = { 
+                    Text(text = "Extended FAB") 
+                },
             )
         },
         floatingActionButtonPosition = FabPosition.End,
@@ -94,7 +101,9 @@ fun CenterAlignedTopAppBarExample() {
                     )
                 },
                 navigationIcon = {
-                    IconButton(onClick = { /* do something */ }) {
+                    IconButton(onClick = {
+                         /* do something */ 
+                    }) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Localized description"
