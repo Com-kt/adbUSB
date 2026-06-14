@@ -65,21 +65,7 @@ jobs:
           name: lint-reports
           path: compose/build/reports/*
           archive: true
-          
-      - name: Upload Kotlin Tooling Metadata
-        uses: actions/upload-artifact@v7
-        with:
-          name: kotlin-tooling-metadata
-          path: compose/build/*
-          archive: true
-          
-      - name: Upload Builds Report
-        uses: actions/upload-artifact@v7
-        with:
-          name: builds-reports
-          path: build/reports/*
-          archive: true
-
+        
       - name: Upload Debug APKs
         uses: actions/upload-artifact@v7
         with:
@@ -108,9 +94,9 @@ jobs:
           path: compose/build/outputs/logs/*
           archive: true
          
-      - name: Upload D8
+      - name: Upload R8
         uses: actions/upload-artifact@v7
         with:
-          name: d8-pro
+          name: r8-logs
           path: compose/build/outputs/mapping/release/*
           archive: true

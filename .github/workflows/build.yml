@@ -66,20 +66,6 @@ jobs:
           path: app/build/reports/*
           archive: true
           
-      - name: Upload Kotlin Tooling Metadata
-        uses: actions/upload-artifact@v7
-        with:
-          name: kotlin-tooling-metadata
-          path: app/build/kotlinToolingMetadata/kotlin-tooling-metadata.json
-          archive: false
-          
-      - name: Upload Builds Report
-        uses: actions/upload-artifact@v7
-        with:
-          name: builds-reports
-          path: build/reports/problems/problems-report.html
-          archive: false
-
       - name: Upload Debug APKs
         uses: actions/upload-artifact@v7
         with:
@@ -108,10 +94,10 @@ jobs:
           path: app/build/outputs/logs/*
           archive: true
           
-      - name: Upload D8
+      - name: Upload R8
         uses: actions/upload-artifact@v7
         with:
-          name: d8-pro
+          name: r8-logs
           path: app/build/outputs/mapping/release/*
           archive: true
          

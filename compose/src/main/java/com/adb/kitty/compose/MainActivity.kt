@@ -47,28 +47,22 @@ class MainActivity : ComponentActivity() {
 }
 
 @Keep
-@Composable
-fun ScrollContent(innerPadding: PaddingValues) {
-    LazyColumn(
-        contentPadding = innerPadding,
-        modifier = Modifier.fillMaxSize()
-    ) {
-        items(50) { index ->
-            Text(
-                text = "这是第 $index 项内容",
-                modifier = Modifier.padding(16.dp)
-            )
-        }
-    }
-}
-
-@Keep
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CenterAlignedTopAppBarExample() {
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior(rememberTopAppBarState())
-    // 1. 定义状态
     var showMenu by remember { mutableStateOf(false) }
+    
+    var query by rememberSaveable { mutableStateOf("") }
+    val items = remember {
+        listOf("Cupcake", "Donut", "Eclair", "Froyo", "Gingerbread", "Honeycomb", "Ice Cream Sandwich", "Jelly Bean", "KitKat", "Lollipop", "Marshmallow", "Nougat", "Oreo", "Pie")
+    }
+    val filteredItems by remember(query) {
+        derivedStateOf {
+            if (query.isEmpty()) items 
+            else items.filter { it.contains(query, ignoreCase = true) }
+        }
+    }
 
     Scaffold(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
@@ -154,6 +148,18 @@ fun CenterAlignedTopAppBarExample() {
             )
         },
     ) { innerPadding ->
-        ScrollContent(innerPadding)
+        // 使用 Box 接收 innerPadding，确保内容不被 TopAppBar 遮挡
+        Box(modifier = Modifier.padding(innerPadding)) {
+            CustomizableSearchBar(
+                query = query,
+                onQueryChange = { query = it },
+                onSearch = { /* 执行搜索提交逻辑 */ },
+                searchResults = filteredItems,
+                onResultClick = { query = it },
+                placeholder = { Text("搜索甜点...") },
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search") },
+                trailingIcon = { Icon(Icons.Default.MoreVert, contentDescription = "Options") }
+            )
+        }
     }
 }
