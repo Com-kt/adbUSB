@@ -20,7 +20,7 @@
 -dontwarn org.conscrypt.**
 
 -keep class bin.mt.** { *; } 
--dontwarn class bin.mt.**
+-dontwarn bin.mt.**
 
 -dontrepackage
 
