@@ -6,7 +6,7 @@
  *
  * by: 小猫猫
  */
-package com.adb.kitty;
+package com.adb.kitty.compose;
 
 interface ICpuBinder {
     // 暴力收割特定核心的 6 项主频指标
