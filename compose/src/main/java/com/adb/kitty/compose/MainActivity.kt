@@ -4,7 +4,7 @@ import android.os.Bundle
 import androidx.activity.*
 import androidx.activity.compose.*
 import androidx.compose.foundation.*
-import androidx.compose.foundation.lazy.
+import androidx.compose.foundation.lazy.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.*
 import androidx.compose.material.icons.filled.*
@@ -12,7 +12,7 @@ import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.*
-import androidx.compose.ui.unit.
+import androidx.compose.ui.unit.*
 import androidx.compose.ui.text.style.*
 import androidx.compose.ui.tooling.preview.*
 import com.adb.kitty.compose.ui.theme.ComposeEmptyActivityTheme
