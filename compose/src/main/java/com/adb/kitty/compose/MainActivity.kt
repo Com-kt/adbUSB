@@ -9,7 +9,9 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.interaction.*
 import androidx.compose.material.icons.*
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.*
 import androidx.compose.material.icons.automirrored.filled.*
+import androidx.compose.material.icons.automirrored.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.*
@@ -58,16 +60,16 @@ fun ScrollContent(innerPadding: PaddingValues) {
     }
 }
 
+
 @OptIn(ExperimentalMaterial3Api::class)
-@Preview
-// [START android_compose_components_centeralignedtopappbar]
 @Composable
 fun CenterAlignedTopAppBarExample() {
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior(rememberTopAppBarState())
+    // 1. 定义状态
+    var showMenu by remember { mutableStateOf(false) }
 
     Scaffold(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
-
         topBar = {
             CenterAlignedTopAppBar(
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -90,60 +92,53 @@ fun CenterAlignedTopAppBarExample() {
                     }
                 },
                 actions = {
-                    IconButton(onClick = { /* do something */ }) {
-                        Icon(
-                            imageVector = Icons.Filled.Menu,
-                            contentDescription = "Localized description"
-                        )
+                    // 2. 使用 Box 包裹图标和菜单
+                    Box {
+                        IconButton(onClick = { showMenu = !showMenu }) {
+                            Icon(
+                                imageVector = Icons.Filled.MoreVert, // 建议使用 MoreVert (三个点)
+                                contentDescription = "More options"
+                            )
+                        }
+                        
+                        // 3. 定义下拉菜单
+                        DropdownMenu(
+                            expanded = showMenu,
+                            onDismissRequest = { showMenu = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("Profile") },
+                                leadingIcon = { Icon(Icons.Outlined.Person, null) },
+                                onClick = { showMenu = false }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Settings") },
+                                leadingIcon = { Icon(Icons.Outlined.Settings, null) },
+                                onClick = { showMenu = false }
+                            )
+                            HorizontalDivider()
+                            DropdownMenuItem(
+                                text = { Text("Send Feedback") },
+                                leadingIcon = { Icon(Icons.Outlined.Feedback, null) },
+                                trailingIcon = { Icon(Icons.AutoMirrored.Outlined.Send, null) },
+                                onClick = { showMenu = false }
+                            )
+                            HorizontalDivider()
+                            DropdownMenuItem(
+                                text = { Text("About") },
+                                leadingIcon = { Icon(Icons.Outlined.Info, null) },
+                                onClick = { showMenu = false }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Help") },
+                                leadingIcon = { Icon(Icons.AutoMirrored.Outlined.Help, null) },
+                                trailingIcon = { Icon(Icons.AutoMirrored.Outlined.OpenInNew, null) },
+                                onClick = { showMenu = false }
+                            )
+                        }
                     }
                 },
                 scrollBehavior = scrollBehavior,
-            )
-        },
-    ) { innerPadding ->
-        ScrollContent(innerPadding)
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Preview
-// [START android_compose_components_mediumtopappbar]
-@Composable
-fun MediumTopAppBarExample() {
-    val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior(rememberTopAppBarState())
-
-    Scaffold(
-        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
-        topBar = {
-            MediumTopAppBar(
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    titleContentColor = MaterialTheme.colorScheme.primary,
-                ),
-                title = {
-                    Text(
-                        "Medium Top App Bar",
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                },
-                navigationIcon = {
-                    IconButton(onClick = { /* do something */ }) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Localized description"
-                        )
-                    }
-                },
-                actions = {
-                    IconButton(onClick = { /* do something */ }) {
-                        Icon(
-                            imageVector = Icons.Filled.Menu,
-                            contentDescription = "Localized description"
-                        )
-                    }
-                },
-                scrollBehavior = scrollBehavior
             )
         },
     ) { innerPadding ->
