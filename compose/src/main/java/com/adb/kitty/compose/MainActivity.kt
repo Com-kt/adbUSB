@@ -6,6 +6,7 @@ import androidx.activity.compose.*
 import androidx.compose.foundation.*
 import androidx.compose.foundation.lazy.*
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.interaction.*
 import androidx.compose.material.icons.*
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.automirrored.filled.*
@@ -36,7 +37,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             ComposeEmptyActivityTheme {
                 // 直接调用该组件即可
-                MediumTopAppBarExample()
+                CenterAlignedTopAppBarExample()
             }
         }
     }
@@ -57,6 +58,52 @@ fun ScrollContent(innerPadding: PaddingValues) {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
+@Preview
+// [START android_compose_components_centeralignedtopappbar]
+@Composable
+fun CenterAlignedTopAppBarExample() {
+    val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior(rememberTopAppBarState())
+
+    Scaffold(
+        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
+
+        topBar = {
+            CenterAlignedTopAppBar(
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    titleContentColor = MaterialTheme.colorScheme.primary,
+                ),
+                title = {
+                    Text(
+                        "Centered Top App Bar",
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                },
+                navigationIcon = {
+                    IconButton(onClick = { /* do something */ }) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Localized description"
+                        )
+                    }
+                },
+                actions = {
+                    IconButton(onClick = { /* do something */ }) {
+                        Icon(
+                            imageVector = Icons.Filled.Menu,
+                            contentDescription = "Localized description"
+                        )
+                    }
+                },
+                scrollBehavior = scrollBehavior,
+            )
+        },
+    ) { innerPadding ->
+        ScrollContent(innerPadding)
+    }
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Preview
