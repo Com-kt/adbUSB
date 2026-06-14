@@ -54,11 +54,11 @@ android {
             useSupportLibrary = true
         }
         ndk {
-            abiFilters.addAll(setOf("arm64-v8a", "armeabi-v7a", "x86", "x86_64", "riscv64"))
+            abiFilters.addAll(setOf("arm64-v8a", "armeabi-v7a", "x86", "x86_64"))
         }
         externalNativeBuild {
             cmake {
-                abiFilters("arm64-v8a", "armeabi-v7a", "x86", "x86_64", "riscv64")
+                abiFilters("arm64-v8a", "armeabi-v7a", "x86", "x86_64")
             }
         }
     }
@@ -109,7 +109,6 @@ android {
     }
 
     buildFeatures {
-        viewBinding = true
         aidl = true
         buildConfig = true
         compose = true
