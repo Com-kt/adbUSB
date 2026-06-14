@@ -163,11 +163,11 @@ fun CenterAlignedTopAppBarExample() {
                     value = query,
                     onValueChange = { 
                         query = it
-                        expanded = true // 输入时自动展开
+                        expanded = true 
                     },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .menuAnchor(), // !!! 关键：将输入框锚定到菜单
+                        .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryEditable, enabled = true),
                     label = { Text("搜索甜点") },
                     trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
                     colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors()
