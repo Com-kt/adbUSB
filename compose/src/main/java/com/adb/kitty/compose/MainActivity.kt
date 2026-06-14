@@ -6,10 +6,10 @@
  *
  * by: 小猫猫
  */
-package com.adb.kitty
+package com.adb.kitty.compose
 
-import com.adb.kitty.databinding.ActivityMainBinding
-import com.adb.kitty.R
+import com.adb.kitty.compose.R
+import com.adb.kitty.compose.ui.theme.*
 
 import android.Manifest
 import android.util.Log
@@ -23,6 +23,7 @@ import android.os.*
 import android.view.*
 import android.widget.*
 import android.content.*
+import android.content.res.*
 import android.hardware.usb.*
 
 import android.net.ConnectivityManager
@@ -34,14 +35,22 @@ import android.net.nsd.NsdServiceInfo
 
 import android.text.method.ScrollingMovementMethod
 
+import androidx.compose.ui.*
+import androidx.compose.ui.unit.*
+import androidx.compose.ui.platform.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.foundation.pager.*
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.*
+import androidx.lifecycle.viewmodel.compose.*
+
 import androidx.appcompat.widget.Toolbar
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.activity.enableEdgeToEdge
-import androidx.activity.SystemBarStyle
-import androidx.activity.viewModels
+import androidx.activity.*
 
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
@@ -83,7 +92,7 @@ import com.flyfishxu.kadb.Kadb
 import com.flyfishxu.kadb.shell.*
 import org.json.*
 
-class MainActivity : AppCompatActivity() {
+class MainActivity : ComponentActivity() {
 
     private val TAG = "MainActivity"
     private lateinit var binding: ActivityMainBinding

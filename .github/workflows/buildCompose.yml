@@ -6,13 +6,13 @@
 # *
 # * by: 小猫猫
 # */
-name: Android CI
+name: Android Compose CI
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "compose" ]
   pull_request:
-    branches: [ "main" ]
+    branches: [ "compose" ]
 
 permissions:
   contents: write
@@ -39,7 +39,7 @@ jobs:
         run: echo "${{ secrets.SIGNING_KEY_BASE64 }}" | base64 --decode > release.jks
 
       - name: Build Debug and Release
-        run: ./gradlew :app:lint :app:assembleDebug :app:assembleRelease -i -w --stacktrace 2>&1 | tee build.log
+        run: ./gradlew :compose:lint :compose:assembleDebug :compose:assembleRelease -i -w --stacktrace 2>&1 | tee build.log
         env:
           RELEASE_STORE_PASSWORD: ${{ secrets.KEY_STORE_PASSWORD }}
           RELEASE_KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
@@ -56,21 +56,21 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: lint-reports-html
-          path: app/build/reports/lint-results-debug.html
+          path: compose/build/reports/lint-results-debug.html
           archive: false
           
       - name: Upload Lint Report
         uses: actions/upload-artifact@v7
         with:
           name: lint-reports
-          path: app/build/reports/*
+          path: compose/build/reports/*
           archive: true
           
       - name: Upload Kotlin Tooling Metadata
         uses: actions/upload-artifact@v7
         with:
           name: kotlin-tooling-metadata
-          path: app/build/kotlinToolingMetadata/kotlin-tooling-metadata.json
+          path: compose/build/kotlinToolingMetadata/kotlin-tooling-metadata.json
           archive: false
           
       - name: Upload Builds Report
@@ -84,27 +84,27 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: debug-apks
-          path: app/build/outputs/apk/debug/*
+          path: compose/build/outputs/apk/debug/*
           archive: true
 
       - name: Upload Release APKs
         uses: actions/upload-artifact@v7
         with:
           name: release-apks
-          path: app/build/outputs/apk/release/*
+          path: compose/build/outputs/apk/release/*
           archive: true
           
       - name: Upload Native Debug Symbols
         uses: actions/upload-artifact@v7
         with:
           name: native-debug-symbols
-          path: app/build/outputs/native-debug-symbols/*
+          path: compose/build/outputs/native-debug-symbols/*
           archive: true
           
       - name: Upload Apks Logs
         uses: actions/upload-artifact@v7
         with:
           name: apks-logs
-          path: app/build/outputs/logs/*
+          path: compose/build/outputs/logs/*
           archive: true
          

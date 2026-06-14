@@ -28,7 +28,7 @@ val versionPrefix = providers.gradleProperty("VERSION_PREFIX").get()
 val propNdk = providers.gradleProperty("NDK_VERSION").get()
 
 android {
-    namespace = "com.adb.kitty"
+    namespace = "com.adb.kitty.compose"
     compileSdk = propCompileSdk
     ndkVersion = "$propNdk"
     
@@ -42,11 +42,13 @@ android {
     }
     
     defaultConfig {
-        applicationId = "com.adb.kitty"
+        applicationId = "com.adb.kitty.compose"
         minSdk = propMinSdk
         targetSdk = propTargetSdk
         versionCode = propVersionCode
         versionName = "$versionPrefix-$buildDate-android"
+        
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         
         vectorDrawables { 
             useSupportLibrary = true
@@ -64,6 +66,12 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_25
         targetCompatibility = JavaVersion.VERSION_25
+    }
+    
+    kotlin {
+        compilerOptions {
+            jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.fromTarget("25"))
+        }
     }
     
     externalNativeBuild {
@@ -128,9 +136,6 @@ tasks.withType<KotlinJvmCompile>()
 
 dependencies {
     runtimeOnly(libs.bundles.coroutines.runtime)
-    implementation(libs.androidx.constraintlayout)
-    implementation(libs.material)
-    implementation(libs.androidx.appcompat)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity.ktx)
     implementation(libs.androidx.fragment.ktx)

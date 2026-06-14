@@ -168,7 +168,7 @@
     <!-- 禁用键盘锁 -->
     <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
     <queries>
-        <package android:name="com.adb.kitty" />
+        <package android:name="com.adb.kitty.compose" />
         <package android:name="com.android.ipsec" />
         <package android:name="com.android.art" />
         <package android:name="com.android.virt" />
@@ -281,6 +281,7 @@
             android:canDisplayOnRemoteDevices="false"
             android:launchMode="singleInstancePerTask"
             android:persistableMode="persistNever"
+            android:theme="@style/AppTheme"
             android:exported="true">
             <!-- USB主机模式 -->
             <intent-filter>

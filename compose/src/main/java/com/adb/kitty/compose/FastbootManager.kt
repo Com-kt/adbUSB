@@ -6,9 +6,9 @@
  *
  * by: 小猫猫
  */
-package com.adb.kitty
+package com.adb.kitty.compose
 
-import com.adb.kitty.R
+import com.adb.kitty.compose.R
 
 import android.*
 import android.util.*

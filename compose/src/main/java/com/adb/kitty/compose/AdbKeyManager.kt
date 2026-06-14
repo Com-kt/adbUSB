@@ -6,7 +6,7 @@
  *
  * by: 小猫猫
  */
-package com.adb.kitty
+package com.adb.kitty.compose
 
 import android.content.Context
 import android.util.Log
