@@ -49,27 +49,61 @@ class MainActivity : ComponentActivity() {
 }
 
 @Keep
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SimpleSearchBar(
-    query: String,
-    onQueryChange: (String) -> Unit,
+fun SuggestionTextField(
+    items: List<String>,
     modifier: Modifier = Modifier
 ) {
-    OutlinedTextField(
-        value = query,
-        onValueChange = onQueryChange,
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(16.dp), // 适当的内边距
-        placeholder = { Text("搜索甜点...") },
-        leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-        shape = RoundedCornerShape(28.dp), // 药丸形圆角，符合现代审美
-        singleLine = true,
-        colors = OutlinedTextFieldDefaults.colors(
-            focusedBorderColor = MaterialTheme.colorScheme.primary,
-            unfocusedBorderColor = MaterialTheme.colorScheme.outline
-        )
-    )
+    var query by rememberSaveable { mutableStateOf("") }
+    var expanded by remember { mutableStateOf(false) }
+
+    // 过滤逻辑
+    val filteredItems by remember(query) {
+        derivedStateOf {
+            if (query.isEmpty()) emptyList() // 没输入时不显示建议
+            else items.filter { it.contains(query, ignoreCase = true) }
+        }
+    }
+
+    Box(modifier = modifier.padding(16.dp)) {
+        Column {
+            OutlinedTextField(
+                value = query,
+                onValueChange = {
+                    query = it
+                    expanded = it.isNotEmpty() // 有输入就展开菜单
+                },
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text("输入关键词") },
+                trailingIcon = {
+                    // 这里可以加一个清除按钮
+                    if (query.isNotEmpty()) {
+                        IconButton(onClick = { query = ""; expanded = false }) {
+                            Icon(Icons.Default.Clear, contentDescription = "Clear")
+                        }
+                    }
+                }
+            )
+
+            // 下拉建议菜单
+            DropdownMenu(
+                expanded = expanded && filteredItems.isNotEmpty(),
+                onDismissRequest = { expanded = false },
+                modifier = Modifier.fillMaxWidth(0.9f) // 设置宽度与输入框一致
+            ) {
+                filteredItems.forEach { item ->
+                    DropdownMenuItem(
+                        text = { Text(item) },
+                        onClick = {
+                            query = item
+                            expanded = false // 点击后收起
+                        }
+                    )
+                }
+            }
+        }
+    }
 }
 
 @Keep
@@ -78,17 +112,6 @@ fun SimpleSearchBar(
 fun CenterAlignedTopAppBarExample() {
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior(rememberTopAppBarState())
     var showMenu by remember { mutableStateOf(false) }
-    
-    var query by rememberSaveable { mutableStateOf("") }
-    val items = remember {
-        listOf("Cupcake", "Donut", "Eclair", "Froyo", "Gingerbread", "Honeycomb", "Ice Cream Sandwich", "Jelly Bean", "KitKat", "Lollipop", "Marshmallow", "Nougat", "Oreo", "Pie")
-    }
-    val filteredItems by remember(query) {
-        derivedStateOf {
-            if (query.isEmpty()) items 
-            else items.filter { it.contains(query, ignoreCase = true) }
-        }
-    }
 
     Scaffold(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
@@ -174,30 +197,10 @@ fun CenterAlignedTopAppBarExample() {
             )
         },
     ) { innerPadding ->
-        
-        // 核心布局：Column 垂直排列搜索框和列表
-        Column(modifier = Modifier.padding(innerPadding)) {
-            
-            SimpleSearchBar(
-                query = query,
-                onQueryChange = { query = it }
+        Box(modifier = Modifier.padding(innerPadding)) {
+            SuggestionTextField(
+                items = listOf("Cupcake", "Donut", "Eclair", "Gingerbread", "Oreo")
             )
-            
-            // 结果列表，使用 weight(1f) 占据剩余所有空间
-            LazyColumn(
-                modifier = Modifier.fillMaxWidth().weight(1f),
-                contentPadding = PaddingValues(horizontal = 16.dp)
-            ) {
-                items(filteredItems.size) { index ->
-                    Text(
-                        text = filteredItems[index],
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 12.dp)
-                    )
-                    HorizontalDivider()
-                }
-            }
         }
     }
 }
