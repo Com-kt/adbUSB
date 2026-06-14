@@ -70,6 +70,16 @@ fun CenterAlignedTopAppBarExample() {
 
     Scaffold(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
+        
+        floatingActionButton = {
+            ExtendedFloatingActionButton(
+                onClick = { /* 处理你的点击事件 */ },
+                icon = { Icon(Icons.Filled.Edit, contentDescription = "Edit") },
+                text = { Text(text = "Extended FAB") },
+            )
+        },
+        floatingActionButtonPosition = FabPosition.End,
+        
         topBar = {
             CenterAlignedTopAppBar(
                 colors = TopAppBarDefaults.topAppBarColors(
