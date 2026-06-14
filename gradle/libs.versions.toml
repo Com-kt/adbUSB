@@ -97,7 +97,6 @@ androidx-ui-graphics = { group = "androidx.compose.ui", name = "ui-graphics" }
 # 捆绑式引入
 compose = [
     "androidx-compose-ui",
-    "androidx-compose-ui-tooling-preview",
     "androidx-ui-graphics",
     "androidx-compose-material-icons-extended",
     "androidx-compose-material3",
