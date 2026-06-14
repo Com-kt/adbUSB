@@ -5,7 +5,8 @@ import androidx.compose.ui.graphics.vector.*
 import androidx.compose.ui.unit.*
 import androidx.annotation.Keep
 
-@Keep
+@get:Keep
+@Suppress("CheckReturnValue")
 public val wand_stars: ImageVector
   get() {
     if (_wand_stars != null) {
