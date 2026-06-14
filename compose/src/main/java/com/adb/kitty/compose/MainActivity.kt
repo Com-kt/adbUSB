@@ -15,9 +15,11 @@ import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material.icons.automirrored.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.
 import androidx.compose.ui.*
 import androidx.compose.ui.unit.*
 import androidx.compose.ui.graphics.*
+import androidx.compose.ui.semantics.*
 import androidx.compose.ui.input.nestedscroll.*
 import androidx.compose.ui.text.style.*
 import com.adb.kitty.compose.ui.theme.*
@@ -152,13 +154,13 @@ fun CenterAlignedTopAppBarExample() {
         Box(modifier = Modifier.padding(innerPadding)) {
             CustomizableSearchBar(
                 query = query,
-                onQueryChange = { query = it },
-                onSearch = { /* 执行搜索提交逻辑 */ },
+                onQueryChange = { newQuery -> query = newQuery },
+                onSearch = { /* 搜索逻辑 */ },
                 searchResults = filteredItems,
-                onResultClick = { query = it },
-                placeholder = { Text("搜索甜点...") },
-                leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search") },
-                trailingIcon = { Icon(Icons.Default.MoreVert, contentDescription = "Options") }
+                onResultClick = { clickedItem -> query = clickedItem },
+                placeholder = { Text("搜索甜点...") }, 
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                trailingIcon = { Icon(Icons.Default.MoreVert, contentDescription = null) }
             )
         }
     }
