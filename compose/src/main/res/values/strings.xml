@@ -10,7 +10,7 @@
 <resources>
     <string name="app_name">userKitty</string>
     <string name="app_bar_name">调试工具</string>
-    <string name="push_cmd_name">发送命令</string>
+    <string name="push_cmd_name">发送</string>
     <string name="action_menu_wifi">触发无线调试扫描</string>
     <string name="action_menu_usb">扫描 USB 设备</string>
     <string name="action_menu_selinux">尝试设置SeLinux为宽容</string>

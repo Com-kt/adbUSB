@@ -177,10 +177,10 @@ class MainActivityViewModel : ViewModel() {
     }
     
     private val _appCommands = listOf(
-        AppCommand("扩展指令", "usb-selinux"),
-        AppCommand("扩展指令", "root-rate"),
-        AppCommand("扩展指令", "usb-host"),
-        AppCommand("扩展指令", "ip-test")
+        AppCommand("尝试设置selinux为宽容模式, 该扩展指令由app提供", "usb-selinux"),
+        AppCommand("以root权限启动帧率测试, 该扩展指令由app提供", "root-rate"),
+        AppCommand("扫描/识别 USB 设备, 该扩展指令由app提供", "usb-host"),
+        AppCommand("测试 ipv4 和 ipv6 地址, 该扩展指令由app提供", "ip-test")
     )
     
     private val _adbCommands = listOf(
