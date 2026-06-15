@@ -104,7 +104,7 @@ class MainActivityViewModel : ViewModel() {
             CommandUiItem(command = it.command, description = it.description, isAdb = false, isApp = false) 
         }
         val appList = _appCommands.map { 
-            CommandUiItem(command = it.description, description = it.command, isAdb = false, isApp = true) 
+            CommandUiItem(command = it.command, description = it.description, isAdb = false, isApp = true) 
         }
         
         return adbList + fbList + appList
