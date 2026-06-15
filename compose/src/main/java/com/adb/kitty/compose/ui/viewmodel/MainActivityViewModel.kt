@@ -58,7 +58,31 @@ import javax.net.ssl.*
 import okio.*
 import com.flyfishxu.kadb.Kadb
 import org.json.*
-import androidx.annotation.Keep
+
+import androidx.annotation.*
+import androidx.activity.*
+import androidx.activity.compose.*
+import androidx.lifecycle.viewmodel.compose.*
+import androidx.compose.foundation.*
+import androidx.compose.foundation.lazy.*
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.interaction.*
+import androidx.compose.material.icons.*
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.*
+import androidx.compose.material.icons.automirrored.filled.*
+import androidx.compose.material.icons.automirrored.outlined.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.*
+import androidx.compose.ui.*
+import androidx.compose.ui.unit.*
+import androidx.compose.ui.res.*
+import androidx.compose.ui.graphics.*
+import androidx.compose.ui.semantics.*
+import androidx.compose.ui.input.nestedscroll.*
+import androidx.compose.ui.text.style.*
+import androidx.compose.ui.text.font.*
 
 import com.adb.kitty.compose.ui.theme.*
 import com.adb.kitty.compose.data.*
