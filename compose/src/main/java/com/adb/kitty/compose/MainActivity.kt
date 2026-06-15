@@ -215,32 +215,36 @@ fun CenterAlignedTopAppBarExample(
                     ) {
                         filteredItems.forEach { item ->
                             DropdownMenuItem(
-                                text = {
-                                    Column(modifier = Modifier.padding(vertical = 4.dp)) {
+                                text = { 
                                     Row(
+                                        modifier = Modifier.fillMaxWidth(),
                                         horizontalArrangement = Arrangement.SpaceBetween,
-                                        modifier = Modifier.fillMaxWidth()
+                                        verticalAlignment = Alignment.CenterVertically
                                     ) {
+                                    Column(
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .padding(vertical = 4.dp, end = 8.dp) // 给右侧留点空隙
+                                    ) {
+                                        Text(
+                                            text = item.description,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                        
+                                    Spacer(modifier = Modifier.height(2.dp))
+                        
                                         Text(
                                             text = item.command,
                                             style = MaterialTheme.typography.bodyLarge,
                                             color = MaterialTheme.colorScheme.onSurface
                                         )
+                                    }
                                         Text(
                                             text = if (item.isAdb) "[ADB]" else "[Fastboot]",
                                             style = MaterialTheme.typography.labelMedium,
-                                            color = if (item.isAdb) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
-                                        )
-                                    }
-                    
-                                    Spacer(modifier = Modifier.height(2.dp))
-                    
-                                        Text(
-                                            text = item.description,
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis
+                                            color = if (item.isAdb) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+                                            modifier = Modifier.wrapContentWidth() // 确保按文本真实宽度包裹
                                         )
                                     }
                                 },
