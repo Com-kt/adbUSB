@@ -4,9 +4,9 @@ package com.adb.kitty.compose
 import android.*
 import android.util.*
 import android.content.pm.*
-import android.app.*
 import android.graphics.*
 import android.animation.*
+import android.app.PendingIntent
 
 import android.os.*
 import android.view.*
@@ -21,7 +21,7 @@ import android.text.method.*
 
 import androidx.core.view.*
 import androidx.core.content.*
-import androidx.core.app.*
+import androidx.core.app.ActivityCompat
 /*******************************
 *        kotlinx 协程         *
 *    suspend 都给我挂起     *
@@ -87,6 +87,11 @@ import com.adb.kitty.compose.R
 
 @Keep
 class MainActivity : ComponentActivity() {
+    companion object {
+        private const val REQUEST_WIFI_PERMISSION_CODE = 1001
+        private const val PREFS_NAME = "adb_kitty_prefs"
+        private const val KEY_DEVICE_LIST = "connected_devices"
+    }
     private val viewModel: MainActivityViewModel by viewModels()
     private lateinit var usbManager: UsbManager
     private lateinit var keyManager: AdbKeyManager
@@ -114,7 +119,7 @@ class MainActivity : ComponentActivity() {
         }
     }
     
-    private val turbo by lazy { PerformanceTurbo(this) }
+    val turbo by lazy { PerformanceTurbo(this) }
     
     var showDeviceListBottomSheet = mutableStateOf(false)
     var matchedDevicesList = mutableStateListOf<AdbDevice>()
@@ -309,7 +314,7 @@ class MainActivity : ComponentActivity() {
         }
     }
     
-    private fun FbSeLinuxCmd() {
+    fun FbSeLinuxCmd() {
         if (!isFastbootMode) {
              Toast.makeText(this, "当前不是 Fastboot 模式", Toast.LENGTH_SHORT).show()
            return
@@ -332,7 +337,7 @@ class MainActivity : ComponentActivity() {
         }
     }
     
-    private fun findHostDevice() {
+    fun findHostDevice() {
         val devices = usbManager.deviceList
         if (devices.isEmpty()) {
             appendLog("未发现 USB 设备")
@@ -387,7 +392,6 @@ class MainActivity : ComponentActivity() {
                         }
                         val pi = PendingIntent.getBroadcast(this, 0, intent, flags)
                         usbManager.requestPermission(device, pi)
-                        refreshUiText()
                         
                     } else {
                         appendLog("[Serial] 硬件序列号: ${device.serialNumber ?: "unknown"}")
@@ -732,7 +736,6 @@ class MainActivity : ComponentActivity() {
                 
                 withContext(Dispatchers.Main) { 
                     appendLog("[成功] 🎉 配对凭证握手存盘成功！")
-                    updateStatus("无线调试配对成功")
                     appendLog("[提示] ⚠️ 请查看电视上的【无线调试端口】，输入 adb connect [IP:端口] 唤醒数据总线。")
                     usbForwarder?.stop() // 断开有线转发，准备迎接纯无线
                 }
@@ -868,7 +871,7 @@ class MainActivity : ComponentActivity() {
     
     private fun saveConnectedDevice(ip: String, port: Int) {
         val currentWifi = getCurrentWifiSsid()
-        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val prefs = applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val deviceList = getAllSavedDevices().toMutableList()
         
         deviceList.removeAll { it.ip == ip && it.wifiSsid == currentWifi }
@@ -946,7 +949,7 @@ class MainActivity : ComponentActivity() {
         return "DEFAULT_WIFI"
     }
 
-    private fun initWifiState() {
+    fun initWifiState() {
         val wifiManager = applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
         isWifiEnabled = wifiManager.isWifiEnabled
         appendLog("[系统] 🚀 初始 WLAN 状态: isWifiEnabled = $isWifiEnabled")
@@ -1284,7 +1287,7 @@ fun CenterAlignedTopAppBarExample(
                             DropdownMenuItem(
                                 text = {
                                     Text(
-                                        stringResource(R.string.aaction_menu_rate)
+                                        stringResource(R.string.action_menu_rate)
                                     )
                                 },
                                 leadingIcon = { Icon(Icons.Outlined.PlayArrow, null) },
