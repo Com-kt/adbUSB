@@ -64,6 +64,7 @@ import androidx.compose.foundation.*
 import androidx.compose.foundation.lazy.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.interaction.*
+import androidx.compose.foundation.text.selection.*
 import androidx.compose.material.icons.*
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
@@ -1531,20 +1532,22 @@ fun LogSection(
             .horizontalScroll(globalHorizontalScrollState)
             .padding(8.dp)
     ) {
-        LazyColumn(
-            state = listState,
-            modifier = Modifier
-                .fillMaxHeight()
-                .wrapContentWidth() 
-        ) {
-            items(logs) { log ->
-                Text(
-                    text = log,
-                    fontFamily = FontFamily.Monospace,
-                    style = MaterialTheme.typography.bodyMedium,
-                    softWrap = false,
-                    modifier = Modifier.padding(vertical = 1.dp)
-                )
+        SelectionContainer {
+            LazyColumn(
+                state = listState,
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .wrapContentWidth() 
+            ) {
+                items(logs) { log ->
+                    Text(
+                        text = log,
+                        fontFamily = FontFamily.Monospace,
+                        style = MaterialTheme.typography.bodyMedium,
+                        softWrap = false,
+                        modifier = Modifier.padding(vertical = 1.dp)
+                    )
+                }
             }
         }
     }
