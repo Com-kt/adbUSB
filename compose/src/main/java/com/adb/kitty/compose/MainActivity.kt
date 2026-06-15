@@ -298,6 +298,10 @@ class MainActivity : ComponentActivity() {
         if (cmd.isEmpty()) return
         
         when (cmd) {
+            "userkitty-log-export" -> {
+                exportLogToFlashFolder()
+                return
+            }
             "ip-test" -> {
                 appendLog("[系统] 扩展指令(由app提供) >> $cmd")
                 startIpNetworkTest()
@@ -350,7 +354,6 @@ class MainActivity : ComponentActivity() {
                     cmd.startsWith("adb pull") -> handleLocalAdbPull(cmd)
                     cmd.startsWith("adb install") -> handleLocalAdbInstall(cmd)
                     cmd.startsWith("adb uninstall") -> handleLocalAdbUninstall(cmd)
-                    cmd == "log_export" -> withContext(Dispatchers.Main) { exportLogToFlashFolder() }
                     else -> sendAdbShell(cmd)
                 }
             }
@@ -1271,7 +1274,7 @@ fun CenterAlignedTopAppBarExample(
                                 },
                                 leadingIcon = { Icon(Icons.AutoMirrored.Outlined.Send, null) },
                                 onClick = {
-                                    onExecuteCommand("log_export")
+                                    onExecuteCommand("userkitty-log-export")
                                     showMenu = false 
                                 }
                             )

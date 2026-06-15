@@ -180,7 +180,8 @@ class MainActivityViewModel : ViewModel() {
         AppCommand("尝试设置selinux为宽容模式, 该扩展指令由app提供", "usb-selinux"),
         AppCommand("以root权限启动帧率测试, 该扩展指令由app提供", "root-rate"),
         AppCommand("扫描/识别 USB 设备, 该扩展指令由app提供", "usb-host"),
-        AppCommand("测试 ipv4 和 ipv6 地址, 该扩展指令由app提供", "ip-test")
+        AppCommand("测试 ipv4 和 ipv6 地址, 该扩展指令由app提供", "ip-test"),
+        AppCommand("打印控制台已输出的日志到本地, 该扩展指令由app提供", "userkitty-log-export")
     )
     
     private val _adbCommands = listOf(
