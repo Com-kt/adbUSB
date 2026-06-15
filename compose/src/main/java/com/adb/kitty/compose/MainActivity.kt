@@ -158,7 +158,7 @@ fun CenterAlignedTopAppBarExample(
                                 text = { Text("使用说明") },
                                 leadingIcon = { Icon(Icons.Outlined.Info, null) },
                                 onClick = {
-                                    viewModel.appendLog(viewModel.warnMessage)
+                                    viewModel.appendLog("\n" +viewModel.warnMessage)
                                     showMenu = false
                                 }
                             )
@@ -224,7 +224,8 @@ fun CenterAlignedTopAppBarExample(
                                     Column(
                                         modifier = Modifier
                                             .weight(1f)
-                                            .padding(vertical = 4.dp, end = 8.dp) // 给右侧留点空隙
+                                            .padding(vertical = 4.dp)
+                                            .padding(end = 8.dp)
                                     ) {
                                         Text(
                                             text = item.description,
