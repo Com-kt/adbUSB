@@ -1,12 +1,4 @@
-/*
- * Copyright (c) 2026-2030 小猫猫. All rights reserved.
- * 
- * LICENSE NOTE:
- * Any redistribution must retain this copyright notice and license disclaimer.
- *
- * by: 小猫猫
- */
-package com.adb.kitty.compose
+package com.adb.kitty.compose.data
 
 import android.hardware.usb.UsbDeviceConnection
 import android.hardware.usb.UsbEndpoint
@@ -15,6 +7,9 @@ import java.net.ServerSocket
 import java.net.Socket
 import kotlin.concurrent.thread
 import androidx.annotation.Keep
+import com.adb.kitty.compose.ui.theme.*
+import com.adb.kitty.compose.ui.viewmodel.*
+import com.adb.kitty.compose.*
 
 @Keep
 class UsbPortForwarder(

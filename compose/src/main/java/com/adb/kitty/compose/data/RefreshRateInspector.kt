@@ -1,12 +1,4 @@
-/*
- * Copyright (c) 2026-2030 小猫猫. All rights reserved.
- * 
- * LICENSE NOTE:
- * Any redistribution must retain this copyright notice and license disclaimer.
- *
- * by: 小猫猫
- */
-package com.adb.kitty.compose
+package com.adb.kitty.compose.data
 
 import android.content.ComponentName
 import android.content.Context
@@ -27,6 +19,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.Locale
 import androidx.annotation.Keep
+import com.adb.kitty.compose.ui.theme.*
+import com.adb.kitty.compose.ui.viewmodel.*
+import com.adb.kitty.compose.*
 
 @Keep
 class RefreshRateInspector(

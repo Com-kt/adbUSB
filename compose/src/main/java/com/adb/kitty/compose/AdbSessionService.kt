@@ -23,6 +23,9 @@ import com.flyfishxu.kadb.Kadb
 import kotlinx.coroutines.*
 import java.util.Locale
 import androidx.annotation.Keep
+import com.adb.kitty.compose.ui.theme.*
+import com.adb.kitty.compose.ui.viewmodel.*
+import com.adb.kitty.compose.data.*
 
 @Keep
 class AdbSessionService : Service() {

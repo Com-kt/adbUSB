@@ -4,6 +4,9 @@ import android.os.*
 import androidx.annotation.*
 import androidx.activity.*
 import androidx.activity.compose.*
+import androidx.lifecycle.*
+import androidx.lifecycle.viewmodel.*
+import androidx.lifecycle.viewmodel.compose.*
 import androidx.compose.foundation.*
 import androidx.compose.foundation.lazy.*
 import androidx.compose.foundation.layout.*
@@ -24,6 +27,8 @@ import androidx.compose.ui.input.nestedscroll.*
 import androidx.compose.ui.text.style.*
 import androidx.compose.ui.text.font.*
 import com.adb.kitty.compose.ui.theme.*
+import com.adb.kitty.compose.ui.viewmodel.*
+import com.adb.kitty.compose.data.*
 import com.adb.kitty.compose.R
 
 @Keep
@@ -41,61 +46,38 @@ class MainActivity : ComponentActivity() {
             )
         )
         setContent {
-            // 获取 ViewModel
-            val viewModel: LogViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
-            var query by remember { mutableStateOf("") }
-
-            Scaffold(
-                floatingActionButton = {
-                    ExtendedFloatingActionButton(
-                        onClick = { viewModel.appendLog("新命令已推送") }, // 触发业务逻辑
-                        text = { Text("推送命令") },
-                        icon = { Icon(Icons.Default.Add, null) }
-                    )
-                }
-            ) { innerPadding ->
-                Column(modifier = Modifier.padding(innerPadding).padding(16.dp)) {
-                    
-                    SearchBar(
-                        query = query,
-                        onQueryChange = { query = it },
-                        items = viewModel.items,
-                        onItemSelected = { query = it }
-                    )
-                    
-                    Spacer(modifier = Modifier.height(16.dp))
-                    
-                    // 传入日志数据，UI 自动响应变化
-                    LogSection(
-                        logs = viewModel.logs,
-                        modifier = Modifier.weight(1f).fillMaxWidth()
-                    )
-                }
+            val viewModel: MainActivityViewModel = viewModel()
+            ComposeEmptyActivityTheme {
+                CenterAlignedTopAppBarExample(viewModel = viewModel)
             }
         }
     }
 }
 
-/*
-
 @Keep
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun CenterAlignedTopAppBarExample() {
+fun CenterAlignedTopAppBarExample(
+    viewModel: MainActivityViewModel
+) {
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior(rememberTopAppBarState())
     var showMenu by remember { mutableStateOf(false) }
     
     var query by rememberSaveable { mutableStateOf("") }
-    val items = remember { listOf("Cupcake", "Donut", "Eclair", "Froyo", "Gingerbread", "Honeycomb", "Ice Cream Sandwich", "Jelly Bean", "KitKat", "Lollipop", "Marshmallow", "Nougat", "Oreo", "Pie") }
-    
-    // 过滤建议列表
     val filteredItems by remember(query) {
         derivedStateOf {
             if (query.isEmpty()) emptyList() 
-            else items.filter { it.contains(query, ignoreCase = true) }
+            else {
+                viewModel.items.filter { 
+                    it.command.contains(query, ignoreCase = true) || 
+                    it.description.contains(query, ignoreCase = true)
+                }
+            }
         }
     }
     var expanded by remember { mutableStateOf(false) }
+    
+    val logs = viewModel.logs
 
     Scaffold(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
@@ -103,7 +85,12 @@ fun CenterAlignedTopAppBarExample() {
         floatingActionButton = {
             ExtendedFloatingActionButton(
                 onClick = {
-                  /* 处理你的点击事件 *
+                    if (query.isNotBlank()) {
+                        viewModel.appendLog("执行命令: $query")
+                        viewModel.runCommand(query)
+                    } else {
+                        viewModel.appendLog("请先在上方输入或选择命令")
+                    }
                 },
                 icon = { 
                     Icon(
@@ -135,7 +122,7 @@ fun CenterAlignedTopAppBarExample() {
                 },
                 navigationIcon = {
                     IconButton(onClick = {
-                         /* do something *
+                         /* do something */ 
                     }) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
@@ -159,14 +146,20 @@ fun CenterAlignedTopAppBarExample() {
                             onDismissRequest = { showMenu = false }
                         ) {
                             DropdownMenuItem(
-                                text = { Text("Profile") },
-                                leadingIcon = { Icon(Icons.Outlined.Person, null) },
-                                onClick = { showMenu = false }
+                                text = { Text("清空日志") },
+                                leadingIcon = { Icon(Icons.Outlined.Delete, null) },
+                                onClick = { 
+                                    viewModel.clearLogs()
+                                    showMenu = false 
+                                }
                             )
                             DropdownMenuItem(
-                                text = { Text("Settings") },
-                                leadingIcon = { Icon(Icons.Outlined.Settings, null) },
-                                onClick = { showMenu = false }
+                                text = { Text("使用说明") },
+                                leadingIcon = { Icon(Icons.Outlined.Info, null) },
+                                onClick = {
+                                    viewModel.appendLog("\n" + viewModel.warnMessage)
+                                    showMenu = false
+                                }
                             )
                             HorizontalDivider()
                             DropdownMenuItem(
@@ -221,9 +214,37 @@ fun CenterAlignedTopAppBarExample() {
                     ) {
                         filteredItems.forEach { item ->
                             DropdownMenuItem(
-                                text = { Text(item) },
+                                text = {
+                                    Column(modifier = Modifier.padding(vertical = 4.dp)) {
+                                    Row(
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Text(
+                                            text = item.command,
+                                            style = MaterialTheme.typography.bodyLarge,
+                                            color = MaterialTheme.colorScheme.onSurface
+                                        )
+                                        Text(
+                                            text = if (item.isAdb) "[ADB]" else "[Fastboot]",
+                                            style = MaterialTheme.typography.labelMedium,
+                                            color = if (item.isAdb) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+                                        )
+                                    }
+                    
+                                    Spacer(modifier = Modifier.height(2.dp))
+                    
+                                        Text(
+                                            text = item.description,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
+                                },
                                 onClick = {
-                                    query = item
+                                    query = item.command
                                     expanded = false // 点击后收起菜单，键盘依然保持显示
                                 },
                                 contentPadding = ExposedDropdownMenuDefaults.ItemContentPadding
@@ -232,29 +253,69 @@ fun CenterAlignedTopAppBarExample() {
                     }
                 }
             }
-            val vScrollState = rememberScrollState()
-            val hScrollState = rememberScrollState()
-            Column(
+            LogSection(
+                logs = logs,
                 modifier = Modifier
-                .weight(1f) // 核心：占据除搜索框外剩余的所有空间 (实现你的1:1需求)
-                .fillMaxWidth()
-                .padding(top = 16.dp, bottom = 75.dp)
-                .border(1.dp, MaterialTheme.colorScheme.outline) // 给日志区域加个边框
-                .verticalScroll(vScrollState) // 类似 ScrollView
-            ) {
-                Row(
-                    modifier = Modifier
-                        .horizontalScroll(hScrollState) // 类似 HorizontalScrollView
-                        .padding(8.dp)
-                ) {
-                    Text(
-                        text = "这是你的日志内容...\n你可以尝试输入很长很长的文本看看横向滚动效果。\n日志通常使用等宽字体显示效果更好。\n...\n(更多行数)\n...",
-                        fontFamily = FontFamily.Monospace,
-                        style = MaterialTheme.typography.bodyMedium
-                    )
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .padding(top = 16.dp, bottom = 75.dp)
+            )
+        }
+    }
+}
+
+@Keep
+@Composable
+fun LogSection(
+    logs: List<String>,
+    modifier: Modifier = Modifier
+) {
+    val listState = rememberLazyListState()
+
+    // 优化后的滚动逻辑：防卡顿
+    LaunchedEffect(logs.size) {
+        if (logs.isNotEmpty()) {
+            val lastIndex = logs.size - 1
+            
+            // 获取当前可见的最后一行的 Index
+            val lastVisibleIndex = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
+            
+            // 【核心防卡顿策略】
+            // 如果当前已经接近底部（距离最新日志不到 5 行），直接无视动画瞬间吸附，防止连续日志触发动画导致卡顿
+            if (lastIndex - lastVisibleIndex < 5) {
+                listState.scrollToItem(lastIndex) 
+            } else {
+                // 如果距离稍微有一点点远（比如触发了单次手动操作），用流畅的动画滑过去
+                // 限制只有在差距不大时才动画，太远了动画也会卡
+                if (lastIndex - lastVisibleIndex < 20) {
+                    listState.animateScrollToItem(lastIndex)
+                } else {
+                    listState.scrollToItem(lastIndex)
                 }
             }
         }
     }
+
+    LazyColumn(
+        state = listState,
+        modifier = modifier
+            .border(1.dp, MaterialTheme.colorScheme.outline)
+            .padding(8.dp)
+    ) {
+        items(logs) { log ->
+            val hScrollState = rememberScrollState()
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(hScrollState)
+            ) {
+                Text(
+                    text = log,
+                    fontFamily = FontFamily.Monospace,
+                    style = MaterialTheme.typography.bodyMedium,
+                    maxLines = 1
+                )
+            }
+        }
+    }
 }
-*/

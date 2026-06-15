@@ -30,6 +30,6 @@
 const char* USER_KITTY_CONSTANT = "UserKitty";
 
 extern "C" JNIEXPORT jstring JNICALL
-Java_com_adb_kitty_compose_NativeLibs_UserString(JNIEnv *env, jobject) {
+Java_com_adb_kitty_compose_data_NativeLibs_UserString(JNIEnv *env, jobject) {
     return env->NewStringUTF(USER_KITTY_CONSTANT);
 }

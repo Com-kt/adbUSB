@@ -6,7 +6,7 @@
  *
  * by: 小猫猫
  */
-package com.adb.kitty.compose
+package com.adb.kitty.compose.ui.viewmodel
 
 import android.*
 import android.util.*
@@ -60,8 +60,34 @@ import com.flyfishxu.kadb.Kadb
 import org.json.*
 import androidx.annotation.Keep
 
+import com.adb.kitty.compose.ui.theme.*
+import com.adb.kitty.compose.data.*
+import com.adb.kitty.compose.*
+
 @Keep
-class MainViewModel : ViewModel() {
+class MainActivityViewModel : ViewModel() {
+
+    private val _logs = mutableStateListOf<String>()
+    val logs: List<String> = _logs
+    
+    val items: List<CommandUiItem> = rememberCombinedItems()
+
+    private fun rememberCombinedItems(): List<CommandUiItem> {
+        val adbList = _adbCommands.map { CommandUiItem(command = it.command, description = it.description, isAdb = true) }
+        val fbList = _fbCommands.map { CommandUiItem(command = it.command, description = it.description, isAdb = false) }
+        return adbList + fbList
+    }
+    
+    fun appendLog(msg: String) {
+        val current = LocalDateTime.now()
+        val formatter = DateTimeFormatter.ofPattern("yyyy.MM.dd HH:mm:ss")
+        val time = current.format(formatter)
+        _logs.add("$time $msg")
+    }
+    
+    fun clearLogs() {
+        _logs.clear()
+    }
     
     private val _adbCommands = listOf(
         AdbCommand("查看 adbd 用户组", "id"),
@@ -90,8 +116,6 @@ class MainViewModel : ViewModel() {
         AdbCommand("强行停止小米系统桌面", "am force-stop com.miui.home")
     )
     
-    val adbCommands: List<AdbCommand> get() = _adbCommands
-    
     private val _fbCommands = listOf(
         FbCommand("查看当前安全补丁级别", "getvar security-patch-level"),
         FbCommand("查看当前活跃的分区槽位（a 或 b)", "getvar current-slot"),
@@ -109,8 +133,6 @@ class MainViewModel : ViewModel() {
         FbCommand("尝试解锁 Bootloader", "oem unlock"),
         FbCommand("尝试解锁 Bootloader", "flashing unlock")
     )
-    
-    val fbCommands: List<FbCommand> get() = _fbCommands
     
     val warnMessage = """
         adbd 命令使用说明:

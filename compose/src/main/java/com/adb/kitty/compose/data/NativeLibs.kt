@@ -1,12 +1,4 @@
-/*
- * Copyright (c) 2026-2030 小猫猫. All rights reserved.
- * 
- * LICENSE NOTE:
- * Any redistribution must retain this copyright notice and license disclaimer.
- *
- * by: 小猫猫
- */
-package com.adb.kitty.compose
+package com.adb.kitty.compose.data
 
 import android.content.*
 import android.os.*
@@ -46,3 +38,10 @@ object NativeLibs {
     }
     external fun UserString(): String
 }
+
+@Keep
+data class CommandUiItem(
+    val command: String,
+    val description: String,
+    val isAdb: Boolean
+)
