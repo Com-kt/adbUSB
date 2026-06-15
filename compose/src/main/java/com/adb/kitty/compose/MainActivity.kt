@@ -95,7 +95,7 @@ class MainActivity : ComponentActivity() {
     private val viewModel: MainActivityViewModel by viewModels()
     private lateinit var usbManager: UsbManager
     private lateinit var keyManager: AdbKeyManager
-    private lateinit var inspector: RefreshRateInspector
+    internal lateinit var inspector: RefreshRateInspector
     private val ACTION_USB_PERMISSION = "com.adb.kitty.compose.USB_PERMISSION"
 
     private var usbConn: UsbDeviceConnection? = null
@@ -627,7 +627,7 @@ class MainActivity : ComponentActivity() {
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) { 
                     appendLog("[Shell 异常] ${e.message}")
-                    if (e is IOException || e.message?.contains("closed") == true) {
+                    if (e is java.io.IOException || e.message?.contains("closed") == true) {
                         kadbInstance = null
                         isAdbAuthorized = false
                         appendLog("连接已断开")
@@ -982,10 +982,20 @@ class MainActivity : ComponentActivity() {
         return true
     }
     
-    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray
+    ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode == REQUEST_WIFI_PERMISSION_CODE && grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-            if (isWifiEnabled) executeAutoWifiConnect()
+        
+        if (requestCode == REQUEST_WIFI_PERMISSION_CODE) {
+            if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                appendLog("[系统] Wi-Fi 权限已授予，正在激活无线链路...")
+                initWifiState()
+            } else {
+                appendLog("[系统] 🔴 权限被拒绝，无法自动扫描 Wi-Fi SSID")
+            }
         }
     }
     
