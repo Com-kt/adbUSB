@@ -217,14 +217,14 @@ class MainActivityViewModel : ViewModel() {
     )
     
     private val _fbCommands = listOf(
-        FbCommand("set_active <a或b>", "set_active"),
-        FbCommand("format <分区>", "format"),
-        FbCommand("erase <分区>", "erase"),
-        FbCommand("getvar <参数>", "getvar"),
-        FbCommand("oem <参数>", "oem"),
-        FbCommand("reboot <可选参数>", "reboot"),
-        FbCommand("boot <文件名>", "boot"),
-        FbCommand("flash <分区> <路径>", "flash"),
+        FbCommand("fastboot set_active <a或b>", "set_active"),
+        FbCommand("fastboot format <分区>", "format"),
+        FbCommand("fastboot erase <分区>", "erase"),
+        FbCommand("fastboot getvar <参数>", "getvar"),
+        FbCommand("fastboot oem <参数>", "oem"),
+        FbCommand("fastboot reboot <可选参数>", "reboot"),
+        FbCommand("fastboot boot <文件名>", "boot"),
+        FbCommand("fastboot flash <分区> <路径>", "flash"),
         FbCommand("查看当前安全补丁级别", "getvar security-patch-level"),
         FbCommand("查看当前活跃的分区槽位（a 或 b)", "getvar current-slot"),
         FbCommand("查看 Bootloader 解锁状态", "getvar unlocked"),
