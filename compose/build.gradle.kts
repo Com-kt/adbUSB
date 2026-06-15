@@ -100,6 +100,7 @@ android {
         }
     }
     
+    testBuildType = "debug"
     buildTypes {
         release {
             isMinifyEnabled = true
@@ -127,7 +128,9 @@ android {
         }
         debug {
             isMinifyEnabled = false
+            isShrinkResources = false
             isDebuggable = true
+            vcsInfo.include = false
             signingConfig = signingConfigs.getByName("adb")
         }
     }
