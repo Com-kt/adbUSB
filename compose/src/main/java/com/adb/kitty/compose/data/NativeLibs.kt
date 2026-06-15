@@ -29,6 +29,9 @@ data class AdbCommand(val description: String, val command: String)
 data class FbCommand(val description: String, val command: String)
 
 @Keep
+data class AppCommand(val description: String, val command: String)
+
+@Keep
 data class AdbDevice(val ip: String, val port: Int, val wifiSsid: String, val lastConnectedTime: Long)
 
 @Keep
@@ -43,5 +46,6 @@ object NativeLibs {
 data class CommandUiItem(
     val command: String,
     val description: String,
-    val isAdb: Boolean
+    val isAdb: Boolean,
+    val isApp: Boolean = false
 )

@@ -295,8 +295,39 @@ class MainActivity : ComponentActivity() {
     private fun dispatchCommandRoute(cmdInput: String) {
         val cmd = cmdInput.trim()
         if (cmd.isEmpty()) return
+        
+        when (cmd) {
+            "ip-test" -> {
+                appendLog("[系统] 扩展指令(由app提供) >> $cmd")
+                startIpNetworkTest()
+                return
+            }
+            "usb-host" -> {
+                appendLog("[系统] 扩展指令(由app提供) >> $cmd")
+                findHostDevice()
+                return
+            }
+            "root-rate" -> {
+                appendLog("[系统] 扩展指令 >> $cmd")
+                appendLog("[系统] 正在尝试启动 Root 特权帧率服务, 该指令由 app 提供")
+                inspector.bindRootService { isConnected ->
+                    if (isConnected) {
+                        inspector.start()
+                    } else {
+                        appendLog("[错误] Root 特权服务绑定失败！请确认设备已获得 Magisk/Apatch/KernelSU 完整授权！")
+                    }
+                }
+                return
+            }
+        }
 
         if (isFastbootMode) {
+            if (cmd == "usb-selinux") {
+                appendLog("[发送] FB >> $cmd")
+                appendLog("[系统] 正在尝试设置 SeLinux 为宽容模式, 该指令由 app 提供")
+                FbSeLinuxCmd()
+                return
+            }
             lifecycleScope.launch(Dispatchers.IO) {
                 try {
                     withContext(Dispatchers.Main) { appendLog("[发送] FB >> $cmd") }
@@ -1149,6 +1180,8 @@ fun CenterAlignedTopAppBarExample(
                 onClick = {
                     if (query.isNotBlank()) {
                         onExecuteCommand(query)
+                        query = ""
+                        expanded = false
                     }
                 },
                 icon = { 
@@ -1430,10 +1463,18 @@ fun CenterAlignedTopAppBarExample(
                                         )
                                     }
                                         Text(
-                                            text = if (item.isAdb) "[ADB]" else "[Fastboot]",
+                                            text = when {
+                                                item.isApp -> "[APP]"
+                                                item.isAdb -> "[ADB]"
+                                                else -> "[Fastboot]"
+                                            },
                                             style = MaterialTheme.typography.labelMedium,
-                                            color = if (item.isAdb) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
-                                            modifier = Modifier.wrapContentWidth() // 确保按文本真实宽度包裹
+                                            color = when {
+                                                item.isApp -> MaterialTheme.colorScheme.secondary
+                                                item.isAdb -> MaterialTheme.colorScheme.primary
+                                                else -> MaterialTheme.colorScheme.error
+                                            },
+                                            modifier = Modifier.wrapContentWidth()
                                         )
                                     }
                                 },
@@ -1465,11 +1506,11 @@ fun LogSection(
     modifier: Modifier = Modifier
 ) {
     val listState = rememberLazyListState()
+    val globalHorizontalScrollState = rememberScrollState()
 
     LaunchedEffect(logs.size) {
         if (logs.isNotEmpty()) {
             val lastIndex = logs.size - 1
-            
             val lastVisibleIndex = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
             
             if (lastIndex - lastVisibleIndex < 5) {
@@ -1484,30 +1525,32 @@ fun LogSection(
         }
     }
 
-    LazyColumn(
-        state = listState,
+    Box(
         modifier = modifier
             .border(1.dp, MaterialTheme.colorScheme.outline)
+            .horizontalScroll(globalHorizontalScrollState)
             .padding(8.dp)
     ) {
-        items(logs) { log ->
-            val hScrollState = rememberScrollState()
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .horizontalScroll(hScrollState)
-            ) {
+        LazyColumn(
+            state = listState,
+            modifier = Modifier
+                .fillMaxHeight()
+                .wrapContentWidth() 
+        ) {
+            items(logs) { log ->
                 Text(
                     text = log,
                     fontFamily = FontFamily.Monospace,
                     style = MaterialTheme.typography.bodyMedium,
-                    softWrap = false // 禁用自动折行：遇到屏幕边缘不强制换行，只有遇到 \n 才会换行
+                    softWrap = false,
+                    modifier = Modifier.padding(vertical = 1.dp)
                 )
             }
         }
     }
 }
 
+@Keep
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DeviceSelectionBottomSheet(
@@ -1550,6 +1593,7 @@ fun DeviceSelectionBottomSheet(
     }
 }
 
+@Keep
 private fun getRelativeTime(timeMs: Long): String {
     val diff = System.currentTimeMillis() - timeMs
     val minutes = diff / 1000 / 60

@@ -97,9 +97,17 @@ class MainActivityViewModel : ViewModel() {
     val items: List<CommandUiItem> by lazy { rememberCombinedItems() }
 
     private fun rememberCombinedItems(): List<CommandUiItem> {
-        val adbList = _adbCommands.map { CommandUiItem(command = it.command, description = it.description, isAdb = true) }
-        val fbList = _fbCommands.map { CommandUiItem(command = it.command, description = it.description, isAdb = false) }
-        return adbList + fbList
+        val adbList = _adbCommands.map { 
+            CommandUiItem(command = it.command, description = it.description, isAdb = true, isApp = false) 
+        }
+        val fbList = _fbCommands.map { 
+            CommandUiItem(command = it.command, description = it.description, isAdb = false, isApp = false) 
+        }
+        val appList = _appCommands.map { 
+            CommandUiItem(command = it.description, description = it.command, isAdb = false, isApp = true) 
+        }
+        
+        return adbList + fbList + appList
     }
     
     fun appendLog(msg: String) {
@@ -168,7 +176,20 @@ class MainActivityViewModel : ViewModel() {
         _fastbootManager = null
     }
     
+    private val _appCommands = listOf(
+        AppCommand("扩展指令", "usb-selinux"),
+        AppCommand("扩展指令", "root-rate"),
+        AppCommand("扩展指令", "usb-host"),
+        AppCommand("扩展指令", "ip-test")
+    )
+    
     private val _adbCommands = listOf(
+        AdbCommand("adb pair [IP:配对端口] [配对码]", "adb pair"),
+        AdbCommand("adb connect [IP:无线调试端口]", "adb connect"),
+        AdbCommand("adb push [本地文件名] [远端路径]", "adb push"),
+        AdbCommand("adb pull [远端路径] (可选本地落地名)", "adb pull"),
+        AdbCommand("adb install [本地文件名]", "adb install"),
+        AdbCommand("adb uninstall [包名]", "adb uninstall"),
         AdbCommand("查看 adbd 用户组", "id"),
         AdbCommand("查看SeLinux状态", "getenforce"),
         AdbCommand("重启", "reboot"),
@@ -196,6 +217,14 @@ class MainActivityViewModel : ViewModel() {
     )
     
     private val _fbCommands = listOf(
+        FbCommand("set_active <a或b>", "set_active"),
+        FbCommand("format <分区>", "format"),
+        FbCommand("erase <分区>", "erase"),
+        FbCommand("getvar <参数>", "getvar"),
+        FbCommand("oem <参数>", "oem"),
+        FbCommand("reboot <可选参数>", "reboot"),
+        FbCommand("boot <文件名>", "boot"),
+        FbCommand("flash <分区> <路径>", "flash"),
         FbCommand("查看当前安全补丁级别", "getvar security-patch-level"),
         FbCommand("查看当前活跃的分区槽位（a 或 b)", "getvar current-slot"),
         FbCommand("查看 Bootloader 解锁状态", "getvar unlocked"),
@@ -236,7 +265,7 @@ class MainActivityViewModel : ViewModel() {
         4. 应用自身没有签名校验机制，随时都有可能会被寡改
         5. fastboot线刷之前做好售后9008的准备，如果你拿不到9008免授权的话
         6. 免责声明：开发者没有任何义务对所有人进行服务
-        7. 线刷文件夹路径：/storage/emulated/0/Android/data/com.adb.kitty/files/flash/
+        7. 线刷文件夹路径：/storage/emulated/0/Android/data/com.adb.kitty.compose/files/flash/
         8. 开发者正在计划怎么适配9008模式/紧急下载模式
     """.trimIndent()
 }
