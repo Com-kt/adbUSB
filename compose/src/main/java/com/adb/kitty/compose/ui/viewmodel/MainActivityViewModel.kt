@@ -94,7 +94,7 @@ class MainActivityViewModel : ViewModel() {
     private val _logs = mutableStateListOf<String>()
     val logs: List<String> = _logs
     
-    val items: List<CommandUiItem> = rememberCombinedItems()
+    val items: List<CommandUiItem> by lazy { rememberCombinedItems() }
 
     private fun rememberCombinedItems(): List<CommandUiItem> {
         val adbList = _adbCommands.map { CommandUiItem(command = it.command, description = it.description, isAdb = true) }

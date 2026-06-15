@@ -24,8 +24,6 @@
 
 -dontrepackage
 
--com.android.tools.r8.disableClassMerging
-
 -keep class com.android.tools.r8.RecordTag { *; }
 -dontwarn com.android.tools.r8.RecordTag
 
