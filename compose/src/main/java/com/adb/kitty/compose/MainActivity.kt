@@ -1,6 +1,5 @@
 package com.adb.kitty.compose
 
-
 import android.*
 import android.util.*
 import android.content.pm.*
@@ -57,6 +56,7 @@ import android.os.*
 import androidx.annotation.*
 import androidx.activity.*
 import androidx.activity.compose.*
+import androidx.activity.result.contract.*
 import androidx.lifecycle.*
 import androidx.lifecycle.viewmodel.*
 import androidx.lifecycle.viewmodel.compose.*
@@ -149,6 +149,17 @@ class MainActivity : ComponentActivity() {
         viewModel.appendLog(msg)
     }
     
+    private val requestWifiPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted: Boolean ->
+        if (isGranted) {
+            appendLog("[系统] Wi-Fi 权限已授予，正在激活无线链路...")
+            initWifiState()
+        } else {
+            appendLog("[系统] 🔴 权限被拒绝，无法自动扫描 Wi-Fi SSID")
+        }
+    }
+
     private val usbPermissionReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
             if (ACTION_USB_PERMISSION == intent.action) {
@@ -974,31 +985,19 @@ class MainActivity : ComponentActivity() {
     }
     
     private fun checkAndRequestWifiPermission(): Boolean {
-        val targetPermission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) Manifest.permission.NEARBY_WIFI_DEVICES else Manifest.permission.ACCESS_FINE_LOCATION
+        val targetPermission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            Manifest.permission.NEARBY_WIFI_DEVICES
+        } else {
+            Manifest.permission.ACCESS_FINE_LOCATION
+        }
+    
         if (ContextCompat.checkSelfPermission(this, targetPermission) != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(this, arrayOf(targetPermission), REQUEST_WIFI_PERMISSION_CODE)
+            requestWifiPermissionLauncher.launch(targetPermission)
             return false
         }
         return true
     }
-    
-    override fun onRequestPermissionsResult(
-        requestCode: Int,
-        permissions: Array<out String>,
-        grantResults: IntArray
-    ) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        
-        if (requestCode == REQUEST_WIFI_PERMISSION_CODE) {
-            if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                appendLog("[系统] Wi-Fi 权限已授予，正在激活无线链路...")
-                initWifiState()
-            } else {
-                appendLog("[系统] 🔴 权限被拒绝，无法自动扫描 Wi-Fi SSID")
-            }
-        }
-    }
-    
+
     fun startIpNetworkTest() {
         // 合并为一个统一的 IO 协程流，确保控制台输出的时序绝对工整不乱序
         lifecycleScope.launch(Dispatchers.Main) {
