@@ -158,7 +158,7 @@ fun CenterAlignedTopAppBarExample(
                                 text = { Text("使用说明") },
                                 leadingIcon = { Icon(Icons.Outlined.Info, null) },
                                 onClick = {
-                                    viewModel.appendLog("\n" + viewModel.warnMessage)
+                                    viewModel.appendLog(viewModel.warnMessage)
                                     showMenu = false
                                 }
                             )
@@ -314,7 +314,7 @@ fun LogSection(
                     text = log,
                     fontFamily = FontFamily.Monospace,
                     style = MaterialTheme.typography.bodyMedium,
-                    maxLines = 1
+                    softWrap = false // 禁用自动折行：遇到屏幕边缘不强制换行，只有遇到 \n 才会换行
                 )
             }
         }
