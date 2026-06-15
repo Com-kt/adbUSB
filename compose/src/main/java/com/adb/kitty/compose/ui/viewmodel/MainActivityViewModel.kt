@@ -103,14 +103,69 @@ class MainActivityViewModel : ViewModel() {
     }
     
     fun appendLog(msg: String) {
-        val current = LocalDateTime.now()
-        val formatter = DateTimeFormatter.ofPattern("yyyy.MM.dd HH:mm:ss")
-        val time = current.format(formatter)
-        _logs.add("$time $msg")
+        viewModelScope.launch(Dispatchers.Main) {
+            val current = LocalDateTime.now()
+            val formatter = DateTimeFormatter.ofPattern("yyyy.MM.dd HH:mm:ss")
+            val time = current.format(formatter)
+            
+            if (msg.contains("\n")) {
+                // 如果输出带换行符（如 logcat/getvar all），拆开沉淀，防止 LazyColumn 渲染单条超大文本发生卡顿
+                msg.split("\n").forEach { line ->
+                    _logs.add("$time $line")
+                }
+            } else {
+                _logs.add("$time $msg")
+            }
+        }
     }
     
     fun clearLogs() {
         _logs.clear()
+        appendLog("[系统] 控制台日志已清空。")
+    }
+    
+    private var _fastbootManager: FastbootManager? = null
+    val fastbootManager: FastbootManager? get() = _fastbootManager
+    
+    fun initFastboot(
+        usbConn: UsbDeviceConnection,
+        epOut: UsbEndpoint,
+        epIn: UsbEndpoint,
+        responseChannel: Channel<String>,
+        flashFolder: File
+    ) {
+        if (_fastbootManager == null) {
+            _fastbootManager = FastbootManager(
+                scope = viewModelScope,
+                usbConn = usbConn,
+                epOut = epOut,
+                epIn = epIn,
+                responseChannel = responseChannel,
+                flashFolder = flashFolder
+            )
+            _fastbootManager?.startFastbootReader()
+            appendLog("[系统] 宿主 ViewModel 成功并网 Fastboot 物理总线。")
+        }
+    }
+    
+    fun runCommand(cmd: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val manager = _fastbootManager
+            if (manager == null) {
+                appendLog("[错误] Fastboot 驱动未就绪，请检查硬件通信。")
+                return@launch
+            }
+            try {
+                manager.executeCommandSync(cmd)
+            } catch (e: Exception) {
+                appendLog("[错误] 物理管道执行崩溃: ${e.message}")
+            }
+        }
+    }
+    
+    override fun onCleared() {
+        super.onCleared()
+        _fastbootManager = null
     }
     
     private val _adbCommands = listOf(
@@ -184,37 +239,4 @@ class MainActivityViewModel : ViewModel() {
         7. 线刷文件夹路径：/storage/emulated/0/Android/data/com.adb.kitty/files/flash/
         8. 开发者正在计划怎么适配9008模式/紧急下载模式
     """.trimIndent()
-    
-    private var _fastbootManager: FastbootManager? = null
-    val fastbootManager: FastbootManager? get() = _fastbootManager
-
-    fun initFastboot(
-        usbConn: UsbDeviceConnection,
-        epOut: UsbEndpoint,
-        epIn: UsbEndpoint,
-        responseChannel: Channel<String>,
-        flashFolder: File
-    ) {
-        _fastbootManager = FastbootManager(
-            scope = viewModelScope,
-            usbConn = usbConn,
-            epOut = epOut,
-            epIn = epIn,
-            responseChannel = responseChannel,
-            flashFolder = flashFolder
-        )
-        
-        _fastbootManager?.startFastbootReader()
-    }
-
-    fun runCommand(cmd: String) {
-        viewModelScope.launch {
-            _fastbootManager?.executeCommandSync(cmd)
-        }
-    }
-
-    override fun onCleared() {
-        super.onCleared()
-        // ViewModel 销毁时，可以清理资源
-    }
 }
