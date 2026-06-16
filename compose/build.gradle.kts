@@ -3,6 +3,7 @@
 import org.jetbrains.kotlin.gradle.dsl.KotlinVersion
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.tasks.KotlinJvmCompile
+import org.jetbrains.kotlin.gradle.tasks.KotlinToolingMetadataTask
 import java.text.SimpleDateFormat
 import java.util.Date
 
@@ -23,11 +24,24 @@ val propNdk = providers.gradleProperty("NDK_VERSION").get()
 val propCmake = providers.gradleProperty("CMAKE_VERSION").get()
 val propBuildTools = providers.gradleProperty("BUILDTOOLS_VERSION").get()
 
+val injectKotlinMetadataToRoot = tasks.register<Copy>("injectKotlinMetadataToRoot") {
+    val kotlinMetadataTask = tasks.named<KotlinToolingMetadataTask>("kotlinToolingMetadata")
+    dependsOn(kotlinMetadataTask)
+    from(kotlinMetadataTask.map { it.outputFile.get().asFile })
+    into("$buildDir/generated/kotlin-metadata-root")
+}
+
 android {
     namespace = "com.adb.kitty.compose"
     compileSdk = propCompileSdk
     buildToolsVersion = "$propBuildTools"
     ndkVersion = "$propNdk"
+    
+    sourceSets {
+        getByName("main") {
+            resources.srcDir(injectKotlinMetadataToRoot)
+        }
+    }
     
     packaging {
         dex {
