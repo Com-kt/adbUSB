@@ -20,6 +20,7 @@ val propVersionCode = providers.gradleProperty("VERSION_CODE").get().toInt()
 val buildDate = SimpleDateFormat("yyyyMMdd").format(Date())
 val versionPrefix = providers.gradleProperty("VERSION_PREFIX").get()
 val propNdk = providers.gradleProperty("NDK_VERSION").get()
+val propCmake = providers.gradleProperty("CMAKE_VERSION").get()
 
 android {
     namespace = "com.adb.kitty.compose"
@@ -80,7 +81,7 @@ android {
     externalNativeBuild {
         cmake {
             path("src/main/cpp/CMakeLists.txt")
-            version = "4.3.3"
+            version = "$propCmake"
         }
     }
     
