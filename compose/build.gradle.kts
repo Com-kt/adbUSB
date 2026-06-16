@@ -21,10 +21,12 @@ val buildDate = SimpleDateFormat("yyyyMMdd").format(Date())
 val versionPrefix = providers.gradleProperty("VERSION_PREFIX").get()
 val propNdk = providers.gradleProperty("NDK_VERSION").get()
 val propCmake = providers.gradleProperty("CMAKE_VERSION").get()
+val propBuildTools = providers.gradleProperty("BUILDTOOLS_VERSION").get()
 
 android {
     namespace = "com.adb.kitty.compose"
     compileSdk = propCompileSdk
+    buildToolsVersion = "$propBuildTools"
     ndkVersion = "$propNdk"
     
     packaging {
