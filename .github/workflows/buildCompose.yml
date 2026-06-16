@@ -39,9 +39,6 @@ jobs:
 
       - name: Check CMake Version
         run: cmake --version
-        
-      - name: Configure CMake Path for Android
-        run: echo "cmake.dir=/usr" >> local.properties
 
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
