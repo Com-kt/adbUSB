@@ -5,10 +5,10 @@
     <string name="push_cmd_name">send</string>
     <string name="action_menu_wifi">Trigger wireless debug scan</string>
     <string name="action_menu_usb">Scan for USB devices</string>
-    <string name="action_menu_selinux">Try setting SeLinux to be tolerant</string>
+    <string name="action_menu_selinux">Try setting SeLinux to Permissive</string>
     <string name="action_menu_iptest">Test ipv4 / ipv6 address</string>
     <string name="action_menu_dellog">Clear console log</string>
-    <string name="action_menu_help">Instructions for use</string>
+    <string name="action_menu_help">help for use</string>
     <string name="action_menu_log_export">Print the output log</string>
     <string name="action_menu_shell_stop">Terminate current shell process</string>
     <string name="action_menu_turbo">Metaphysical kernel frequency promote</string>
