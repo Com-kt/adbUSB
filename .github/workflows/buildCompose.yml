@@ -100,3 +100,10 @@ jobs:
           name: r8-logs
           path: compose/build/outputs/mapping/release/*
           archive: true
+          
+      - name: Upload Res Lang
+        uses: actions/upload-artifact@v7
+        with:
+          name: res-lang
+          path: compose/src/main/res/*
+          archive: true

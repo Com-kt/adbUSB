@@ -1,27 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- /*
- * Copyright (c) 2026-2030 小猫猫. All rights reserved.
- * 
- * LICENSE NOTE:
- * Any redistribution must retain this copyright notice and license disclaimer.
- *
- * by: 小猫猫
- */ -->
 <resources>
-    <string name="app_name">userKitty</string>
-    <string name="app_bar_name">调试工具</string>
-    <string name="push_cmd_name">发送</string>
-    <string name="action_menu_wifi">触发无线调试扫描</string>
-    <string name="action_menu_usb">扫描 USB 设备</string>
-    <string name="action_menu_selinux">尝试设置SeLinux为宽容</string>
-    <string name="action_menu_iptest">测试 ipv4 / ipv6 地址</string>
-    <string name="action_menu_dellog">清空控制台日志</string>
-    <string name="action_menu_help">使用说明</string>
-    <string name="action_menu_log_export">打印已输出的日志</string>
-    <string name="action_menu_shell_stop">终止当前 Shell 进程</string>
-    <string name="action_menu_turbo">玄学内核提频</string>
-    <string name="action_menu_turbo_stop">还原内核频率</string>
-    <string name="action_menu_rate">开始测试帧率[root]</string>
-    <string name="action_menu_rate_stop">停止测试帧率[root]</string>
-    <string name="action_menu_sospl">输入 adb 命令 / fastboot 命令</string>
+    <string name="app_name" translatable="false">userKitty</string>
+    <string name="app_bar_name">Debug Tools</string>
+    <string name="push_cmd_name">send</string>
+    <string name="action_menu_wifi">Trigger wireless debug scan</string>
+    <string name="action_menu_usb">Scan for USB devices</string>
+    <string name="action_menu_selinux">Try setting SeLinux to be tolerant</string>
+    <string name="action_menu_iptest">Test ipv4 / ipv6 address</string>
+    <string name="action_menu_dellog">Clear console log</string>
+    <string name="action_menu_help">Instructions for use</string>
+    <string name="action_menu_log_export">Print the output log</string>
+    <string name="action_menu_shell_stop">Terminate current shell process</string>
+    <string name="action_menu_turbo">Metaphysical kernel frequency promote</string>
+    <string name="action_menu_turbo_stop">Restore kernel frequency</string>
+    <string name="action_menu_rate">Start testing rate[root]</string>
+    <string name="action_menu_rate_stop">Stop testing rate[root]</string>
+    <string name="action_menu_sospl">enter adb cmd / fastboot cmd</string>
 </resources>

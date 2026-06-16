@@ -1,8 +1,8 @@
-cmake_minimum_required(VERSION 3.22.1)
+cmake_minimum_required(VERSION 4.3.3)
 
 project(NekoProject)
 
-set(CMAKE_C_STANDARD 20)
+set(CMAKE_C_STANDARD 99)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
 set(SOURCE_DIR src/main/cpp)
