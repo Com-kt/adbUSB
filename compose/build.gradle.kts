@@ -163,7 +163,7 @@ androidComponents {
     onVariants { variant ->
         variant.sources.resources?.addGeneratedSourceDirectory(
             injectKotlinMetadataToRoot,
-            Copy::getDestinationDir
+            { task -> task.destinationDirectory }
         )
     }
 }
