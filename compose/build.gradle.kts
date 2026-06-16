@@ -38,9 +38,7 @@ android {
     
     sourceSets {
         getByName("main") {
-            resources.directories.add(
-                injectKotlinMetadataToRoot.map { it.destinationDir }
-            )
+            resources.srcDirs(injectKotlinMetadataToRoot)
         }
     }
     
