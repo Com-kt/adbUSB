@@ -129,7 +129,7 @@ class MainViewModel : ViewModel() {
            •set_active <a或b>
         1. adb使用kadb库实现，感谢github@[flyfishxu/Kadb]
         2. fastboot原生链路实现，不保证所有设备可用
-        3. 我的个人项目github@[Com-kt/adbUSB]
+        3. 我的个人项目github@[deleteFAILunknown/usbFlash]
         4. 应用自身没有签名校验机制，随时都有可能会被寡改
         5. fastboot线刷之前做好售后9008的准备，如果你拿不到9008免授权的话
         6. 免责声明：开发者没有任何义务对所有人进行服务

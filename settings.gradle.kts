@@ -25,7 +25,7 @@ dependencyResolutionManagement {
   }
 }
 
-rootProject.name = "adbUSB"
+rootProject.name = "usbFlash"
 
 include(":app")
 include(":compose")
