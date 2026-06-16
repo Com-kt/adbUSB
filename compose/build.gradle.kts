@@ -36,12 +36,6 @@ android {
     buildToolsVersion = "$propBuildTools"
     ndkVersion = "$propNdk"
     
-    sourceSets {
-        getByName("main") {
-            resources.srcDirs(injectKotlinMetadataToRoot)
-        }
-    }
-    
     packaging {
         dex {
             useLegacyPackaging = true
@@ -162,6 +156,15 @@ android {
     dependenciesInfo {
         includeInApk = false
         includeInBundle = false
+    }
+}
+
+androidComponents {
+    onVariants { variant ->
+        variant.sources.resources?.addGeneratedSourceDirectory(
+            injectKotlinMetadataToRoot,
+            Copy::getDestinationDir
+        )
     }
 }
 
