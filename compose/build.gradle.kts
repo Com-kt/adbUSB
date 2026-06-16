@@ -23,11 +23,11 @@ val propNdk = providers.gradleProperty("NDK_VERSION").get()
 val propCmake = providers.gradleProperty("CMAKE_VERSION").get()
 val propBuildTools = providers.gradleProperty("BUILDTOOLS_VERSION").get()
 
-val injectKotlinMetadataToRoot = tasks.register<Copy>("injectKotlinMetadataToRoot") {
+val injectKotlinMetadataToRoot = tasks.register<Sync>("injectKotlinMetadataToRoot") {
     val kotlinMetadataTask = tasks.named("kotlinToolingMetadata")
     dependsOn(kotlinMetadataTask)
     from(kotlinMetadataTask.map { it.outputs.files })
-    into(layout.buildDirectory.dir("generated/kotlin-metadata-root"))
+    destinationDirectory.set(layout.buildDirectory.dir("generated/kotlin-metadata-root"))
 }
 
 android {
@@ -163,7 +163,7 @@ androidComponents {
     onVariants { variant ->
         variant.sources.resources?.addGeneratedSourceDirectory(
             injectKotlinMetadataToRoot,
-            { task -> task.destinationDirectory }
+            Sync::destinationDirectory
         )
     }
 }
