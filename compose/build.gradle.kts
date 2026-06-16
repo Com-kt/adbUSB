@@ -3,7 +3,6 @@
 import org.jetbrains.kotlin.gradle.dsl.KotlinVersion
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.tasks.KotlinJvmCompile
-import org.jetbrains.kotlin.gradle.tasks.KotlinToolingMetadataTask
 import java.text.SimpleDateFormat
 import java.util.Date
 
@@ -25,10 +24,10 @@ val propCmake = providers.gradleProperty("CMAKE_VERSION").get()
 val propBuildTools = providers.gradleProperty("BUILDTOOLS_VERSION").get()
 
 val injectKotlinMetadataToRoot = tasks.register<Copy>("injectKotlinMetadataToRoot") {
-    val kotlinMetadataTask = tasks.named<KotlinToolingMetadataTask>("kotlinToolingMetadata")
+    val kotlinMetadataTask = tasks.named("kotlinToolingMetadata")
     dependsOn(kotlinMetadataTask)
-    from(kotlinMetadataTask.map { it.outputFile.get().asFile })
-    into("$buildDir/generated/kotlin-metadata-root")
+    from(kotlinMetadataTask.map { it.outputs.files })
+    into(layout.buildDirectory.dir("generated/kotlin-metadata-root"))
 }
 
 android {
@@ -39,7 +38,9 @@ android {
     
     sourceSets {
         getByName("main") {
-            resources.srcDir(injectKotlinMetadataToRoot)
+            resources.directories.add(
+                injectKotlinMetadataToRoot.map { it.destinationDir }
+            )
         }
     }
     

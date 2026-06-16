@@ -20,6 +20,10 @@
     - [x] getvar (Android 9+)
     - [x] erase (Android 9+)
     - [x] flash (Android 9+)
+        - [x] Raw Image (Support?)
+            - [x] Test Flash OKAY
+        - [x] Sparse Image (Support?)
+            - [ ] Test Flash OKAY
     - [x] boot (Android 9+)
     - [x] format (Android 9+)
     - [x] set active (Android 9+)
