@@ -65,7 +65,6 @@
         - [x] armeabi-v7a
         - [x] x86
         - [x] x86_64
-        - [x] riscv64
     - [ ] flash Test
         - [x] flash dtbo
         - [ ] flash boot
