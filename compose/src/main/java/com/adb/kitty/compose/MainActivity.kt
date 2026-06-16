@@ -79,8 +79,10 @@ import androidx.compose.ui.unit.*
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.input.nestedscroll.*
+import androidx.compose.ui.text.*
 import androidx.compose.ui.text.style.*
 import androidx.compose.ui.text.font.*
+import androidx.compose.ui.text.input.*
 import com.adb.kitty.compose.ui.theme.*
 import com.adb.kitty.compose.ui.viewmodel.*
 import com.adb.kitty.compose.data.*
@@ -1160,14 +1162,16 @@ fun CenterAlignedTopAppBarExample(
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior(rememberTopAppBarState())
     var showMenu by remember { mutableStateOf(false) }
     
-    var query by rememberSaveable { mutableStateOf("") }
-    val filteredItems by remember(query) {
+    var query by rememberSaveable(stateSaver = TextFieldValue.Saver) { 
+        mutableStateOf(TextFieldValue("")) 
+    }
+    val filteredItems by remember(query.text) {
         derivedStateOf {
-            if (query.isEmpty()) emptyList() 
+            if (query.text.isEmpty()) emptyList() 
             else {
                 viewModel.items.filter { 
-                    it.command.contains(query, ignoreCase = true) || 
-                    it.description.contains(query, ignoreCase = true)
+                    it.command.contains(query.text, ignoreCase = true) || 
+                    it.description.contains(query.text, ignoreCase = true)
                 }
             }
         }
@@ -1182,9 +1186,9 @@ fun CenterAlignedTopAppBarExample(
         floatingActionButton = {
             ExtendedFloatingActionButton(
                 onClick = {
-                    if (query.isNotBlank()) {
-                        onExecuteCommand(query)
-                        query = ""
+                    if (query.text.isNotBlank()) {
+                        onExecuteCommand(query.text)
+                        query = TextFieldValue("")
                         expanded = false
                     }
                 },
@@ -1420,7 +1424,7 @@ fun CenterAlignedTopAppBarExample(
                         value = query,
                         onValueChange = { 
                             query = it
-                            expanded = it.isNotEmpty()
+                            expanded = it.text.isNotEmpty()
                         },
                         modifier = Modifier
                             .fillMaxWidth()
@@ -1483,8 +1487,12 @@ fun CenterAlignedTopAppBarExample(
                                     }
                                 },
                                 onClick = {
-                                    query = item.command
-                                    expanded = false // 点击后收起菜单，键盘依然保持显示
+                                    val targetCommand = item.command
+                                    query = TextFieldValue(
+                                        text = targetCommand,
+                                        selection = TextRange(targetCommand.length) 
+                                    )
+                                    expanded = false // 点击后收起菜单
                                 },
                                 contentPadding = ExposedDropdownMenuDefaults.ItemContentPadding
                             )

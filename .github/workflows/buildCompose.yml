@@ -36,6 +36,7 @@ jobs:
         uses: jwlawson/actions-setup-cmake@v2
         with:
           cmake-version: '4.3.3'
+          cache: 'gradle'
 
       - name: Check CMake Version
         run: cmake --version
