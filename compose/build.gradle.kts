@@ -130,9 +130,7 @@ android {
         }
         debug {
             isMinifyEnabled = false
-            isShrinkResources = false
             isDebuggable = true
-            vcsInfo.include = false
             signingConfig = signingConfigs.getByName("adb")
         }
     }
