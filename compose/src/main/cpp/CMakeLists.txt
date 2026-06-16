@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 4.4.0-rc1)
+cmake_minimum_required(VERSION 4.4.0)
 
 project(NekoProject)
 

@@ -35,7 +35,7 @@ jobs:
       - name: Setup CMake
         uses: jwlawson/actions-setup-cmake@v2
         with:
-          cmake-version: '4.4.0-rc1'
+          cmake-version: '4.4.0'
 
       - name: Check CMake Version
         run: cmake --version
@@ -109,9 +109,3 @@ jobs:
           path: compose/build/outputs/mapping/release/*
           archive: true
           
-      - name: Upload Res Lang
-        uses: actions/upload-artifact@v7
-        with:
-          name: res-lang
-          path: compose/src/main/res/*
-          archive: true
