@@ -33,20 +33,18 @@ abstract class GenerateKotlinMetadataTask : DefaultTask() {
     @get:OutputDirectory
     abstract val outputDir: DirectoryProperty
 
-    @get:Input
-    abstract val agpVersion: Property<String>
-
-    @get:Input
-    abstract val kotlinVersion: Property<String>
-
-    @get:Input
-    abstract val kspVersion: Property<String>
-
-    @get:Input
-    abstract val kotlinxCoroutinesVersion: Property<String>
-
-    @get:Input
-    abstract val composeBomVersion: Property<String>
+    @get:Input abstract val agpVersion: Property<String>
+    @get:Input abstract val kotlinVersion: Property<String>
+    @get:Input abstract val isHmppEnabled: Property<Boolean>
+    @get:Input abstract val kspVersion: Property<String>
+    @get:Input abstract val kotlinxCoroutinesVersion: Property<String>
+    @get:Input abstract val composeBomVersion: Property<String>
+    
+    @get:Input abstract val sourceCompatibility: Property<String>
+    @get:Input abstract val targetCompatibility: Property<String>
+    @get:Input abstract val kotlinLanguageVersion: Property<String>
+    @get:Input abstract val kotlinApiVersion: Property<String>
+    @get:Input abstract val kotlinJvmTarget: Property<String>
 
     @TaskAction
     fun run() {
@@ -56,26 +54,8 @@ abstract class GenerateKotlinMetadataTask : DefaultTask() {
         } catch (e: Exception) {
             "1.1.0"
         }
-
-        val isHmppEnabled = try {
-            val hasKmpPlugin = project.plugins.hasPlugin("org.jetbrains.kotlin.multiplatform")
-            val kotlinExt = project.extensions.findByName("kotlin")
-            hasKmpPlugin || (kotlinExt != null && kotlinExt::class.java.methods.any { it.name == "getPresets" })
-        } catch (e: Exception) {
-            true
-        }
-
         val isCompatibilityMetadataVariantEnabled = project.findProperty("kotlin.mpp.enableCompatibilityMetadataVariant")?.toString()?.toBoolean() ?: false
         val isKPMEnabled = project.findProperty("kotlin.experimental.kpm.enabled")?.toString()?.toBoolean() ?: false
-
-        val javaVersion = try {
-            val androidExtension = project.extensions.findByName("android")
-            val compileOptions = androidExtension?.let { it::class.java.getMethod("getCompileOptions").invoke(it) }
-            val targetCompatibility = compileOptions?.let { it::class.java.getMethod("getTargetCompatibility").invoke(it) }
-            targetCompatibility?.toString() ?: "25"
-        } catch (e: Exception) {
-            "25"
-        }
 
         val jsonContent = """
         {
@@ -85,14 +65,17 @@ abstract class GenerateKotlinMetadataTask : DefaultTask() {
           "buildPlugin": "org.jetbrains.kotlin.gradle.plugin.KotlinAndroidPluginWrapper",
           "buildPluginVersion": "${kotlinVersion.get()}",
           "projectSettings": {
-            "isHmppEnabled": $isHmppEnabled,
+            "isHmppEnabled": ${isHmppEnabled.get()},
             "isCompatibilityMetadataVariantEnabled": $isCompatibilityMetadataVariantEnabled,
             "isKPMEnabled": $isKPMEnabled,
             "androidGradlePluginVersion": "${agpVersion.get()}",
             "kspPluginVersion": "${kspVersion.get()}",
             "kotlinxCoroutinesVersion": "${kotlinxCoroutinesVersion.get()}",
             "composeBomVersion": "${composeBomVersion.get()}",
-            "composeCompilerVersion": "${kotlinVersion.get()}"
+            "composeCompilerVersion": "${kotlinVersion.get()}",
+            "kotlinLanguageVersion": "${kotlinLanguageVersion.get()}",
+            "kotlinApiVersion": "${kotlinApiVersion.get()}",
+            "kotlinJvmTarget": "${kotlinJvmTarget.get()}"
           },
           "projectTargets": [
             {
@@ -100,8 +83,8 @@ abstract class GenerateKotlinMetadataTask : DefaultTask() {
               "platformType": "androidJvm",
               "extras": {
                 "android": {
-                  "sourceCompatibility": "$javaVersion",
-                  "targetCompatibility": "$javaVersion"
+                  "sourceCompatibility": "${sourceCompatibility.get()}",
+                  "targetCompatibility": "${targetCompatibility.get()}"
                 }
               }
             }
@@ -117,11 +100,24 @@ abstract class GenerateKotlinMetadataTask : DefaultTask() {
 
 val injectKotlinMetadataToRoot = tasks.register<GenerateKotlinMetadataTask>("injectKotlinMetadataToRoot") {
     outputDir.set(layout.buildDirectory.dir("generated/kotlin-metadata-root"))
+
     agpVersion.set(providers.provider { libs.versions.agp.get() })
     kotlinVersion.set(providers.provider { libs.versions.kotlin.get() })
     kspVersion.set(providers.provider { libs.versions.ksp.get() })
     kotlinxCoroutinesVersion.set(providers.provider { libs.versions.kotlinxCoroutines.get() })
     composeBomVersion.set(providers.provider { libs.versions.compose.bom.get() })
+    
+    isHmppEnabled.set(providers.provider {
+        val explicitFlag = project.findProperty("kotlin.mpp.enableGranularMetadataCompilation")?.toString()?.toBoolean()
+        explicitFlag ?: project.plugins.hasPlugin("org.jetbrains.kotlin.multiplatform") || true
+    })
+
+    sourceCompatibility.set(providers.provider { android.compileOptions.sourceCompatibility.toString() })
+    targetCompatibility.set(providers.provider { android.compileOptions.targetCompatibility.toString() })
+    
+    kotlinLanguageVersion.set(providers.provider { kotlin.compilerOptions.languageVersion.get().version })
+    kotlinApiVersion.set(providers.provider { kotlin.compilerOptions.apiVersion.get().version })
+    kotlinJvmTarget.set(providers.provider { kotlin.compilerOptions.jvmTarget.get().target })
 }
 
 android {
