@@ -30,12 +30,11 @@ val propCmake = providers.gradleProperty("CMAKE_VERSION").get()
 val propBuildTools = providers.gradleProperty("BUILDTOOLS_VERSION").get()
 
 abstract class GenerateKotlinMetadataTask : DefaultTask() {
-    @get:OutputDirectory
+    @get:OutputDirectory 
     abstract val outputDir: DirectoryProperty
 
     @get:Input abstract val agpVersion: Property<String>
     @get:Input abstract val kotlinVersion: Property<String>
-    @get:Input abstract val isHmppEnabled: Property<Boolean>
     @get:Input abstract val kspVersion: Property<String>
     @get:Input abstract val kotlinxCoroutinesVersion: Property<String>
     @get:Input abstract val composeBomVersion: Property<String>
@@ -45,6 +44,8 @@ abstract class GenerateKotlinMetadataTask : DefaultTask() {
     @get:Input abstract val kotlinLanguageVersion: Property<String>
     @get:Input abstract val kotlinApiVersion: Property<String>
     @get:Input abstract val kotlinJvmTarget: Property<String>
+
+    @get:Input abstract val hmppEnabled: Property<Boolean>
 
     @TaskAction
     fun run() {
@@ -65,7 +66,7 @@ abstract class GenerateKotlinMetadataTask : DefaultTask() {
           "buildPlugin": "org.jetbrains.kotlin.gradle.plugin.KotlinAndroidPluginWrapper",
           "buildPluginVersion": "${kotlinVersion.get()}",
           "projectSettings": {
-            "isHmppEnabled": ${isHmppEnabled.get()},
+            "isHmppEnabled": ${hmppEnabled.get()},
             "isCompatibilityMetadataVariantEnabled": $isCompatibilityMetadataVariantEnabled,
             "isKPMEnabled": $isKPMEnabled,
             "androidGradlePluginVersion": "${agpVersion.get()}",
@@ -106,11 +107,6 @@ val injectKotlinMetadataToRoot = tasks.register<GenerateKotlinMetadataTask>("inj
     kspVersion.set(providers.provider { libs.versions.ksp.get() })
     kotlinxCoroutinesVersion.set(providers.provider { libs.versions.kotlinxCoroutines.get() })
     composeBomVersion.set(providers.provider { libs.versions.compose.bom.get() })
-    
-    isHmppEnabled.set(providers.provider {
-        val explicitFlag = project.findProperty("kotlin.mpp.enableGranularMetadataCompilation")?.toString()?.toBoolean()
-        explicitFlag ?: project.plugins.hasPlugin("org.jetbrains.kotlin.multiplatform") || true
-    })
 
     sourceCompatibility.set(providers.provider { android.compileOptions.sourceCompatibility.toString() })
     targetCompatibility.set(providers.provider { android.compileOptions.targetCompatibility.toString() })
@@ -118,6 +114,11 @@ val injectKotlinMetadataToRoot = tasks.register<GenerateKotlinMetadataTask>("inj
     kotlinLanguageVersion.set(providers.provider { kotlin.compilerOptions.languageVersion.get().version })
     kotlinApiVersion.set(providers.provider { kotlin.compilerOptions.apiVersion.get().version })
     kotlinJvmTarget.set(providers.provider { kotlin.compilerOptions.jvmTarget.get().target })
+
+    hmppEnabled.set(providers.provider {
+        val explicitFlag = project.findProperty("kotlin.mpp.enableGranularMetadataCompilation")?.toString()?.toBoolean()
+        explicitFlag ?: project.plugins.hasPlugin("org.jetbrains.kotlin.multiplatform") || true
+    })
 }
 
 android {
@@ -269,7 +270,7 @@ dependencies {
     implementation(libs.nayuki.qrcode)
     implementation(libs.bundles.libsu)
     implementation(libs.com.flyfishxu.kadb)
-    implementation(libs.org.conscrypt.openjdk.uber)
+  //  implementation(libs.org.conscrypt.openjdk.uber)
     implementation(libs.androidx.annotation.experimental)
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.bundles.compose)
