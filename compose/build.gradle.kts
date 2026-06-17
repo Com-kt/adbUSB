@@ -31,14 +31,19 @@ val propCmake = providers.gradleProperty("CMAKE_VERSION").get()
 val propBuildTools = providers.gradleProperty("BUILDTOOLS_VERSION").get()
 
 abstract class GenerateKotlinMetadataTask : DefaultTask() {
-    @get:OutputDirectory 
-    abstract val outputDir: DirectoryProperty
+    @get:OutputDirectory abstract val outputDir: DirectoryProperty
 
     @get:Input abstract val agpVersion: Property<String>
     @get:Input abstract val kotlinVersion: Property<String>
     @get:Input abstract val kspVersion: Property<String>
     @get:Input abstract val kotlinxCoroutinesVersion: Property<String>
     @get:Input abstract val composeBomVersion: Property<String>
+    @get:Input abstract val kadbVersion: Property<String>
+    @get:Input abstract val hiddenapibypassVersion: Property<String>
+    @get:Input abstract val libsuVersion: Property<String>
+    @get:Input abstract val mtDataFilesProviderVersion: Property<String>
+    @get:Input abstract val lifecycleVersion: Property<String>
+    @get:Input abstract val nayukiQRVersion: Property<String>
     
     @get:Input abstract val sourceCompatibility: Property<String>
     @get:Input abstract val targetCompatibility: Property<String>
@@ -75,11 +80,17 @@ abstract class GenerateKotlinMetadataTask : DefaultTask() {
             "androidGradlePluginVersion": "${agpVersion.get()}",
             "kspPluginVersion": "${kspVersion.get()}",
             "kotlinxCoroutinesVersion": "${kotlinxCoroutinesVersion.get()}",
+            "androidxLifecycleVersion": "${lifecycleVersion.get()}",
             "composeBomVersion": "${composeBomVersion.get()}",
             "composeCompilerVersion": "${kotlinVersion.get()}",
             "kotlinLanguageVersion": "${kotlinLanguageVersion.get()}",
             "kotlinApiVersion": "${kotlinApiVersion.get()}",
-            "kotlinJvmTarget": "${kotlinJvmTarget.get()}"
+            "kotlinJvmTarget": "${kotlinJvmTarget.get()}",
+            "kadbVersion": "${kadbVersion.get()}",
+            "org.lsposed.hiddenapibypass:hiddenapibypassVersion": "${hiddenapibypassVersion.get()}",
+            "com.github.topjohnwu.libsu:libsuVersion": "${libsuVersion.get()}",
+            "MTDataFilesProviderVersion": "${mtDataFilesProviderVersion.get()}",
+            "nayukiQRVersion": "${nayukiQRVersion.get()}"
           },
           "projectTargets": [
             {
@@ -110,6 +121,12 @@ val injectKotlinMetadataToRoot = tasks.register<GenerateKotlinMetadataTask>("inj
     kspVersion.set(providers.provider { libs.versions.ksp.get() })
     kotlinxCoroutinesVersion.set(providers.provider { libs.versions.kotlinxCoroutines.get() })
     composeBomVersion.set(providers.provider { libs.versions.compose.bom.get() })
+    kadbVersion.set(providers.provider { libs.versions.kadb.get() })
+    hiddenapibypassVersion.set(providers.provider { libs.versions.hiddenapibypassVersion.get() })
+    libsuVersion.set(providers.provider { libs.versions.libsuVersion.get() })
+    mtDataFilesProviderVersion.set(providers.provider { libs.versions.mtDataFilesProvider.get() })
+    lifecycleVersion.set(providers.provider { libs.versions.lifecycle.get() })
+    nayukiQRVersion.set(providers.provider { libs.versions.nayukiQR.get() })
 
     sourceCompatibility.set(providers.provider { android.compileOptions.sourceCompatibility.toString() })
     targetCompatibility.set(providers.provider { android.compileOptions.targetCompatibility.toString() })
