@@ -5,6 +5,10 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.tasks.KotlinJvmCompile
 import java.text.SimpleDateFormat
 import java.util.Date
+import org.gradle.api.DefaultTask
+import org.gradle.api.file.DirectoryProperty
+import org.gradle.api.tasks.OutputDirectory
+import org.gradle.api.tasks.TaskAction
 
 plugins {
     alias(libs.plugins.android.application)
@@ -23,11 +27,24 @@ val propNdk = providers.gradleProperty("NDK_VERSION").get()
 val propCmake = providers.gradleProperty("CMAKE_VERSION").get()
 val propBuildTools = providers.gradleProperty("BUILDTOOLS_VERSION").get()
 
-val injectKotlinMetadataToRoot = tasks.register<Sync>("injectKotlinMetadataToRoot") {
-    val kotlinMetadataTask = tasks.named("kotlinToolingMetadata")
-    dependsOn(kotlinMetadataTask)
-    from(kotlinMetadataTask.map { it.outputs.files })
-    destinationDirectory.set(layout.buildDirectory.dir("generated/kotlin-metadata-root"))
+abstract class CopyKotlinMetadataTask : DefaultTask() {
+    @get:OutputDirectory
+    abstract val outputDir: DirectoryProperty
+
+    @TaskAction
+    fun run() {
+        val kotlinMetadataTask = project.tasks.named("kotlinToolingMetadata").get()
+        val sourceFiles = kotlinMetadataTask.outputs.files
+        project.copy {
+            from(sourceFiles)
+            into(outputDir)
+        }
+    }
+}
+
+val injectKotlinMetadataToRoot = tasks.register<CopyKotlinMetadataTask>("injectKotlinMetadataToRoot") {
+    dependsOn(tasks.named("kotlinToolingMetadata"))
+    outputDir.set(layout.buildDirectory.dir("generated/kotlin-metadata-root"))
 }
 
 android {
@@ -163,7 +180,7 @@ androidComponents {
     onVariants { variant ->
         variant.sources.resources?.addGeneratedSourceDirectory(
             injectKotlinMetadataToRoot,
-            Sync::destinationDirectory
+            CopyKotlinMetadataTask::outputDir
         )
     }
 }
