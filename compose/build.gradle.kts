@@ -11,6 +11,7 @@ import org.gradle.api.file.DirectoryProperty
 import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.OutputDirectory
 import org.gradle.api.tasks.TaskAction
+import org.gradle.util.GradleVersion
 
 plugins {
     alias(libs.plugins.android.application)
@@ -58,11 +59,13 @@ abstract class GenerateKotlinMetadataTask : DefaultTask() {
             "1.1.0"
         }
 
+        val currentGradleVersion = GradleVersion.current().version
+
         val jsonContent = """
         {
           "schemaVersion": "$dynamicSchemaVersion",
           "buildSystem": "Gradle",
-          "buildSystemVersion": "${services.get(org.gradle.api.internal.artifacts.dsl.dependencies.DependencyFactoryInternal.ClassPathNotation::class.java).let { project.gradle.gradleVersion }}", 
+          "buildSystemVersion": "$currentGradleVersion", 
           "buildPlugin": "org.jetbrains.kotlin.gradle.plugin.KotlinAndroidPluginWrapper",
           "buildPluginVersion": "${kotlinVersion.get()}",
           "projectSettings": {
