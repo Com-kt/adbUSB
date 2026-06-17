@@ -46,6 +46,8 @@ abstract class GenerateKotlinMetadataTask : DefaultTask() {
     @get:Input abstract val kotlinJvmTarget: Property<String>
 
     @get:Input abstract val hmppEnabled: Property<Boolean>
+    @get:Input abstract val compatibilityMetadataVariantEnabled: Property<Boolean>
+    @get:Input abstract val kpmEnabled: Property<Boolean>
 
     @TaskAction
     fun run() {
@@ -55,20 +57,18 @@ abstract class GenerateKotlinMetadataTask : DefaultTask() {
         } catch (e: Exception) {
             "1.1.0"
         }
-        val isCompatibilityMetadataVariantEnabled = project.findProperty("kotlin.mpp.enableCompatibilityMetadataVariant")?.toString()?.toBoolean() ?: false
-        val isKPMEnabled = project.findProperty("kotlin.experimental.kpm.enabled")?.toString()?.toBoolean() ?: false
 
         val jsonContent = """
         {
           "schemaVersion": "$dynamicSchemaVersion",
           "buildSystem": "Gradle",
-          "buildSystemVersion": "${project.gradle.gradleVersion}",
+          "buildSystemVersion": "${services.get(org.gradle.api.internal.artifacts.dsl.dependencies.DependencyFactoryInternal.ClassPathNotation::class.java).let { project.gradle.gradleVersion }}", 
           "buildPlugin": "org.jetbrains.kotlin.gradle.plugin.KotlinAndroidPluginWrapper",
           "buildPluginVersion": "${kotlinVersion.get()}",
           "projectSettings": {
             "isHmppEnabled": ${hmppEnabled.get()},
-            "isCompatibilityMetadataVariantEnabled": $isCompatibilityMetadataVariantEnabled,
-            "isKPMEnabled": $isKPMEnabled,
+            "isCompatibilityMetadataVariantEnabled": ${compatibilityMetadataVariantEnabled.get()},
+            "isKPMEnabled": ${kpmEnabled.get()},
             "androidGradlePluginVersion": "${agpVersion.get()}",
             "kspPluginVersion": "${kspVersion.get()}",
             "kotlinxCoroutinesVersion": "${kotlinxCoroutinesVersion.get()}",
@@ -118,6 +118,14 @@ val injectKotlinMetadataToRoot = tasks.register<GenerateKotlinMetadataTask>("inj
     hmppEnabled.set(providers.provider {
         val explicitFlag = project.findProperty("kotlin.mpp.enableGranularMetadataCompilation")?.toString()?.toBoolean()
         explicitFlag ?: project.plugins.hasPlugin("org.jetbrains.kotlin.multiplatform") || true
+    })
+
+    compatibilityMetadataVariantEnabled.set(providers.provider {
+        project.findProperty("kotlin.mpp.enableCompatibilityMetadataVariant")?.toString()?.toBoolean() ?: false
+    })
+
+    kpmEnabled.set(providers.provider {
+        project.findProperty("kotlin.experimental.kpm.enabled")?.toString()?.toBoolean() ?: false
     })
 }
 
@@ -270,7 +278,6 @@ dependencies {
     implementation(libs.nayuki.qrcode)
     implementation(libs.bundles.libsu)
     implementation(libs.com.flyfishxu.kadb)
-  //  implementation(libs.org.conscrypt.openjdk.uber)
     implementation(libs.androidx.annotation.experimental)
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.bundles.compose)
