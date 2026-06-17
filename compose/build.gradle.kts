@@ -6,7 +6,9 @@ import org.jetbrains.kotlin.gradle.tasks.KotlinJvmCompile
 import java.text.SimpleDateFormat
 import java.util.Date
 import org.gradle.api.DefaultTask
+import org.gradle.api.provider.Property
 import org.gradle.api.file.DirectoryProperty
+import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.OutputDirectory
 import org.gradle.api.tasks.TaskAction
 
@@ -27,24 +29,82 @@ val propNdk = providers.gradleProperty("NDK_VERSION").get()
 val propCmake = providers.gradleProperty("CMAKE_VERSION").get()
 val propBuildTools = providers.gradleProperty("BUILDTOOLS_VERSION").get()
 
-abstract class CopyKotlinMetadataTask : DefaultTask() {
+abstract class GenerateKotlinMetadataTask : DefaultTask() {
     @get:OutputDirectory
     abstract val outputDir: DirectoryProperty
 
+    @get:Input
+    abstract val agpVersion: Property<String>
+
+    @get:Input
+    abstract val kotlinVersion: Property<String>
+
+    @get:Input
+    abstract val kspVersion: Property<String>
+
+    @get:Input
+    abstract val kotlinxCoroutinesVersion: Property<String>
+
+    @get:Input
+    abstract val composeBomVersion: Property<String>
+
     @TaskAction
     fun run() {
-        val kotlinMetadataTask = project.tasks.named("kotlinToolingMetadata").get()
-        val sourceFiles = kotlinMetadataTask.outputs.files
-        project.copy {
-            from(sourceFiles)
-            into(outputDir)
+        val javaVersion = project.extensions.findByType<com.android.build.api.dsl.CommonExtension<*, *, *, *, *, *>>()
+            ?.compileOptions
+            ?.targetCompatibility
+            ?.toString() ?: "25"
+
+        val jsonContent = """
+        {
+          "schemaVersion": "1.1.0",
+          "buildSystem": "Gradle",
+          "buildSystemVersion": "${project.gradle.gradleVersion}",
+          "buildPlugin": "org.jetbrains.kotlin.gradle.plugin.KotlinAndroidPluginWrapper",
+          "buildPluginVersion": "${kotlinVersion.get()}",
+          "projectSettings": {
+            "isHmppEnabled": true,
+            "isCompatibilityMetadataVariantEnabled": false,
+            "isKPMEnabled": false,
+            "androidGradlePluginVersion": "${agpVersion.get()}",
+            "kspPluginVersion": "${kspVersion.get()}",
+            "kotlinxCoroutinesVersion": "${kotlinxCoroutinesVersion.get()}",
+            "composeBomVersion": "${composeBomVersion.get()}",
+            "composeCompilerVersion": "${kotlinVersion.get()}"
+          },
+          "projectTargets": [
+            {
+              "target": "org.jetbrains.kotlin.gradle.plugin.mpp.KotlinAndroidTarget",
+              "platformType": "androidJvm",
+              "extras": {
+                "android": {
+                  "sourceCompatibility": "$javaVersion",
+                  "targetCompatibility": "$javaVersion"
+                }
+              }
+            }
+          ]
         }
+        """.trimIndent()
+
+        val targetFile = outputDir.file("kotlin-tooling-metadata.json").get().asFile
+        targetFile.parentFile.mkdirs()
+        targetFile.writeText(jsonContent)
     }
 }
 
-val injectKotlinMetadataToRoot = tasks.register<CopyKotlinMetadataTask>("injectKotlinMetadataToRoot") {
-    dependsOn(tasks.named("kotlinToolingMetadata"))
+val injectKotlinMetadataToRoot = tasks.register<GenerateKotlinMetadataTask>("injectKotlinMetadataToRoot") {
     outputDir.set(layout.buildDirectory.dir("generated/kotlin-metadata-root"))
+
+    agpVersion.set(providers.provider { libs.versions.agp.get() })
+
+    kotlinVersion.set(providers.provider { libs.versions.kotlin.get() })
+    
+    kspVersion.set(providers.provider { libs.versions.ksp.get() })
+
+    kotlinxCoroutinesVersion.set(providers.provider { libs.versions.kotlinxCoroutines.get() })
+    
+    composeBomVersion.set(providers.provider { libs.versions.compose.bom.get() })
 }
 
 android {
@@ -180,7 +240,7 @@ androidComponents {
     onVariants { variant ->
         variant.sources.resources?.addGeneratedSourceDirectory(
             injectKotlinMetadataToRoot,
-            CopyKotlinMetadataTask::outputDir
+            GenerateKotlinMetadataTask::outputDir
         )
     }
 }
