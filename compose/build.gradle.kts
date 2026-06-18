@@ -242,7 +242,6 @@ android {
                 // 强行忽略 R8 报错提示中列出的精确字符串坐标
                 ignoreFrom("com.github.L-JINBIN:MTDataFilesProvider")
                 ignoreFrom("com.flyfishxu:kadb")
-                ignoreFrom("org.conscrypt:conscrypt-openjdk-uber")
                 ignoreFrom("org.jetbrains.kotlinx:kotlinx-coroutines-core")
                 ignoreFrom("org.jetbrains.kotlinx:kotlinx-coroutines-android")
                 ignoreFrom("org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm")

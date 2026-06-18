@@ -15,9 +15,7 @@
 -dontwarn com.topjohnwu.**
 
 -keep class com.flyfishxu.kadb.** { *; }
--keep class org.conscrypt.** { *; }
 -dontwarn com.flyfishxu.kadb.**
--dontwarn org.conscrypt.**
 
 -keep class bin.mt.** { *; } 
 -dontwarn bin.mt.**

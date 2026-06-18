@@ -19,7 +19,7 @@ mtDataFilesProvider = "1.0.0"
 hiddenapibypassVersion = "6.1"
 nayukiQR = "1.8.0"
 libsuVersion = "6.0.0"
-lifecycle = "2.10.0"
+lifecycle = "2.11.0"
 
 kadb = "2.1.2"
 conscrypt = "2.5.2"
