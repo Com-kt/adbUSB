@@ -272,6 +272,13 @@ class MainActivity : ComponentActivity() {
             startService(intent)
             bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE)
         }
+        
+        if (Build.VERSION.SDK_INT >= 37) {
+            if (ContextCompat.checkSelfPermission(context, "android.permission.ACCESS_LOCAL_NETWORK") 
+                != PackageManager.PERMISSION_GRANTED) {
+                ActivityCompat.requestPermissions(activity, arrayOf("android.permission.ACCESS_LOCAL_NETWORK"), REQUEST_CODE)
+            }
+        }
 
         val exportFlag = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) RECEIVER_NOT_EXPORTED else 0
         registerReceiver(usbPermissionReceiver, IntentFilter(ACTION_USB_PERMISSION), exportFlag)
