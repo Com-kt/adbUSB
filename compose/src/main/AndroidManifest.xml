@@ -75,6 +75,20 @@
           android:name="android.software.companion_device_setup"
           android:required="false" />
     
+    <!-- 读取系统日志 -->
+    <uses-permission android:name="android.permission.READ_LOGS" />
+    <!-- 与其他用户进行交互 -->
+    <uses-permission android:name="android.permission.INTERACT_ACROSS_USERS" />
+    <!-- 允许应用程序跨用户访问数据块 -->
+    <uses-permission android:name="android.permission.ACCESS_BLOBS_ACROSS_USERS" />
+    <!-- 转存系统信息 -->
+    <uses-permission android:name="android.permission.DUMP" />
+    <!-- 电量统计 -->
+    <uses-permission android:name="android.permission.BATTERY_STATS" />
+    <!-- 允许应用阻止非系统覆盖窗口绘制在其上方 -->
+    <uses-permission android:name="android.permission.HIDE_OVERLAY_WINDOWS" />
+    <!-- Android 17+ 局域网附近设备 -->
+    <uses-permission android:name="android.permission.ACCESS_LOCAL_NETWORK" />
     <!-- Android 13+ 附近 WiFi 设备 -->
     <uses-permission 
         android:name="android.permission.NEARBY_WIFI_DEVICES" 
