@@ -152,11 +152,17 @@ class MainActivity : ComponentActivity() {
         viewModel.appendLog(msg)
     }
     
-    private val requestWifiPermissionLauncher = registerForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { isGranted: Boolean ->
-        if (isGranted) {
-            appendLog("[系统] Wi-Fi 权限已授予，正在激活无线链路...")
+    private val requestNetworkPermissionsLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        val isWifiScanGranted = permissions[getWifiScanPermission()] ?: true
+        val isLocalNetworkGranted = if (Build.VERSION.SDK_INT >= 37) {
+            permissions["android.permission.ACCESS_LOCAL_NETWORK"] ?: false
+        } else {
+            true
+        }
+        if (isWifiScanGranted && isLocalNetworkGranted) {
+            appendLog("[系统] Wi-Fi 所需权限已授予，正在激活无线链路...")
             initWifiState()
         } else {
             appendLog("[系统] 🔴 权限被拒绝，无法自动扫描 Wi-Fi SSID")
@@ -271,13 +277,6 @@ class MainActivity : ComponentActivity() {
             val intent = Intent(this, AdbSessionService::class.java)
             startService(intent)
             bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE)
-        }
-        
-        if (Build.VERSION.SDK_INT >= 37) {
-            if (ContextCompat.checkSelfPermission(context, "android.permission.ACCESS_LOCAL_NETWORK") 
-                != PackageManager.PERMISSION_GRANTED) {
-                ActivityCompat.requestPermissions(activity, arrayOf("android.permission.ACCESS_LOCAL_NETWORK"), REQUEST_CODE)
-            }
         }
 
         val exportFlag = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) RECEIVER_NOT_EXPORTED else 0
@@ -1028,18 +1027,34 @@ class MainActivity : ComponentActivity() {
         return true
     }
     
-    private fun checkAndRequestWifiPermission(): Boolean {
-        val targetPermission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+    private fun getWifiScanPermission(): String {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             Manifest.permission.NEARBY_WIFI_DEVICES
         } else {
             Manifest.permission.ACCESS_FINE_LOCATION
         }
+    }
     
-        if (ContextCompat.checkSelfPermission(this, targetPermission) != PackageManager.PERMISSION_GRANTED) {
-            requestWifiPermissionLauncher.launch(targetPermission)
-            return false
+    private fun checkAndRequestWifiPermission(): Boolean {
+        val permissionsToRequest = mutableListOf<String>()
+        val wifiPermission = getWifiScanPermission()
+        if (ContextCompat.checkSelfPermission(this, wifiPermission) != PackageManager.PERMISSION_GRANTED) {
+            permissionsToRequest.add(wifiPermission)
         }
-        return true
+
+        if (Build.VERSION.SDK_INT >= 37) {
+            val localNetPermission = "android.permission.ACCESS_LOCAL_NETWORK"
+            if (ContextCompat.checkSelfPermission(this, localNetPermission) != PackageManager.PERMISSION_GRANTED) {
+                permissionsToRequest.add(localNetPermission)
+            }
+        }
+
+        return if (permissionsToRequest.isNotEmpty()) {
+            requestNetworkPermissionsLauncher.launch(permissionsToRequest.toTypedArray())
+            false
+        } else {
+            true
+        }
     }
 
     fun startIpNetworkTest() {
