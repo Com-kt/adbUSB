@@ -76,15 +76,25 @@
           android:required="false" />
     
     <!-- 读取系统日志 -->
-    <uses-permission android:name="android.permission.READ_LOGS" />
+    <uses-permission 
+        android:name="android.permission.READ_LOGS"
+        tools:ignore="ProtectedPermissions" />
     <!-- 与其他用户进行交互 -->
-    <uses-permission android:name="android.permission.INTERACT_ACROSS_USERS" />
+    <uses-permission 
+        android:name="android.permission.INTERACT_ACROSS_USERS"
+        tools:ignore="ProtectedPermissions" />
     <!-- 允许应用程序跨用户访问数据块 -->
-    <uses-permission android:name="android.permission.ACCESS_BLOBS_ACROSS_USERS" />
+    <uses-permission 
+        android:name="android.permission.ACCESS_BLOBS_ACROSS_USERS"
+        tools:ignore="ProtectedPermissions" />
     <!-- 转存系统信息 -->
-    <uses-permission android:name="android.permission.DUMP" />
+    <uses-permission 
+        android:name="android.permission.DUMP"
+        tools:ignore="ProtectedPermissions" />
     <!-- 电量统计 -->
-    <uses-permission android:name="android.permission.BATTERY_STATS" />
+    <uses-permission 
+        android:name="android.permission.BATTERY_STATS"
+        tools:ignore="ProtectedPermissions" />
     <!-- 允许应用阻止非系统覆盖窗口绘制在其上方 -->
     <uses-permission android:name="android.permission.HIDE_OVERLAY_WINDOWS" />
     <!-- Android 17+ 局域网附近设备 -->
