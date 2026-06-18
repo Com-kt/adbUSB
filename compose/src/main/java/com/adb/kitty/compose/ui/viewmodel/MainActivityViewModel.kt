@@ -164,7 +164,6 @@ class MainActivityViewModel : ViewModel() {
     }
     
     override fun onCleared() {
-        super.onCleared()
         _fastbootManager = null
     }
     
