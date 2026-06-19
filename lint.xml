@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<lint>
+    <!-- Ignore trust manager warnings originating from the Gradle cache folder -->
+    <issue id="TrustAllX509TrustManager">
+        <ignore path="**/caches/**" />
+        <ignore path="**/transformed/**" />
+    </issue>
+</lint>
