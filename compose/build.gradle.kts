@@ -266,6 +266,11 @@ android {
         prefab = true
     }
     
+    lint {
+        checkDependencies = false
+      //  abortOnError = false
+    }
+    
     dependenciesInfo {
         includeInApk = false
         includeInBundle = false

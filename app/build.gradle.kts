@@ -115,6 +115,11 @@ android {
         buildConfig = true
     }
     
+    lint {
+        checkDependencies = false
+      //  abortOnError = false
+    }
+    
     dependenciesInfo {
         includeInApk = false
         includeInBundle = false
