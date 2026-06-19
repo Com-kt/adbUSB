@@ -27,10 +27,4 @@
 
 -keepattributes RuntimeInvisibleAnnotations, RuntimeInvisibleParameterAnnotations, RuntimeInvisibleTypeAnnotations
 
--ignorewarnings com.github.L-JINBIN:MTDataFilesProvider
--ignorewarnings com.flyfishxu:kadb
--ignorewarnings org.jetbrains.kotlinx:kotlinx-coroutines-core
--ignorewarnings com.github.topjohnwu.libsu:service
--ignorewarnings com.github.topjohnwu.libsu:io
--ignorewarnings io.nayuki:qrcodegen
 -ignorewarnings
