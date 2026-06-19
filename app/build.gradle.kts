@@ -115,10 +115,6 @@ android {
         buildConfig = true
     }
     
-    lint {
-        textOutput = file("lint-report.txt")
-    }
-    
     dependenciesInfo {
         includeInApk = false
         includeInBundle = false
