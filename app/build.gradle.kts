@@ -116,7 +116,7 @@ android {
     }
     
     lint {
-        textReport = true
+        textOutput = file("lint-report.txt")
     }
     
     dependenciesInfo {
