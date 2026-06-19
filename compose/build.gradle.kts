@@ -5,9 +5,8 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.tasks.KotlinJvmCompile
 import java.text.SimpleDateFormat
 import java.util.Date
-import org.gradle.api.DefaultTask
-import org.gradle.api.provider.Property
 import org.gradle.api.file.DirectoryProperty
+import org.gradle.api.provider.Property
 import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.OutputDirectory
 import org.gradle.api.tasks.TaskAction
@@ -131,22 +130,22 @@ val injectKotlinMetadataToRoot = tasks.register<GenerateKotlinMetadataTask>("inj
     sourceCompatibility.set(providers.provider { android.compileOptions.sourceCompatibility.toString() })
     targetCompatibility.set(providers.provider { android.compileOptions.targetCompatibility.toString() })
     
-    kotlinLanguageVersion.set(providers.provider { kotlin.compilerOptions.languageVersion.get().version })
-    kotlinApiVersion.set(providers.provider { kotlin.compilerOptions.apiVersion.get().version })
-    kotlinJvmTarget.set(providers.provider { kotlin.compilerOptions.jvmTarget.get().target })
+    kotlinLanguageVersion.set(kotlin.compilerOptions.languageVersion.map { it.version })
+    kotlinApiVersion.set(kotlin.compilerOptions.apiVersion.map { it.version })
+    kotlinJvmTarget.set(kotlin.compilerOptions.jvmTarget.map { it.target })
 
     hmppEnabled.set(providers.provider {
-        val explicitFlag = project.findProperty("kotlin.mpp.enableGranularMetadataCompilation")?.toString()?.toBoolean()
-        explicitFlag ?: project.plugins.hasPlugin("org.jetbrains.kotlin.multiplatform") || true
+        val explicitFlag = providers.gradleProperty("kotlin.mpp.enableGranularMetadataCompilation").orNull?.toBoolean()
+        explicitFlag ?: plugins.hasPlugin("org.jetbrains.kotlin.multiplatform") || true
     })
 
-    compatibilityMetadataVariantEnabled.set(providers.provider {
-        project.findProperty("kotlin.mpp.enableCompatibilityMetadataVariant")?.toString()?.toBoolean() ?: false
-    })
+    compatibilityMetadataVariantEnabled.set(
+        providers.gradleProperty("kotlin.mpp.enableCompatibilityMetadataVariant").map { it.toBoolean() }.orElse(false)
+    )
 
-    kpmEnabled.set(providers.provider {
-        project.findProperty("kotlin.experimental.kpm.enabled")?.toString()?.toBoolean() ?: false
-    })
+    kpmEnabled.set(
+        providers.gradleProperty("kotlin.experimental.kpm.enabled").map { it.toBoolean() }.orElse(false)
+    )
 }
 
 android {
