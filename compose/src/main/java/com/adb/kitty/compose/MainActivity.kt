@@ -891,17 +891,18 @@ class MainActivity : ComponentActivity() {
                 val startTime = System.currentTimeMillis()
                 var lastUpdateTime = startTime
 
-                // 🌟 核心：通过 Okio 包装本地文件输入流，实时拦截读取进度
-                val baseSource = localFile.source()
+                // 🌟 强行使用 okio 扩展和显式全路径，避免导包冲突
+                val baseSource = okio.Okio.source(localFile)
                 var bytesTransferred = 0L
             
-                val progressSource = object : ForwardingSource(baseSource) {
-                    override fun read(sink: Buffer, byteCount: Long): Long {
+                val progressSource = object : okio.ForwardingSource(baseSource) {
+                    // 🟢 明确指定 okio.Buffer，解决 Overload 歧义
+                    override fun read(sink: okio.Buffer, byteCount: Long): Long {
                         val bytesRead = super.read(sink, byteCount)
                         if (bytesRead > 0) {
                             bytesTransferred += bytesRead
                             val currentTime = System.currentTimeMillis()
-                            // 每 300ms 刷新一次 UI
+                        
                             if (currentTime - lastUpdateTime >= 300 || bytesTransferred == totalBytes) {
                                 val durationMs = currentTime - startTime
                                 val speedStr = calculateSpeed(bytesTransferred, durationMs)
@@ -917,14 +918,12 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
-                // 🌟 调用截图中的 openSync 链条
                 val syncStream = kadb.openSync()
                 syncStream.use { stream ->
-                    // 调用截图 96 行的 send 方法
                     stream.send(
                         source = progressSource, 
                         remotePath = finalRemotePath, 
-                        mode = 438, // 对应底层默认权限 0666
+                        mode = 438, 
                         lastModifiedMs = localFile.lastModified()
                     )
                 }
@@ -959,46 +958,38 @@ class MainActivity : ComponentActivity() {
                 val startTime = System.currentTimeMillis()
                 var lastUpdateTime = startTime
 
-                // 🌟 首先尝试用原生 shell 命令快捷获取远端文件大小，用于计算 pull 进度百分比
-                val totalBytes = try {
-                    val sizeStr = kadb.executeShellCommand("stat -c %s '$remotePath'").stdout.trim()
-                    sizeStr.toLongOrNull() ?: -1L
-                } catch (e: Exception) { -1L }
-
-                // 🌟 核心：通过 Okio 包装本地落地输出流，实时拦截写入进度
-                val baseSink = localFile.sink(false)
+                // 🌟 强行使用 okio.Okio.sink 规避命名空间二义性
+                val baseSink = okio.Okio.sink(localFile)
                 var bytesTransferred = 0L
 
-                val progressSink = object : ForwardingSink(baseSink) {
-                    override fun write(source: Buffer, byteCount: Long) {
+                val progressSink = object : okio.ForwardingSink(baseSink) {
+                    // 🟢 明确指定 okio.Buffer，杜绝 'write' overrides nothing 报错
+                    override fun write(source: okio.Buffer, byteCount: Long) {
                         super.write(source, byteCount)
                         bytesTransferred += byteCount
                         val currentTime = System.currentTimeMillis()
-                        // 每 300ms 刷新一次 UI
+                    
                         if (currentTime - lastUpdateTime >= 300) {
                             val durationMs = currentTime - startTime
                             val speedStr = calculateSpeed(bytesTransferred, durationMs)
-                            val progressStr = if (totalBytes > 0L) "${(bytesTransferred * 100 / totalBytes)}%" else "计算中"
                         
                             lifecycleScope.launch(Dispatchers.Main) {
-                                appendLog("[实时] 进度: $progressStr | 已下载: ${bytesTransferred / 1024 / 1024}MB | 速度: $speedStr | 耗时: ${durationMs / 1000.0}s")
+                                appendLog("[实时] 已下载: ${bytesTransferred / 1024 / 1024}MB | 速度: $speedStr | 耗时: ${durationMs / 1000.0}s")
                             }
                             lastUpdateTime = currentTime
                         }
                     }
                 }
 
-                // 🌟 调用截图中的 openSync 链条
                 val syncStream = kadb.openSync()
                 syncStream.use { stream ->
-                    // 调用截图 102 行的 recv 方法
                     stream.recv(sink = progressSink, remotePath = remotePath)
                 }
 
                 val totalDurationMs = System.currentTimeMillis() - startTime
                 withContext(Dispatchers.Main) {
                     appendLog("[成功] 数据已沉淀至本地: ${localFile.absolutePath}")
-                    appendLog("[总体性能] 总耗时: ${totalDurationMs / 1000.0}s | 平均速度: ${calculateSpeed(bytesTransferred, totalDurationMs)}")
+                    appendLog("[总体性能] 总耗时: ${totalDurationMs / 1000.0}s | 平均速度: ${calculateSpeed(bytesTransferred, totalDurationMs)} | 总大小: ${bytesTransferred / 1024 / 1024}MB")
                 }
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) { appendLog("[Pull 失败] 提取中止: ${e.message}") }
