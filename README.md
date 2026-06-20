@@ -43,6 +43,8 @@
         - [x] 255/66/1
         - [ ] 6/1/1
 - [x] Application
+    - [x] Android TV
+    - [x] Android Tablet
     - [x] ipv4 Test
     - [x] ipv6 Test
     - [x] display Test (RootService)
