@@ -888,46 +888,47 @@ class MainActivity : ComponentActivity() {
             try {
                 val kadb = kadbInstance ?: throw IllegalStateException("数据通道未建立")
                 val totalBytes = localFile.length()
-            
-                // 1. 开启高级同步通道
-                val syncService = kadb.openSync() 
                 val startTime = System.currentTimeMillis()
-            
+                var lastUpdateTime = startTime
+
+                // 🌟 核心：通过 Okio 包装本地文件输入流，实时拦截读取进度
+                val baseSource = localFile.source()
                 var bytesTransferred = 0L
-                val bufferSize = 1024 * 256 // 🌟 优化：采用 256KB 大缓冲区提升传输速度
-                val buffer = ByteArray(bufferSize)
             
-                // 打开本地输入流
-                FileInputStream(localFile).use { inputStream ->
-                    // 通过 syncService 开启远端写入流（视具体库的 API 命名，通常为 send 或 writeStream）
-                    syncService.openWriteStream(finalRemotePath).use { outputStream ->
-                        var bytesRead: Int
-                        var lastUpdateTime = System.currentTimeMillis()
-                    
-                        while (inputStream.read(buffer).also { bytesRead = it } != -1) {
-                            outputStream.write(buffer, 0, bytesRead)
+                val progressSource = object : ForwardingSource(baseSource) {
+                    override fun read(sink: Buffer, byteCount: Long): Long {
+                        val bytesRead = super.read(sink, byteCount)
+                        if (bytesRead > 0) {
                             bytesTransferred += bytesRead
-                        
                             val currentTime = System.currentTimeMillis()
-                            // 🌟 控制刷新频率：每 300 毫秒在 UI 上更新一次实时状态，防止频繁刷新卡死 UI
+                            // 每 300ms 刷新一次 UI
                             if (currentTime - lastUpdateTime >= 300 || bytesTransferred == totalBytes) {
                                 val durationMs = currentTime - startTime
                                 val speedStr = calculateSpeed(bytesTransferred, durationMs)
                                 val progress = if (totalBytes > 0) (bytesTransferred * 100 / totalBytes).toInt() else 0
                             
-                                withContext(Dispatchers.Main) {
-                                    // 提示：实际开发中可以通过特定更新机制，让此行日志在固定区域“原地刷新”而不用一直 append 刷屏
-                                    appendLog("[实时] 进度: $progress% | 已传: ${bytesTransferred / 1024 / 1024}MB | 实时速度: $speedStr | 已耗时: ${durationMs / 1000.0}s")
+                                lifecycleScope.launch(Dispatchers.Main) {
+                                    appendLog("[实时] 进度: $progress% | 已传: ${bytesTransferred / 1024 / 1024}MB | 速度: $speedStr | 耗时: ${durationMs / 1000.0}s")
                                 }
                                 lastUpdateTime = currentTime
                             }
                         }
+                        return bytesRead
                     }
                 }
-            
-                // 关闭通道
-                syncService.close()
-            
+
+                // 🌟 调用截图中的 openSync 链条
+                val syncStream = kadb.openSync()
+                syncStream.use { stream ->
+                    // 调用截图 96 行的 send 方法
+                    stream.send(
+                        source = progressSource, 
+                        remotePath = finalRemotePath, 
+                        mode = 438, // 对应底层默认权限 0666
+                        lastModifiedMs = localFile.lastModified()
+                    )
+                }
+
                 val totalDurationMs = System.currentTimeMillis() - startTime
                 withContext(Dispatchers.Main) {
                     appendLog("[成功] 文件已被推入远端: $finalRemotePath")
@@ -938,7 +939,7 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
-    
+
     private fun handleLocalAdbPull(command: String) {
         val parts = command.split("\\s+".toRegex()).filter { it.isNotBlank() }
         if (parts.size < 3) {
@@ -955,45 +956,45 @@ class MainActivity : ComponentActivity() {
         lifecycleScope.launch(Dispatchers.IO) {
             try {
                 val kadb = kadbInstance ?: throw IllegalStateException("数据通道未建立")
-            
-                // 1. 开启高级同步通道
-                val syncService = kadb.openSync()
-                // 🌟 尝试获取远端文件的大小以便计算进度百分比（部分 ADB 库支持 statSync）
-                val totalBytes = try { syncService.stat(remotePath).size } catch (e: Exception) { -1L }
-            
                 val startTime = System.currentTimeMillis()
+                var lastUpdateTime = startTime
+
+                // 🌟 首先尝试用原生 shell 命令快捷获取远端文件大小，用于计算 pull 进度百分比
+                val totalBytes = try {
+                    val sizeStr = kadb.executeShellCommand("stat -c %s '$remotePath'").stdout.trim()
+                    sizeStr.toLongOrNull() ?: -1L
+                } catch (e: Exception) { -1L }
+
+                // 🌟 核心：通过 Okio 包装本地落地输出流，实时拦截写入进度
+                val baseSink = localFile.sink(false)
                 var bytesTransferred = 0L
-                val bufferSize = 1024 * 256
-                val buffer = ByteArray(bufferSize)
-            
-                FileOutputStream(localFile).use { outputStream ->
-                    // 通过 syncService 开启远端读取流
-                    syncService.openReadStream(remotePath).use { inputStream ->
-                        var bytesRead: Int
-                        var lastUpdateTime = System.currentTimeMillis()
-                    
-                        while (inputStream.read(buffer).also { bytesRead = it } != -1) {
-                            outputStream.write(buffer, 0, bytesRead)
-                            bytesTransferred += bytesRead
+
+                val progressSink = object : ForwardingSink(baseSink) {
+                    override fun write(source: Buffer, byteCount: Long) {
+                        super.write(source, byteCount)
+                        bytesTransferred += byteCount
+                        val currentTime = System.currentTimeMillis()
+                        // 每 300ms 刷新一次 UI
+                        if (currentTime - lastUpdateTime >= 300) {
+                            val durationMs = currentTime - startTime
+                            val speedStr = calculateSpeed(bytesTransferred, durationMs)
+                            val progressStr = if (totalBytes > 0L) "${(bytesTransferred * 100 / totalBytes)}%" else "计算中"
                         
-                            val currentTime = System.currentTimeMillis()
-                            // 🌟 每 300 毫秒刷新一次 UI
-                            if (currentTime - lastUpdateTime >= 300) {
-                                val durationMs = currentTime - startTime
-                                val speedStr = calculateSpeed(bytesTransferred, durationMs)
-                                val progressStr = if (totalBytes > 0L) "${(bytesTransferred * 100 / totalBytes)}%" else "未知"
-                            
-                                withContext(Dispatchers.Main) {
-                                    appendLog("[实时] 进度: $progressStr | 已下载: ${bytesTransferred / 1024 / 1024}MB | 实时速度: $speedStr | 已耗时: ${durationMs / 1000.0}s")
-                                }
-                                lastUpdateTime = currentTime
+                            lifecycleScope.launch(Dispatchers.Main) {
+                                appendLog("[实时] 进度: $progressStr | 已下载: ${bytesTransferred / 1024 / 1024}MB | 速度: $speedStr | 耗时: ${durationMs / 1000.0}s")
                             }
+                            lastUpdateTime = currentTime
                         }
                     }
                 }
-            
-                syncService.close()
-            
+
+                // 🌟 调用截图中的 openSync 链条
+                val syncStream = kadb.openSync()
+                syncStream.use { stream ->
+                    // 调用截图 102 行的 recv 方法
+                    stream.recv(sink = progressSink, remotePath = remotePath)
+                }
+
                 val totalDurationMs = System.currentTimeMillis() - startTime
                 withContext(Dispatchers.Main) {
                     appendLog("[成功] 数据已沉淀至本地: ${localFile.absolutePath}")
@@ -1004,7 +1005,7 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
-    
+
     private fun calculateSpeed(bytes: Long, durationMs: Long): String {
         if (durationMs <= 0 || bytes <= 0) return "0 KB/s"
     
