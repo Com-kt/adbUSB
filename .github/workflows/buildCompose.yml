@@ -109,3 +109,10 @@ jobs:
           path: compose/build/outputs/mapping/release/*
           archive: true
           
+      - name: Upload R8 HTML
+        uses: actions/upload-artifact@v7
+        with:
+          name: r8-html
+          path: compose/build/outputs/mapping/release/configanalyzer.html
+          archive: false
+          
