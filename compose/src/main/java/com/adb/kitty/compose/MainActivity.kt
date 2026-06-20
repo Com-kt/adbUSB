@@ -891,12 +891,10 @@ class MainActivity : ComponentActivity() {
                 val startTime = System.currentTimeMillis()
                 var lastUpdateTime = startTime
 
-                // 🌟 强行使用 okio 扩展和显式全路径，避免导包冲突
-                val baseSource = okio.Okio.source(localFile)
+                val baseSource = localFile.source()
                 var bytesTransferred = 0L
             
                 val progressSource = object : okio.ForwardingSource(baseSource) {
-                    // 🟢 明确指定 okio.Buffer，解决 Overload 歧义
                     override fun read(sink: okio.Buffer, byteCount: Long): Long {
                         val bytesRead = super.read(sink, byteCount)
                         if (bytesRead > 0) {
@@ -958,12 +956,10 @@ class MainActivity : ComponentActivity() {
                 val startTime = System.currentTimeMillis()
                 var lastUpdateTime = startTime
 
-                // 🌟 强行使用 okio.Okio.sink 规避命名空间二义性
-                val baseSink = okio.Okio.sink(localFile)
+                val baseSink = localFile.sink()
                 var bytesTransferred = 0L
 
                 val progressSink = object : okio.ForwardingSink(baseSink) {
-                    // 🟢 明确指定 okio.Buffer，杜绝 'write' overrides nothing 报错
                     override fun write(source: okio.Buffer, byteCount: Long) {
                         super.write(source, byteCount)
                         bytesTransferred += byteCount
