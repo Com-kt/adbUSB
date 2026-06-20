@@ -10,6 +10,46 @@
     <uses-feature 
           android:name="android.hardware.opengles.aep"
           android:required="false" />
+    <!-- 指纹识别  -->
+    <uses-feature 
+          android:name="android.hardware.fingerprint"
+          android:required="false" />
+    <!-- 手柄 -->
+    <uses-feature 
+          android:name="android.hardware.gamepad"
+          android:required="false" />
+    <!-- 红外线 -->
+    <uses-feature 
+          android:name="android.hardware.consumerir"
+          android:required="false" />
+    <!-- 触摸屏 -->
+    <uses-feature 
+          android:name="android.hardware.touchscreen"
+          android:required="false" />
+    <!-- 触摸屏模拟器 -->
+    <uses-feature 
+          android:name="android.hardware.faketouch"
+          android:required="false" />
+    <!-- 麦克风 -->
+    <uses-feature 
+          android:name="android.hardware.microphone"
+          android:required="false" />
+    <!-- 传感器 -->
+    <uses-feature 
+          android:name="android.hardware.sensor"
+          android:required="false" />
+    <!-- 纵向屏幕 -->
+    <uses-feature 
+          android:name="android.hardware.screen.portrait"
+          android:required="false" />
+    <!-- NFC -->
+    <uses-feature 
+          android:name="android.hardware.nfc"
+          android:required="false" />
+    <!-- HCE -->
+    <uses-feature 
+          android:name="android.hardware.nfc.hce"
+          android:required="false" />
     <!-- USB 主机功能 -->
     <uses-feature 
           android:name="android.hardware.usb.host"
@@ -75,6 +115,14 @@
           android:name="android.software.companion_device_setup"
           android:required="false" />
     
+    <!-- 控制近距离通信 -->
+    <uses-permission android:name="android.permission.NFC" />
+    <!-- 读取 NFC 交易事件 -->
+    <uses-permission android:name="android.permission.NFC_TRANSACTION_EVENT" />
+    <!-- 接收 NFC 首选支付信息 -->
+    <uses-permission android:name="android.permission.NFC_PREFERRED_PAYMENT_INFO" />
+    <!-- 发射红外线 -->
+    <uses-permission android:name="android.permission.TRANSMIT_IR" />
     <!-- 读取系统日志 -->
     <uses-permission 
         android:name="android.permission.READ_LOGS"
@@ -277,6 +325,9 @@
         <uses-native-library
             android:name="com.android.location.provider"
             android:required="false" />
+        <meta-data 
+            android:name="android.software.leanback.supports_touch" 
+            android:value="true" />
         <!-- activity-alias 适配 Pixel 系列的类原生系统桌面 -->
         <activity-alias
              android:name="aliasActivity"
@@ -287,6 +338,7 @@
                     android:name="android.intent.action.MAIN" />
                 <category
                     android:name="android.intent.category.LAUNCHER" />
+                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
             </intent-filter>
         </activity-alias>
         <activity 
