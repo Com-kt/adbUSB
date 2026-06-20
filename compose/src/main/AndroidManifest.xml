@@ -114,6 +114,9 @@
         android:maxSdkVersion="32" />
     <!-- 使用证书 -->
     <uses-permission android:name="android.permission.USE_CREDENTIALS" />
+    <!-- 使用生物识别 -->
+    <uses-permission android:name="android.permission.USE_BIOMETRIC" />
+    <!-- 访问 USB 设备 -->
     <uses-permission android:name="android.permission.USB_PERMISSION" />
     <!-- 防止手机休眠 -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
