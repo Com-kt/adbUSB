@@ -26,7 +26,7 @@ conscrypt = "2.5.2"
 
 annotationExperimental = "1.6.0"
 
-compose-bom = "2026.05.01"
+compose-bom = "2026.06.00"
 activity-compose = "1.13.0"
 
 [libraries]
