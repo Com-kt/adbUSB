@@ -240,6 +240,7 @@ class MainActivityViewModel : ViewModel() {
         AdbCommand("查看su版本", "su -v"),
         AdbCommand("查看基带版本", "getprop gsm.version.baseband"),
         AdbCommand("查看安卓系统版本", "getprop ro.build.version.release"),
+        AdbCommand("查看安卓系统最低支持的TargetSdk", "getprop ro.build.version.min_supported_target_sdk"),
         AdbCommand("查看设备编译版本", "getprop ro.build.display.id"),
         AdbCommand("查看安全补丁级别", "getprop ro.build.version.security_patch"),
         AdbCommand("查看主板型号", "getprop ro.product.board"),

@@ -1,12 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- /*
- * Copyright (c) 2026-2030 小猫猫. All rights reserved.
- * 
- * LICENSE NOTE:
- * Any redistribution must retain this copyright notice and license disclaimer.
- *
- * by: 小猫猫
- */ -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
     android:installLocation="auto">
@@ -17,6 +9,54 @@
     <!-- OpenGL ES 硬件功能 -->
     <uses-feature 
           android:name="android.hardware.opengles.aep"
+          android:required="false" />
+    <!-- Android TV -->
+    <uses-feature 
+          android:name="android.software.leanback"
+          android:required="false" />
+    <!-- 电话 -->
+    <uses-feature 
+          android:name="android.hardware.telephony"
+          android:required="false" />
+    <!-- 指纹识别  -->
+    <uses-feature 
+          android:name="android.hardware.fingerprint"
+          android:required="false" />
+    <!-- 手柄 -->
+    <uses-feature 
+          android:name="android.hardware.gamepad"
+          android:required="false" />
+    <!-- 红外线 -->
+    <uses-feature 
+          android:name="android.hardware.consumerir"
+          android:required="false" />
+    <!-- 触摸屏 -->
+    <uses-feature 
+          android:name="android.hardware.touchscreen"
+          android:required="false" />
+    <!-- 触摸屏模拟器 -->
+    <uses-feature 
+          android:name="android.hardware.faketouch"
+          android:required="false" />
+    <!-- 麦克风 -->
+    <uses-feature 
+          android:name="android.hardware.microphone"
+          android:required="false" />
+    <!-- 传感器 -->
+    <uses-feature 
+          android:name="android.hardware.sensor"
+          android:required="false" />
+    <!-- 纵向屏幕 -->
+    <uses-feature 
+          android:name="android.hardware.screen.portrait"
+          android:required="false" />
+    <!-- NFC -->
+    <uses-feature 
+          android:name="android.hardware.nfc"
+          android:required="false" />
+    <!-- HCE -->
+    <uses-feature 
+          android:name="android.hardware.nfc.hce"
           android:required="false" />
     <!-- USB 主机功能 -->
     <uses-feature 
@@ -83,6 +123,38 @@
           android:name="android.software.companion_device_setup"
           android:required="false" />
     
+    <!-- 控制近距离通信 -->
+    <uses-permission android:name="android.permission.NFC" />
+    <!-- 读取 NFC 交易事件 -->
+    <uses-permission android:name="android.permission.NFC_TRANSACTION_EVENT" />
+    <!-- 接收 NFC 首选支付信息 -->
+    <uses-permission android:name="android.permission.NFC_PREFERRED_PAYMENT_INFO" />
+    <!-- 发射红外线 -->
+    <uses-permission android:name="android.permission.TRANSMIT_IR" />
+    <!-- 读取系统日志 -->
+    <uses-permission 
+        android:name="android.permission.READ_LOGS"
+        tools:ignore="ProtectedPermissions" />
+    <!-- 与其他用户进行交互 -->
+    <uses-permission 
+        android:name="android.permission.INTERACT_ACROSS_USERS"
+        tools:ignore="ProtectedPermissions" />
+    <!-- 允许应用程序跨用户访问数据块 -->
+    <uses-permission 
+        android:name="android.permission.ACCESS_BLOBS_ACROSS_USERS"
+        tools:ignore="ProtectedPermissions" />
+    <!-- 转存系统信息 -->
+    <uses-permission 
+        android:name="android.permission.DUMP"
+        tools:ignore="ProtectedPermissions" />
+    <!-- 电量统计 -->
+    <uses-permission 
+        android:name="android.permission.BATTERY_STATS"
+        tools:ignore="ProtectedPermissions" />
+    <!-- 允许应用阻止非系统覆盖窗口绘制在其上方 -->
+    <uses-permission android:name="android.permission.HIDE_OVERLAY_WINDOWS" />
+    <!-- Android 17+ 局域网附近设备 -->
+    <uses-permission android:name="android.permission.ACCESS_LOCAL_NETWORK" />
     <!-- Android 13+ 附近 WiFi 设备 -->
     <uses-permission 
         android:name="android.permission.NEARBY_WIFI_DEVICES" 
@@ -98,6 +170,9 @@
         android:maxSdkVersion="32" />
     <!-- 使用证书 -->
     <uses-permission android:name="android.permission.USE_CREDENTIALS" />
+    <!-- 使用生物识别 -->
+    <uses-permission android:name="android.permission.USE_BIOMETRIC" />
+    <!-- 访问 USB 设备 -->
     <uses-permission android:name="android.permission.USB_PERMISSION" />
     <!-- 防止手机休眠 -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
@@ -168,7 +243,7 @@
     <!-- 禁用键盘锁 -->
     <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
     <queries>
-        <package android:name="com.adb.kitty" />
+        <package android:name="com.adb.kitty.compose" />
         <package android:name="com.android.ipsec" />
         <package android:name="com.android.art" />
         <package android:name="com.android.virt" />
@@ -246,7 +321,8 @@
         android:networkSecurityConfig="@xml/network_security_config"
         android:enableOnBackInvokedCallback="true"
         android:icon="@mipmap/ic_launcher"
-        android:roundIcon="@mipmap/ic_launcher_round"
+        android:roundIcon="@mipmap/ic_launcher"
+        android:banner="@drawable/tv_banner"
         android:label="@string/app_name"
         android:supportsRtl="true"
         android:theme="@style/AppTheme"
@@ -258,6 +334,9 @@
         <uses-native-library
             android:name="com.android.location.provider"
             android:required="false" />
+        <meta-data 
+            android:name="android.software.leanback.supports_touch" 
+            android:value="true" />
         <!-- activity-alias 适配 Pixel 系列的类原生系统桌面 -->
         <activity-alias
              android:name="aliasActivity"
@@ -268,6 +347,7 @@
                     android:name="android.intent.action.MAIN" />
                 <category
                     android:name="android.intent.category.LAUNCHER" />
+                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
             </intent-filter>
         </activity-alias>
         <activity 
@@ -281,6 +361,7 @@
             android:canDisplayOnRemoteDevices="false"
             android:launchMode="singleInstancePerTask"
             android:persistableMode="persistNever"
+            android:theme="@style/AppTheme"
             android:exported="true">
             <!-- USB主机模式 -->
             <intent-filter>

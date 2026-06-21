@@ -6,13 +6,8 @@ kotlin = "2.4.0"
 ksp = "2.3.9"
 
 kotlinxCoroutines = "1.11.0"
-constraintlayout = "2.2.1"
-appcompat = "1.7.1"
-material = "1.14.0"
 annotation = "1.10.0"
 coreKtx = "1.19.0"
-activityKtx = "1.13.0"
-fragmentKtx = "1.8.9"
 
 mtDataFilesProvider = "1.0.0"
 
@@ -22,7 +17,6 @@ libsuVersion = "6.0.0"
 lifecycle = "2.11.0"
 
 kadb = "2.1.2"
-conscrypt = "2.5.2"
 
 annotationExperimental = "1.6.0"
 
@@ -31,24 +25,17 @@ activity-compose = "1.13.0"
 
 [libraries]
 # AndroidX 核心基础库
-androidx-appcompat = { group = "androidx.appcompat", name = "appcompat", version.ref = "appcompat" }
-androidx-constraintlayout = { group = "androidx.constraintlayout", name = "constraintlayout", version.ref = "constraintlayout" }
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
-androidx-activity-ktx = { group = "androidx.activity", name = "activity-ktx", version.ref = "activityKtx" }
 androidx-annotation = { group = "androidx.annotation", name = "annotation", version.ref = "annotation" }
-androidx-fragment-ktx = { group = "androidx.fragment", name = "fragment-ktx", version.ref = "fragmentKtx" }
 androidx-annotation-experimental = { group = "androidx.annotation", name = "annotation-experimental", version.ref = "annotationExperimental" }
 
 # Lifecycle 组件
 androidx-lifecycle-livedata-ktx = { group = "androidx.lifecycle", name = "lifecycle-livedata-ktx", version.ref = "lifecycle" }
-androidx-lifecycle-viewmodel-ktx = { group = "androidx.lifecycle", name = "lifecycle-viewmodel-ktx", version.ref = "lifecycle" }
 androidx-lifecycle-process = { group = "androidx.lifecycle", name = "lifecycle-process", version.ref = "lifecycle" }
-androidx-lifecycle-runtime-ktx = { group = "androidx.lifecycle", name = "lifecycle-runtime-ktx", version.ref = "lifecycle" }
 androidx-lifecycle-reactivestreams-ktx = { group = "androidx.lifecycle", name = "lifecycle-reactivestreams-ktx", version.ref = "lifecycle" }
 androidx-lifecycle-service = { group = "androidx.lifecycle", name = "lifecycle-service", version.ref = "lifecycle" }
 
-# Google & 第三方库
-material = { group = "com.google.android.material", name = "material", version.ref = "material" }
+# kotlinx 协程
 kotlinx-coroutines-core = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-core", version.ref = "kotlinxCoroutines" }
 kotlinx-coroutines-core-jvm = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-core-jvm", version.ref = "kotlinxCoroutines" }
 kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "kotlinxCoroutines" }
@@ -65,7 +52,6 @@ libsu-service = { module = "com.github.topjohnwu.libsu:service", version.ref = "
 libsu-io = { module = "com.github.topjohnwu.libsu:io", version.ref = "libsuVersion" }
 
 com-flyfishxu-kadb = { group = "com.flyfishxu", name = "kadb", version.ref = "kadb" }
-org-conscrypt-openjdk-uber = { group = "org.conscrypt", name = "conscrypt-openjdk-uber", version.ref = "conscrypt" }
 
 # Compose
 androidx-compose-bom = { group = "androidx.compose", name = "compose-bom", version.ref = "compose-bom" }
@@ -109,14 +95,6 @@ compose-debug = [
     "androidx-compose-ui-tooling",
     "androidx-compose-ui-tooling-preview",
     "androidx-compose-ui-test-manifest"
-]
-lifecycle = [
-    "androidx-lifecycle-livedata-ktx",
-    "androidx-lifecycle-viewmodel-ktx",
-    "androidx-lifecycle-process",
-    "androidx-lifecycle-runtime-ktx",
-    "androidx-lifecycle-reactivestreams-ktx",
-    "androidx-lifecycle-service"
 ]
 coroutines-runtime = [
     "kotlinx-coroutines-core-jvm",
