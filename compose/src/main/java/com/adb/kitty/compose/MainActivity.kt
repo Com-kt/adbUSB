@@ -666,7 +666,17 @@ class MainActivity : ComponentActivity() {
         // 2. 启动新任务并保存 Job
         currentShellJob = lifecycleScope.launch(Dispatchers.IO) {
             val cleanCmd = command.removePrefix("adb shell ").trim()
-            val isLongRunning = cleanCmd.contains("logcat") || cleanCmd.contains("top") || cleanCmd.contains("dumpsys") || cleanCmd.contains("cat /proc/")
+            val isLongRunning = when {
+                cleanCmd.contains("-d") -> false
+                cleanCmd.contains("-b crash") -> false
+                cleanCmd.contains("dumpsys battery") -> false
+            
+                cleanCmd.contains("logcat") -> true
+                cleanCmd.contains("top") -> true
+                cleanCmd.contains("dumpsys") -> true
+            
+                else -> false
+            }
         
             try {
                 val kadb = kadbInstance ?: throw IllegalStateException("通道连接未就绪")
