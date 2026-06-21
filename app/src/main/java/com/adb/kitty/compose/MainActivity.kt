@@ -84,6 +84,7 @@ import androidx.compose.ui.text.*
 import androidx.compose.ui.text.style.*
 import androidx.compose.ui.text.font.*
 import androidx.compose.ui.text.input.*
+import androidx.compose.layout.*
 import com.adb.kitty.compose.ui.theme.*
 import com.adb.kitty.compose.ui.viewmodel.*
 import com.adb.kitty.compose.data.*
@@ -1316,6 +1317,10 @@ fun CenterAlignedTopAppBarExample(
     var expanded by remember { mutableStateOf(false) }
     
     val logs = viewModel.logs
+    
+    var isAppChecked by remember { mutableStateOf(true) }
+    var isAdbChecked by remember { mutableStateOf(true) }
+    var isFastbootChecked by remember { mutableStateOf(true) }
 
     Scaffold(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
@@ -1551,6 +1556,38 @@ fun CenterAlignedTopAppBarExample(
         },
     ) { innerPadding ->
         Column(modifier = Modifier.padding(innerPadding).padding(16.dp).fillMaxSize()) {
+            
+            FlowRow(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Checkbox(
+                        checked = isAppChecked,
+                        onCheckedChange = { isAppChecked = it }
+                    )
+                    Text(text = "APP", style = MaterialTheme.typography.bodyMedium)
+                }
+    
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Checkbox(
+                        checked = isAdbChecked,
+                        onCheckedChange = { isAdbChecked = it }
+                    )
+                    Text(text = "ADB", style = MaterialTheme.typography.bodyMedium)
+                }
+
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Checkbox(
+                        checked = isFastbootChecked,
+                        onCheckedChange = { isFastbootChecked = it }
+                    )
+                    Text(text = "Fastboot", style = MaterialTheme.typography.bodyMedium)
+                }
+            }
             
             Box(modifier = Modifier.wrapContentHeight()) {
                 ExposedDropdownMenuBox(
