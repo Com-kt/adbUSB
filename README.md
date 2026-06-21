@@ -1,5 +1,5 @@
 # 加入我们的频道
-[![Telegram](image/telegram_icon.webp)](https://t.me/SkisMode)
+[![Telegram](image/telegram_icon.webp)](https://t.me/+732tNU9GoyhkNGY1)
 
 # Version
 - 对于 Release 版本，您可以在 [release](https://github.com/deleteFAILunknown/usbFlash/releases) 中找到它们
@@ -45,25 +45,13 @@
 - [x] Application
     - [x] Android TV
     - [x] Android Tablet
+    - [x] There may be surprises
     - [x] ipv4 Test
     - [x] ipv6 Test
     - [x] display Test (RootService)
         - [x] CPU
-            - [x] SM8475：
-                - [x] 第一代骁龙 8+ (Snapdragon 8+ Gen 1)
-                - [x] 1+3+4
-            - [x] SM8550：
-                - [x] 第二代骁龙 8 (Snapdragon 8 Gen 2)
-                - [x] 1+(2+2)+3
-            - [x] SM8650：
-                - [x] 第三代骁龙 8 (Snapdragon 8 Gen 3)
-                - [x] 1+5+2
-            - [x] SM8750：
-                - [x] 骁龙 8 至尊版 (Snapdragon 8 Elite / 8e)
-                - [x] 2+6
-            - [x] SM8850：
-                - [x] 第五代骁龙 8 至尊版 (Snapdragon 8 Elite Gen 5 / 8e5)
-                - [x] 2+6
+            - [x] SM8475
+            - [x] SM8650
     - [x] MTFilesProvider
     - [x] Kernel frequency raising (Android 12+)
     - [x] Library
