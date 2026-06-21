@@ -666,14 +666,23 @@ class MainActivity : ComponentActivity() {
         // 2. 启动新任务并保存 Job
         currentShellJob = lifecycleScope.launch(Dispatchers.IO) {
             val cleanCmd = command.removePrefix("adb shell ").trim()
+            val shortDumpsysList = listOf(
+                "dumpsys battery",
+                "dumpsys thermal",
+                "dumpsys diskstats",
+                "dumpsys user",
+                "dumpsys statusbar",
+                "dumpsys hardware_properties"
+            )
             val isLongRunning = when {
-                cleanCmd.contains("-d") -> false
-                cleanCmd.contains("-b crash") -> false
-                cleanCmd.contains("dumpsys battery") -> false
+                shortDumpsysList.any { cleanCmd.contains(it) } -> false
+                cleanCmd.contains("logcat") && (cleanCmd.contains("-d") || cleanCmd.contains("-c")) -> false
+                cleanCmd.startsWith("top") && !cleanCmd.contains("-n") -> true
+                cleanCmd.startsWith("ping") && !cleanCmd.contains("-c") -> true
             
                 cleanCmd.contains("logcat") -> true
-                cleanCmd.contains("top") -> true
                 cleanCmd.contains("dumpsys") -> true
+                cleanCmd.contains("screenrecord") -> true
             
                 else -> false
             }
