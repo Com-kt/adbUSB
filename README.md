@@ -101,5 +101,5 @@
 
 - [Kadb](https://github.com/flyfishxu/Kadb)
 - [android-sdk](https://github.com/HomuHomu833/android-sdk-custom)
-- [topjohnwu-RootService](https://github.com/topjohnwu/libsu)
+- [libsu](https://github.com/topjohnwu/libsu)
 - [bkerler-edl](https://github.com/bkerler/edl)
