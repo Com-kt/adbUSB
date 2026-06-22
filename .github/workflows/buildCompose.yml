@@ -39,13 +39,13 @@ jobs:
         run: echo "${{ secrets.SIGNING_KEY_BASE64 }}" | base64 --decode > release.jks
 
       - name: Build Debug, Release and Bundle
-        run: ./gradlew :app:lint :app:assembleDebug :app:assembleRelease :app:bundleRelease -i -w --stacktrace --warning-mode all 2>&1 | tee build.log
+        run: ./gradlew :app:lint :app:assembleDebug :app:assembleRelease :app:bundleDebug :app:bundleRelease -i -w --stacktrace --warning-mode all 2>&1 | tee build.log
         env:
           RELEASE_STORE_PASSWORD: ${{ secrets.KEY_STORE_PASSWORD }}
           RELEASE_KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           RELEASE_KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
           
-      - name: Generate release.apks using Bundletool
+      - name: Builds APKs Splits
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -53,7 +53,15 @@ jobs:
           mv bundletool-all-*.jar bundletool.jar
           java -jar bundletool.jar build-apks \
             --bundle=app/build/outputs/bundle/release/app-release.aab \
-            --output=aab-release.zip \
+            --output=aab-release.apks \
+            --mode=default \
+            --ks=release.jks \
+            --ks-pass=pass:${{ secrets.KEY_STORE_PASSWORD }} \
+            --ks-key-alias=${{ secrets.KEY_ALIAS }} \
+            --key-pass=pass:${{ secrets.KEY_PASSWORD }}
+          java -jar bundletool.jar build-apks \
+            --bundle=app/build/outputs/bundle/debug/app-debug.aab \
+            --output=aab-debug.apks \
             --mode=default \
             --ks=release.jks \
             --ks-pass=pass:${{ secrets.KEY_STORE_PASSWORD }} \
@@ -95,11 +103,18 @@ jobs:
           path: app/build/outputs/apk/release/*
           archive: true
           
-      - name: Upload Release aab
+      - name: Upload Release APKs Splits
         uses: actions/upload-artifact@v7
         with:
           name: aab-release-apks
-          path: aab-release.zip
+          path: aab-release.apks
+          archive: false
+          
+      - name: Upload Debug APKs Splits
+        uses: actions/upload-artifact@v7
+        with:
+          name: aab-debug-apks
+          path: aab-debug.apks
           archive: false
           
       - name: Upload Native Debug Symbols
@@ -130,3 +145,9 @@ jobs:
           path: app/build/outputs/mapping/release/configanalyzer.html
           archive: false
           
+      - name: Upload Bundle
+        uses: actions/upload-artifact@v7
+        with:
+          name: aab-bundle
+          path: app/build/outputs/bundle/*
+          archive: true
