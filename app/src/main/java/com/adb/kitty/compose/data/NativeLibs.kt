@@ -40,7 +40,6 @@ object NativeLibs {
         System.loadLibrary("native-lib")
     }
     external fun UserString(): String
-    external fun nativeVerify(context: Context)
 }
 
 @Keep

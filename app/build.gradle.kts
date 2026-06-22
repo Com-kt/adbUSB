@@ -221,7 +221,7 @@ android {
             keyPassword = System.getenv("RELEASE_KEY_PASSWORD")
             storeType = "PKCS12"
             enableV1Signing = false
-            enableV2Signing = true
+            enableV2Signing = false
             enableV3Signing = true
             enableV4Signing = true
         }
