@@ -219,7 +219,7 @@ android {
             storePassword = System.getenv("RELEASE_STORE_PASSWORD")
             keyAlias = System.getenv("RELEASE_KEY_ALIAS")
             keyPassword = System.getenv("RELEASE_KEY_PASSWORD")
-            
+            storeType = "PKCS12"
             enableV1Signing = false
             enableV2Signing = true
             enableV3Signing = true
