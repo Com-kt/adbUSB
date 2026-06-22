@@ -56,8 +56,8 @@ bool verifyApkSigningBlock(const std::string& apkPath) {
         return false;
     }
 
-    std::streampos size = apk.tellg();
-    long long readSize = (size > 65536) ? 65536 : size;
+    long long fileSize = static_cast<long long>(apk.tellg());
+    long long readSize = (fileSize > 65536) ? 65536 : fileSize;
     apk.seekg(-readSize, std::ios::end);
 
     std::string buffer((std::istreambuf_iterator<char>(apk)), std::istreambuf_iterator<char>());
