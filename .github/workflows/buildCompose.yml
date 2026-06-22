@@ -53,7 +53,7 @@ jobs:
           mv bundletool-all-*.jar bundletool.jar
           java -jar bundletool.jar build-apks \
             --bundle=app/build/outputs/bundle/release/app-release.aab \
-            --output=release.apks \
+            --output=aab-release.zip \
             --mode=default \
             --ks=release.jks \
             --ks-pass=pass:${{ secrets.KEY_STORE_PASSWORD }} \
@@ -99,7 +99,7 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: aab-release-apks
-          path: release.apks
+          path: aab-release.zip
           archive: false
           
       - name: Upload Native Debug Symbols
