@@ -210,7 +210,7 @@ Java_com_adb_kitty_compose_data_NativeLibs_V3Signature(JNIEnv* env, jobject thiz
                              (static_cast<uint64_t>(block_data[offset+6]) << 48) | (static_cast<uint64_t>(block_data[offset+7]) << 56);
         uint32_t pair_id = block_data[offset+8] | (block_data[offset+9] << 8) | (block_data[offset+10] << 16) | (block_data[offset+11] << 24);
 
-        if (pair_id == 0x1b93d616 || pair_id == 0x1b93d617) {
+        if (pair_id == 0xf05368c0 || pair_id == 0x1b93ad61 || pair_id == 0x7109871a) { 
             v3_payload = &block_data[offset + 12];
             v3_payload_size = pair_size - 4;
             break;
