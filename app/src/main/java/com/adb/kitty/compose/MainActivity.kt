@@ -1603,7 +1603,7 @@ fun CenterAlignedTopAppBarExample(
                             
                             val isUsb = rawDeviceId.startsWith("USB_")
                             val cleanName = rawDeviceId.substringAfter("_")
-                            val displayName = if (isUsb) "🔌 USB: $cleanName" else "🌐 Wi-Fi: ${cleanName.takeLast(14)}"
+                            val displayName = if (isUsb) "🔌 USB: $cleanName" else "🌐 Wi-Fi: $cleanName"
 
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
@@ -1621,8 +1621,8 @@ fun CenterAlignedTopAppBarExample(
                                 )
                                 Spacer(modifier = Modifier.width(4.dp))
                                 Text(
-                                    text = displayName, 
-                                    style = MaterialTheme.typography.bodyMedium,
+                                    text = displayName,
+                                    style = MaterialTheme.typography.bodySmall,
                                     color = if (isCurrentActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
                                 )
                             }
