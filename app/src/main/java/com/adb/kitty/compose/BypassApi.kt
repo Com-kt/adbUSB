@@ -8,6 +8,9 @@ import androidx.annotation.Keep
 
 @Keep
 class BypassApi : Application() {
+    init {
+        System.loadLibrary("native-lib")
+    }
     override fun attachBaseContext(base: Context?) {
         super.attachBaseContext(base)
         HiddenApiBypass.addHiddenApiExemptions("L")
