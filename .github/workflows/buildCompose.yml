@@ -47,7 +47,8 @@ jobs:
           
       - name: Generate release.apks using Bundletool
         run: |
-          curl -L -o bundletool.jar "https://github.com"
+          gh release download --repo google/bundletool --pattern "bundletool-all-*.jar" --clobber
+          mv bundletool-all-*.jar bundletool.jar
           java -jar bundletool.jar build-apks \
             --bundle=app/build/outputs/bundle/release/app-release.aab \
             --output=release.apks \
