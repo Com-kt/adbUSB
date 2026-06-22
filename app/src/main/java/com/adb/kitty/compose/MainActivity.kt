@@ -1559,8 +1559,8 @@ fun CenterAlignedTopAppBarExample(
             FlowRow(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(bottom = 4.dp),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    .padding(bottom = 2.dp),
+                horizontalArrangement = Arrangement.spacedBy(7.dp),
                 verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
