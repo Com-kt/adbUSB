@@ -212,6 +212,18 @@ android {
         }
     }
     
+    bundle {
+        language {
+            enableSplit = true
+        }
+        density {
+            enableSplit = true
+        }
+        abi {
+            enableSplit = true
+        }
+    }
+    
     signingConfigs {
         create("adb") {
         // keystore file，.bks & .jks & .p12

@@ -38,12 +38,24 @@ jobs:
       - name: Decode Keystore
         run: echo "${{ secrets.SIGNING_KEY_BASE64 }}" | base64 --decode > release.jks
 
-      - name: Build Debug and Release
-        run: ./gradlew :app:lint :app:assembleDebug :app:assembleRelease -i -w --stacktrace --warning-mode all 2>&1 | tee build.log
+      - name: Build Debug, Release and Bundle
+        run: ./gradlew :app:lint :app:assembleDebug :app:assembleRelease :app:bundleRelease -i -w --stacktrace --warning-mode all 2>&1 | tee build.log
         env:
           RELEASE_STORE_PASSWORD: ${{ secrets.KEY_STORE_PASSWORD }}
           RELEASE_KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           RELEASE_KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          
+      - name: Generate release.apks using Bundletool
+        run: |
+          wget -O bundletool.jar https://github.com
+          java -jar bundletool.jar build-apks \
+            --bundle=app/build/outputs/bundle/release/app-release.aab \
+            --output=release.apks \
+            --mode=default \
+            --ks=release.jks \
+            --ks-pass=pass:${{ secrets.KEY_STORE_PASSWORD }} \
+            --ks-key-alias=${{ secrets.KEY_ALIAS }} \
+            --key-pass=pass:${{ secrets.KEY_PASSWORD }}
           
       - name: Upload Build Log
         uses: actions/upload-artifact@v7
@@ -79,6 +91,13 @@ jobs:
           name: release-apks
           path: app/build/outputs/apk/release/*
           archive: true
+          
+      - name: Upload Release aab
+        uses: actions/upload-artifact@v7
+        with:
+          name: aab-release-apks
+          path: release.apks
+          archive: false
           
       - name: Upload Native Debug Symbols
         uses: actions/upload-artifact@v7
