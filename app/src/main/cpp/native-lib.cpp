@@ -52,15 +52,36 @@ inline std::string _XOR_(const std::vector<uint8_t>& encrypted) {
 
 bool verifyApkSigningBlock(const std::string& apkPath) {
     std::ifstream apk(apkPath, std::ios::binary | std::ios::ate);
-    if (!apk.is_open()) {
-        return false;
-    }
+    if (!apk.is_open()) return false;
 
     long long fileSize = static_cast<long long>(apk.tellg());
-    long long readSize = (fileSize > 65536) ? 65536 : fileSize;
-    apk.seekg(-readSize, std::ios::end);
+    if (fileSize < 22) return false;
 
-    std::string buffer((std::istreambuf_iterator<char>(apk)), std::istreambuf_iterator<char>());
+    long long readSize = (fileSize > 1024) ? 1024 : fileSize;
+    apk.seekg(-readSize, std::ios::end);
+    std::vector<char> eocdBuffer(readSize);
+    apk.read(eocdBuffer.data(), readSize);
+
+    long long eocdOffset = -1;
+    for (long long i = readSize - 22; i >= 0; --i) {
+        if (eocdBuffer[i] == 0x50 && eocdBuffer[i+1] == 0x4B && eocdBuffer[i+2] == 0x05 && eocdBuffer[i+3] == 0x06) {
+            eocdOffset = fileSize - readSize + i;
+            break;
+        }
+    }
+    if (eocdOffset == -1) return false;
+
+    apk.seekg(eocdOffset + 16, std::ios::beg);
+    uint32_t cdOffset = 0;
+    apk.read(reinterpret_cast<char*>(&cdOffset), 4);
+    if (cdOffset < 32) return false;
+
+    long long searchOffset = (cdOffset > 4096) ? (cdOffset - 4096) : 0;
+    long long searchSize = cdOffset - searchOffset;
+
+    apk.seekg(searchOffset, std::ios::beg);
+    std::string buffer(searchSize, '\0');
+    apk.read(&buffer[0], searchSize);
     apk.close();
 
     std::vector<uint8_t> enc_block = {0x1b, 0x0a, 0x11, 0x7a, 0x09, 0x33, 0x3d, 0x7a, 0x18, 0x36, 0x35, 0x39, 0x31, 0x7a, 0x6e, 0x68};
