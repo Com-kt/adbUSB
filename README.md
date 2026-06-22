@@ -77,12 +77,12 @@
 
 # 原著者声明
 - /*
-- * Copyright (c) 2026-2030 小猫猫. All rights reserved.
+- * Copyright (c) 2026-2030 evil spirits. All rights reserved.
 - * 
 - * LICENSE NOTE:
 - * Any redistribution must retain this copyright notice and license disclaimer.
 - *
-- * by: 小猫猫
+- * by: evil spirits
 - */
 
 ## Acknowledgements
