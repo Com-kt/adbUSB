@@ -46,6 +46,8 @@ jobs:
           RELEASE_KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
           
       - name: Generate release.apks using Bundletool
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           gh release download --repo google/bundletool --pattern "bundletool-all-*.jar" --clobber
           mv bundletool-all-*.jar bundletool.jar
