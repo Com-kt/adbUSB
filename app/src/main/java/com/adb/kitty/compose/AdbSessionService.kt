@@ -106,7 +106,7 @@ class AdbSessionService : Service() {
             var totalSeconds = 0
             while (isActive) {
                 val connectedCount = kadbInstancePool.size
-                val statusText = if (connectedCount > 0) "已并网调试设备: ${connectedCount}台" else "adbd空闲中 (等待设备接入)"
+                val statusText = if (connectedCount > 0) "已连接: ${connectedCount}台" else "等待设备接入"
                 val hours = totalSeconds / 3600
                 val minutes = (totalSeconds % 3600) / 60
                 val seconds = totalSeconds % 60

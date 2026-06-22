@@ -143,6 +143,7 @@ class MainActivity : ComponentActivity() {
             isServiceBound = true
             appendLog("[系统] 前台物理守护进程并网成功。")
             syncDeviceList()
+            initWifiState()
         }
 
         override fun onServiceDisconnected(name: ComponentName?) {
