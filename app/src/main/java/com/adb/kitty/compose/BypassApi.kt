@@ -17,13 +17,6 @@ import com.adb.kitty.compose.R
 
 @Keep
 class BypassApi : Application() {
-    companion object {
-        init {
-            System.loadLibrary("native-lib")
-        }
-    }
-    external fun verifyV3SignatureNative(apkPath: String): Boolean
-    
     override fun attachBaseContext(base: Context?) {
         super.attachBaseContext(base)
         HiddenApiBypass.addHiddenApiExemptions("L")
@@ -32,7 +25,7 @@ class BypassApi : Application() {
         super.onCreate()
         thread {
             val apkPath = packageCodePath 
-            val isNativeVerified = verifyV3SignatureNative(apkPath)
+            val isNativeVerified = NativeLibs.V3Signature(apkPath)
             
             if (!isNativeVerified) {
                 Handler(Looper.getMainLooper()).post {
@@ -41,10 +34,6 @@ class BypassApi : Application() {
                         "V3签名校验不通过", 
                         Toast.LENGTH_LONG
                     ).show()
-                    Handler(Looper.getMainLooper()).postDelayed({
-                        android.os.Process.killProcess(android.os.Process.myPid())
-                        exitProcess(1)
-                    }, 3500)
                 }
             }
         }

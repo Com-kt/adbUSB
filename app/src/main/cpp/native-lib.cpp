@@ -136,7 +136,7 @@ uint32_t read_uint32_le(const uint8_t*& ptr) {
 }
 
 extern "C" JNIEXPORT jboolean JNICALL
-Java_com_adb_kitty_compose_BypassApi_verifyV3SignatureNative(JNIEnv* env, jobject thiz, jstring apk_path_obj) {
+Java_com_adb_kitty_compose_data_NativeLibs_V3Signature(JNIEnv* env, jobject thiz, jstring apk_path_obj) {
     if (!apk_path_obj) return JNI_FALSE;
     const char* apk_path = env->GetStringUTFChars(apk_path_obj, nullptr);
     if (!apk_path) return JNI_FALSE;
