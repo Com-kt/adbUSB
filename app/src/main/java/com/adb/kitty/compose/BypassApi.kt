@@ -6,6 +6,7 @@ import org.lsposed.hiddenapibypass.HiddenApiBypass
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.widget.Toast
 import androidx.annotation.Keep
 import kotlin.concurrent.thread
 import kotlin.system.exitProcess
@@ -21,7 +22,7 @@ class BypassApi : Application() {
             System.loadLibrary("native-lib")
         }
     }
-    private native fun verifyV3SignatureNative(apkPath: String): Boolean
+    external fun verifyV3SignatureNative(apkPath: String): Boolean
     
     override fun attachBaseContext(base: Context?) {
         super.attachBaseContext(base)
