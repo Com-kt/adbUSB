@@ -1556,35 +1556,49 @@ fun CenterAlignedTopAppBarExample(
     ) { innerPadding ->
         Column(modifier = Modifier.padding(innerPadding).padding(16.dp).fillMaxSize()) {
             
-            FlowRow(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 2.dp),
-                horizontalArrangement = Arrangement.spacedBy(7.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Checkbox(
-                        checked = isAppChecked,
-                        onCheckedChange = { isAppChecked = it }
-                    )
-                    Text(text = "APP", style = MaterialTheme.typography.bodyMedium)
-                }
-    
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Checkbox(
-                        checked = isAdbChecked,
-                        onCheckedChange = { isAdbChecked = it }
-                    )
-                    Text(text = "ADB", style = MaterialTheme.typography.bodyMedium)
-                }
+            CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides Dp.Unspecified) {
+                FlowRow(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 4.dp, bottom = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(0.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(vertical = 4.dp)
+                    ) {
+                        Checkbox(
+                            checked = isAppChecked,
+                            onCheckedChange = { isAppChecked = it }
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(text = "APP", style = MaterialTheme.typography.bodyMedium)
+                    }
+        
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(vertical = 4.dp)
+                    ) {
+                        Checkbox(
+                            checked = isAdbChecked,
+                            onCheckedChange = { isAdbChecked = it }
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(text = "ADB", style = MaterialTheme.typography.bodyMedium)
+                    }
 
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Checkbox(
-                        checked = isFastbootChecked,
-                        onCheckedChange = { isFastbootChecked = it }
-                    )
-                    Text(text = "Fastboot", style = MaterialTheme.typography.bodyMedium)
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(vertical = 4.dp)
+                    ) {
+                        Checkbox(
+                            checked = isFastbootChecked,
+                            onCheckedChange = { isFastbootChecked = it }
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(text = "Fastboot", style = MaterialTheme.typography.bodyMedium)
+                    }
                 }
             }
             
@@ -1678,7 +1692,7 @@ fun CenterAlignedTopAppBarExample(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth()
-                    .padding(top = 16.dp, bottom = 75.dp)
+                    .padding(top = 16.dp, bottom = 71.dp)
             )
         }
     }
