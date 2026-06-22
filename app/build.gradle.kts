@@ -214,7 +214,7 @@ android {
     
     signingConfigs {
         create("adb") {
-        // keystore file，.bks & .jks
+        // keystore file，.bks & .jks & .p12
             storeFile = file("${project.rootDir}/release.jks")
             storePassword = System.getenv("RELEASE_STORE_PASSWORD")
             keyAlias = System.getenv("RELEASE_KEY_ALIAS")
