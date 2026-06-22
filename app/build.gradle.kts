@@ -217,7 +217,7 @@ android {
             enableSplit = true
         }
         density {
-            enableSplit = true
+            enableSplit = false
         }
         abi {
             enableSplit = true
