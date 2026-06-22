@@ -127,9 +127,11 @@ class MainActivity : ComponentActivity() {
     
     var showDeviceListBottomSheet = mutableStateOf(false)
     var matchedDevicesList = mutableStateListOf<AdbDevice>()
-
-    private var adbService: AdbSessionService? = null
+    
+    var adbService: AdbSessionService? = null
     private var isServiceBound = false
+    val connectedDevices = mutableStateListOf<String>()
+    var activeDeviceId by mutableStateOf<String?>(null)
     private var kadbInstance: Kadb?
         get() = if (isServiceBound) adbService?.globalKadbInstance else null
         set(value) { if (isServiceBound) adbService?.globalKadbInstance = value }
@@ -140,11 +142,14 @@ class MainActivity : ComponentActivity() {
             adbService = binder.getService()
             isServiceBound = true
             appendLog("[系统] 前台物理守护进程并网成功。")
-            initWifiState()
+            syncDeviceList()
         }
+
         override fun onServiceDisconnected(name: ComponentName?) {
             isServiceBound = false
             adbService = null
+            connectedDevices.clear()
+            activeDeviceId = null
         }
     }
 
@@ -300,6 +305,14 @@ class MainActivity : ComponentActivity() {
         
         // 首次冷启动探测有线
         findHostDevice()
+    }
+    
+    fun syncDeviceList() {
+        adbService?.let { service ->
+            connectedDevices.clear()
+            connectedDevices.addAll(service.getConnectedDeviceIds())
+            activeDeviceId = service.currentDeviceId
+        }
     }
     
     private fun dispatchCommandRoute(cmdInput: String) {
@@ -466,20 +479,31 @@ class MainActivity : ComponentActivity() {
 
         val conn = usbManager.openDevice(device) ?: return
         conn.claimInterface(intf, true)
-        
+    
         for (j in 0 until intf.endpointCount) {
             val ep = intf.getEndpoint(j)
             if (ep.direction == UsbConstants.USB_DIR_IN) epIn = ep else epOut = ep
         }
         usbConn = conn
-        
+    
+        val serialNumber = conn.serialNumber ?: "Device_${device.deviceId}"
+        val deviceKey = "USB_$serialNumber"
+    
         if (isFastbootMode) {
             setupFastboot()
-            appendLog("[系统] Fastboot 物理信道就绪")
+            appendLog("[系统] Fastboot 物理信道就绪 | 序列号: $serialNumber")
         } else {
             isAdbAuthorized = true
             lifecycleScope.launch(Dispatchers.IO) {
                 try {
+                    val isAlreadyConnected = adbService?.getConnectedDeviceIds()?.contains(deviceKey) == true
+                    if (isAlreadyConnected) {
+                        withContext(Dispatchers.Main) { 
+                            appendLog("[USB] 检测到设备 [$serialNumber] 存在旧通道，正在重置链路...") 
+                        }
+                        adbService?.unregisterDevice(deviceKey)
+                    }
+
                     usbForwarder?.stop()
                     usbForwarder = UsbPortForwarder(conn, epIn!!, epOut!!)
                     val localVirtualPort = usbForwarder!!.startBridge()
@@ -488,13 +512,20 @@ class MainActivity : ComponentActivity() {
                         appendLog("[Auth] 正在向环回端口 [$localVirtualPort] 发起握手与撞门机制...")
                     }
 
-                    kadbInstance = Kadb.create(host = "127.0.0.1", port = localVirtualPort)
-                    val isConnected = kadbInstance!!.connectionCheck()
+                    val instance = Kadb.create(host = "127.0.0.1", port = localVirtualPort)
+                    val isConnected = instance.connectionCheck()
 
                     withContext(Dispatchers.Main) {
                         if (isConnected) {
+                            adbService?.registerUsbDevice(serialNumber, instance)
+                            adbService?.currentDeviceId = deviceKey
                             isAdbAuthorized = true
-                            appendLog(">>> ADB 有线授权成功，物理总线全面并网！ <<<")
+                            syncDeviceList()
+                            appendLog(">>> 👍 ADB 有线授权成功，物理总线全面并网！[$serialNumber] <<<")
+                        } else {
+                            // 握手失败，安全熔断
+                            runCatching { instance.close() }
+                            appendLog("[Error] 有线物理握手校验未通过，请在手机端允许 USB 调试授权。")
                         }
                     }
                 } catch (e: Exception) {
@@ -505,7 +536,7 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
-    
+
     private fun setupFastboot() {
         viewModel.initFastboot(
             usbConn = usbConn!!, 
@@ -811,7 +842,6 @@ class MainActivity : ComponentActivity() {
                 withContext(Dispatchers.Main) { 
                     appendLog("[成功] 🎉 配对凭证握手存盘成功！")
                     appendLog("[提示] ⚠️ 请查看电视上的【无线调试端口】，输入 adb connect [IP:端口] 唤醒数据总线。")
-                    usbForwarder?.stop() // 断开有线转发，准备迎接纯无线
                 }
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) { appendLog("[配对失败] 异常: ${e.message}") }
@@ -819,11 +849,11 @@ class MainActivity : ComponentActivity() {
         }
     }
     
-    private suspend fun handleLocalAdbConnect(command: String) {
+    suspend fun handleLocalAdbConnect(command: String) {
         withContext(Dispatchers.Main) {
             appendLog("[无线] 执行 >> $command")
         }
-    
+
         val parts = command.split("\\s+".toRegex()).filter { it.isNotBlank() }
         if (parts.size < 3) {
             withContext(Dispatchers.Main) { appendLog("[错误] 请使用: adb connect [IP:无线调试端口]") }
@@ -837,39 +867,39 @@ class MainActivity : ComponentActivity() {
         }
         val ip = hostPort[0]
         val port = hostPort[1].toInt()
+        
+        val deviceKey = "WIFI_$ip:$port" 
 
-        // 🌟 强力清道夫：用你原有的变量名执行物理释放
-        kadbInstance?.let {
-            withContext(Dispatchers.Main) { appendLog("[无线] 正在强行释放旧的物理 Socket 链路...") }
-            runCatching { it.close() }
+        // 精准清理同 IP 端口的旧物理残余，不误杀其他并网设备
+        val isAlreadyConnected = adbService?.getConnectedDeviceIds()?.contains(deviceKey) == true
+        if (isAlreadyConnected) {
+            withContext(Dispatchers.Main) { appendLog("[无线] 检测到设备 [$target] 已处于并网状态，正在重新建立物理链路...") }
+            adbService?.unregisterDevice(deviceKey) 
         }
-        kadbInstance = null
 
         try {
             withContext(Dispatchers.Main) { appendLog("[无线] 正在唤醒远端网络数据通道...") }
         
-            // 切到 IO 线程池创建 Socket
             val instance = withContext(Dispatchers.IO) {
-                usbForwarder?.stop() // 掐断有线桥接
                 Kadb.create(host = ip, port = port)
             }
         
             withContext(Dispatchers.Main) { appendLog("[无线] 正在向网络通道发射探路信号...") }
         
-            // 挂起等待远端握手响应
             val response = withContext(Dispatchers.IO) {
                 instance.shell("echo 1")
             }
 
-            // 时序安全赋值：echo 1 没返回前，绝对不会走到这一步
             if (response.exitCode == 0 && response.allOutput.trim() == "1") {
-            
-                // 🌟 探路成功，直接赋值给你原来的全局变量
-                kadbInstance = instance 
+                // 成功建立，登记入库
+                adbService?.registerWifiDevice("$ip:$port", instance)
+                // 瞬间将当前主控路由指针指向这台新无线设备
+                adbService?.currentDeviceId = deviceKey 
             
                 withContext(Dispatchers.Main) {
                     isAdbAuthorized = true
-                    appendLog(">>> 👍 无线调试通道连通成功！支持命令与推拉。 <<<")
+                    syncDeviceList() // 刷新界面复选框
+                    appendLog(">>> 👍 无线设备 [$target] 并网成功！已自动切换为主控目标。 <<<")
                     saveConnectedDevice(ip, port)
                 }
             } else {
@@ -879,7 +909,6 @@ class MainActivity : ComponentActivity() {
         } catch (e: Exception) {
             withContext(Dispatchers.Main) {
                 appendLog("[连接失败] 远端网络拒绝建立链路: ${e.message}")
-                appendLog("[无线提示] 如果没有自动触发 adb connect 连接，那就点击菜单项上的 “触发无线调试扫描” 来触发，正常情况下，WLAN 开启/关闭都会扫描一次")
             }
         }
     }
@@ -1316,10 +1345,6 @@ fun CenterAlignedTopAppBarExample(
     var expanded by remember { mutableStateOf(false) }
     
     val logs = viewModel.logs
-    
-    var isAppChecked by remember { mutableStateOf(true) }
-    var isAdbChecked by remember { mutableStateOf(true) }
-    var isFastbootChecked by remember { mutableStateOf(true) }
 
     Scaffold(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
@@ -1556,48 +1581,51 @@ fun CenterAlignedTopAppBarExample(
     ) { innerPadding ->
         Column(modifier = Modifier.padding(innerPadding).padding(16.dp).fillMaxSize()) {
             
-            CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides Dp.Unspecified) {
-                FlowRow(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 4.dp, bottom = 4.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalArrangement = Arrangement.spacedBy(0.dp)
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.padding(vertical = 4.dp)
+            if (activity.connectedDevices.isEmpty()) {
+                Text(
+                    text = "💡 暂无可用并网通道",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(vertical = 12.dp)
+                )
+            } else {
+                CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides Dp.Unspecified) {
+                    FlowRow(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 4.dp, bottom = 8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(0.dp)
                     ) {
-                        Checkbox(
-                            checked = isAppChecked,
-                            onCheckedChange = { isAppChecked = it }
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(text = "APP", style = MaterialTheme.typography.bodyMedium)
-                    }
-        
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.padding(vertical = 4.dp)
-                    ) {
-                        Checkbox(
-                            checked = isAdbChecked,
-                            onCheckedChange = { isAdbChecked = it }
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(text = "ADB", style = MaterialTheme.typography.bodyMedium)
-                    }
+                        activity.connectedDevices.forEach { rawDeviceId ->
+                            val isCurrentActive = activity.activeDeviceId == rawDeviceId
+                            
+                            val isUsb = rawDeviceId.startsWith("USB_")
+                            val cleanName = rawDeviceId.substringAfter("_")
+                            val displayName = if (isUsb) "🔌 USB: $cleanName" else "🌐 Wi-Fi: ${cleanName.takeLast(14)}"
 
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.padding(vertical = 4.dp)
-                    ) {
-                        Checkbox(
-                            checked = isFastbootChecked,
-                            onCheckedChange = { isFastbootChecked = it }
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(text = "Fastboot", style = MaterialTheme.typography.bodyMedium)
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.padding(vertical = 4.dp)
+                            ) {
+                                Checkbox(
+                                    checked = isCurrentActive,
+                                    onCheckedChange = { checked ->
+                                        if (checked) {
+                                            activity.adbService?.currentDeviceId = rawDeviceId
+                                            activity.syncDeviceList()
+                                            activity.appendLog("[系统] 主控权已动态切流至 -> $displayName")
+                                        }
+                                    }
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = displayName, 
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = if (isCurrentActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                                )
+                            }
+                        }
                     }
                 }
             }

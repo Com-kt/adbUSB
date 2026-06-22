@@ -14,6 +14,7 @@ import androidx.core.app.NotificationCompat
 import com.flyfishxu.kadb.Kadb
 import kotlinx.coroutines.*
 import java.util.Locale
+import java.util.concurrent.ConcurrentHashMap
 import androidx.annotation.Keep
 import com.adb.kitty.compose.ui.theme.*
 import com.adb.kitty.compose.ui.viewmodel.*
@@ -25,8 +26,9 @@ class AdbSessionService : Service() {
     private val NOTIFICATION_ID = 101
     private val CHANNEL_ID = "adb_kitty_channel"
 
-    // 全局唯一的长连接物理实体，锁在服务常驻内存里，退后台绝不断线
-    var globalKadbInstance: Kadb? = null
+    private val kadbInstancePool = ConcurrentHashMap<String, Kadb>()
+    
+    var currentDeviceId: String? = null
 
     // 专属服务的轻量级协程作用域，接管 3 秒定时刷新任务
     private val serviceScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
@@ -39,6 +41,38 @@ class AdbSessionService : Service() {
     }
 
     override fun onBind(intent: Intent?): IBinder = binder
+    
+    var globalKadbInstance: Kadb?
+        get() = currentDeviceId?.let { kadbInstancePool[it] }
+        set(value) {
+            val id = currentDeviceId ?: "default_device"
+            if (value != null) {
+                kadbInstancePool[id] = value
+            } else {
+                kadbInstancePool.remove(id)?.let { runCatching { it.close() } }
+            }
+        }
+        
+    fun registerUsbDevice(serialNumber: String, instance: Kadb) {
+        val key = "USB_$serialNumber"
+        kadbInstancePool[key] = instance
+        if (currentDeviceId == null) currentDeviceId = key
+    }
+    
+    fun registerWifiDevice(ipAndPort: String, instance: Kadb) {
+        val key = "WIFI_$ipAndPort"
+        kadbInstancePool[key] = instance
+        if (currentDeviceId == null) currentDeviceId = key
+    }
+    
+    fun unregisterDevice(deviceId: String) {
+        kadbInstancePool.remove(deviceId)?.let { runCatching { it.close() } }
+        if (currentDeviceId == deviceId) {
+            currentDeviceId = kadbInstancePool.keys().asSequence().firstOrNull()
+        }
+    }
+    
+    fun getConnectedDeviceIds(): List<String> = kadbInstancePool.keys().toList()
 
     override fun onCreate() {
         super.onCreate()
@@ -71,22 +105,14 @@ class AdbSessionService : Service() {
         refreshJob = serviceScope.launch {
             var totalSeconds = 0
             while (isActive) {
-                
-                // 1. 动态诊断当前长连接状态文本 (statusText)
-                val statusText = if (globalKadbInstance != null) {
-                    "adbd已连接"
-                } else {
-                    "adbd空闲中"
-                }
-
-                // 2. 将秒数换算并格式化为标准的时分秒文本 (timeString -> HH:mm:ss)
+                val connectedCount = kadbInstancePool.size
+                val statusText = if (connectedCount > 0) "已并网调试设备: ${connectedCount}台" else "adbd空闲中 (等待设备接入)"
                 val hours = totalSeconds / 3600
                 val minutes = (totalSeconds % 3600) / 60
                 val seconds = totalSeconds % 60
                 val timeString = String.format(Locale.US, "%02d:%02d:%02d", hours, minutes, seconds)
 
-                updateNotification("$statusText | ⏱️ 已持续运行: $timeString")
-
+                updateNotification("$statusText | ⏱️ 守护时长: $timeString")
                 delay(3000)
                 totalSeconds += 3
             }
@@ -106,7 +132,7 @@ class AdbSessionService : Service() {
      */
     private fun buildNotification(contentText: String): Notification {
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("adbd前台守护服务")
+            .setContentTitle("adbd 前台守护服务")
             .setContentText(contentText)
             .setSmallIcon(android.R.drawable.ic_dialog_info)
             .setPriority(NotificationCompat.PRIORITY_LOW) // 静默级别，不打扰用户
@@ -139,9 +165,9 @@ class AdbSessionService : Service() {
     }
 
     override fun onDestroy() {
-        // 服务关闭时，彻底注销协程作用域，熔断时钟并干净释放物理 Socket
         serviceScope.cancel()
-        runCatching { globalKadbInstance?.close() }
+        kadbInstancePool.forEach { (_, instance) -> runCatching { instance.close() } }
+        kadbInstancePool.clear()
         super.onDestroy()
     }
 }
