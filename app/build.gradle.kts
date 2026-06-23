@@ -332,13 +332,15 @@ tasks.register("customApkSignerRotation") {
     inputs.dir(releaseApkDir)
     outputs.file(releaseApkDir.map { it.file("app-release-final.apk") })
 
-    val androidComponents = project.extensions.getByType<ApplicationAndroidComponentsExtension>()
+    val androidComponents = project.extensions.getByType<com.android.build.api.variant.ApplicationAndroidComponentsExtension>()
     val sdkDirProvider = androidComponents.sdkComponents.sdkDirectory
+    
+    val currentProjectDir = project.projectDir 
+    val execOperations = project.providers
 
     doLast {
         val sdkDir = sdkDirProvider.get().asFile
-        
-        val buildToolsVersion = "37.0.0"
+        val buildToolsVersion = "35.0.0" 
         val apksignerExecutable = File(sdkDir, "build-tools/$buildToolsVersion/apksigner")
 
         val envOldStorePassword = System.getenv("OLD_KEY_STORE_PASSWORD") ?: ""
@@ -359,8 +361,8 @@ tasks.register("customApkSignerRotation") {
 
         println("apk: ${inputApk.name}")
  
-        project.providers.exec {
-            workingDir(project.projectDir)
+        execOperations.exec {
+            workingDir(currentProjectDir)
             commandLine(
                 apksignerExecutable.absolutePath, "sign",
                 "--v1-signing-enabled", "false",
@@ -384,13 +386,8 @@ tasks.register("customApkSignerRotation") {
     }
 }
 
-val androidComponents = project.extensions.getByType<ApplicationAndroidComponentsExtension>()
-
-androidComponents.onVariants(androidComponents.selector().withName("release")) { variant ->
-    val packageName = "package${variant.name.replaceFirstChar { it.uppercase() }}"
-    tasks.configureEach {
-        if (name == packageName) {
-            finalizedBy("customApkSignerRotation")
-        }
+tasks.configureEach {
+    if (name == "packageRelease") {
+        finalizedBy("customApkSignerRotation")
     }
 }
