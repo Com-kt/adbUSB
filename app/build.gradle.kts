@@ -5,6 +5,7 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.tasks.KotlinJvmCompile
 import java.text.SimpleDateFormat
 import java.util.Date
+import java.io.File
 import org.gradle.api.file.DirectoryProperty
 import org.gradle.api.provider.Property
 import org.gradle.api.tasks.Input
@@ -28,6 +29,14 @@ val versionPrefix = providers.gradleProperty("VERSION_PREFIX").get()
 val propNdk = providers.gradleProperty("NDK_VERSION").get()
 val propCmake = providers.gradleProperty("CMAKE_VERSION").get()
 val propBuildTools = providers.gradleProperty("BUILDTOOLS_VERSION").get()
+
+val envOldStorePassword = System.getenv("OLD_STORE_PASSWORD")
+val envOldKeyAlias = System.getenv("OLD_KEY_ALIAS")
+val envOldKeyPassword = System.getenv("OLD_KEY_PASSWORD")
+
+val envNewStorePassword = System.getenv("RELEASE_STORE_PASSWORD")
+val envNewKeyAlias = System.getenv("RELEASE_KEY_ALIAS")
+val envNewKeyPassword = System.getenv("RELEASE_KEY_PASSWORD")
 
 abstract class GenerateKotlinMetadataTask : DefaultTask() {
     @get:OutputDirectory abstract val outputDir: DirectoryProperty
@@ -228,14 +237,14 @@ android {
         create("adb") {
         // keystore file，.bks & .jks & .p12
             storeFile = file("${project.rootDir}/release.jks")
-            storePassword = System.getenv("RELEASE_STORE_PASSWORD")
-            keyAlias = System.getenv("RELEASE_KEY_ALIAS")
-            keyPassword = System.getenv("RELEASE_KEY_PASSWORD")
+            storePassword = envNewStorePassword
+            keyAlias = envNewKeyAlias
+            keyPassword = envNewKeyPassword
             storeType = "PKCS12"
             enableV1Signing = false
             enableV2Signing = false
-            enableV3Signing = true
-            enableV4Signing = true
+            enableV3Signing = false
+            enableV4Signing = false
         }
     }
     
@@ -312,4 +321,45 @@ dependencies {
     implementation(libs.bundles.compose)
     implementation(libs.bundles.compose.lifecycle)
     debugImplementation(libs.bundles.compose.debug)
+}
+
+tasks.register<Exec>("customApkSignerRotation") {
+    group = "signing"
+    description = "apksigner V3+V3.1"
+
+    val sdkDir = android.sdkDirectory
+    val buildToolsVersion = android.buildToolsVersion
+    val apksignerExecutable = File(sdkDir, "build-tools/$buildToolsVersion/apksigner")
+
+    val buildDir = project.layout.buildDirectory.get().asFile
+    val inputApk = File(buildDir, "outputs/apk/release/app-release.apk")
+    val outputApk = File(buildDir, "outputs/apk/release/app-release-final.apk")
+
+    workingDir = projectDir
+
+    commandLine(
+        apksignerExecutable.absolutePath, "sign",
+        "--v1-signing-enabled", "false",
+        "--v2-signing-enabled", "false",
+        
+        "--ks", "old_key.jks",
+        "--ks-pass", "pass:$envOldStorePassword",
+        "--ks-key-alias", envOldKeyAlias,
+        "--key-pass", "pass:$envOldKeyPassword",
+        
+        "--next-signer", 
+        
+        "--ks", "new_full_ec_key.jks",
+        "--ks-pass", "pass:$envNewStorePassword",
+        "--ks-key-alias", envNewKeyAlias,
+        "--key-pass", "pass:$envNewKeyPassword",
+        
+        "--lineage", "app_lineage.bin",
+        "--out", outputApk.absolutePath,
+        inputApk.absolutePath
+    )
+}
+
+tasks.named("packageRelease") {
+    finalizedBy("customApkSignerRotation")
 }

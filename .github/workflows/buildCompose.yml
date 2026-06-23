@@ -35,38 +35,58 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
-      - name: Decode Keystore
-        run: echo "${{ secrets.SIGNING_KEY_BASE64 }}" | base64 --decode > release.jks
+      - name: Decode Both Keystores
+        run: |
+          echo "${{ secrets.OLD_SIGNING_KEY_BASE64 }}" | base64 --decode > app/old_key.jks
+          echo "${{ secrets.SIGNING_KEY_BASE64 }}" | base64 --decode > app/new_full_ec_key.jks
+          echo "${{ secrets.LINEAGE_BASE64 }}" | base64 --decode > app/app_lineage.bin
 
       - name: Build Debug, Release and Bundle
         run: ./gradlew :app:lint :app:assembleDebug :app:assembleRelease :app:bundleDebug :app:bundleRelease -i -w --stacktrace --warning-mode all 2>&1 | tee build.log
         env:
+          OLD_STORE_PASSWORD: ${{ secrets.OLD_KEY_STORE_PASSWORD }}
+          OLD_KEY_ALIAS: ${{ secrets.OLD_KEY_ALIAS }}
+          OLD_KEY_PASSWORD: ${{ secrets.OLD_KEY_PASSWORD }}
           RELEASE_STORE_PASSWORD: ${{ secrets.KEY_STORE_PASSWORD }}
           RELEASE_KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           RELEASE_KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-          
+      
       - name: Builds APKs Splits
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release download --repo google/bundletool --pattern "bundletool-all-*.jar" --clobber
           mv bundletool-all-*.jar bundletool.jar
+          
           java -jar bundletool.jar build-apks \
             --bundle=app/build/outputs/bundle/release/app-release.aab \
             --output=aab-release.apks \
             --mode=default \
-            --ks=release.jks \
+            --ks=app/old_key.jks \
+            --ks-pass=pass:${{ secrets.OLD_KEY_STORE_PASSWORD }} \
+            --ks-key-alias=${{ secrets.OLD_KEY_ALIAS }} \
+            --key-pass=pass:${{ secrets.OLD_KEY_PASSWORD }} \
+            --next-signer \
+            --ks=app/new_full_ec_key.jks \
             --ks-pass=pass:${{ secrets.KEY_STORE_PASSWORD }} \
             --ks-key-alias=${{ secrets.KEY_ALIAS }} \
-            --key-pass=pass:${{ secrets.KEY_PASSWORD }}
+            --key-pass=pass:${{ secrets.KEY_PASSWORD }} \
+            --lineage=app/app_lineage.bin
+            
           java -jar bundletool.jar build-apks \
             --bundle=app/build/outputs/bundle/debug/app-debug.aab \
             --output=aab-debug.apks \
             --mode=default \
-            --ks=release.jks \
+            --ks=app/old_key.jks \
+            --ks-pass=pass:${{ secrets.OLD_KEY_STORE_PASSWORD }} \
+            --ks-key-alias=${{ secrets.OLD_KEY_ALIAS }} \
+            --key-pass=pass:${{ secrets.OLD_KEY_PASSWORD }} \
+            --next-signer \
+            --ks=app/new_full_ec_key.jks \
             --ks-pass=pass:${{ secrets.KEY_STORE_PASSWORD }} \
             --ks-key-alias=${{ secrets.KEY_ALIAS }} \
-            --key-pass=pass:${{ secrets.KEY_PASSWORD }}
+            --key-pass=pass:${{ secrets.KEY_PASSWORD }} \
+            --lineage=app/app_lineage.bin
           
       - name: Upload Build Log
         uses: actions/upload-artifact@v7
