@@ -91,3 +91,4 @@
 - [android-sdk](https://github.com/HomuHomu833/android-sdk-custom)
 - [libsu](https://github.com/topjohnwu/libsu)
 - [bkerler-edl](https://github.com/bkerler/edl)
+- [AndroidHiddenApiBypass](https://github.com/LSPosed/AndroidHiddenApiBypass)

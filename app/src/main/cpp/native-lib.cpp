@@ -135,6 +135,31 @@ uint32_t read_uint32_le(const uint8_t*& ptr) {
     return value;
 }
 
+std::string get_block_cert_sha256(const uint8_t* payload, size_t payload_size) {
+    if (!payload || payload_size < 32) return "";
+    const uint8_t* ptr = payload;
+    try {
+        uint32_t total_signers_size = read_uint32_le(ptr);
+        uint32_t signer_size = read_uint32_le(ptr);
+        uint32_t signed_data_size = read_uint32_le(ptr);
+        
+        uint32_t digests_sequence_size = read_uint32_le(ptr);
+        ptr += digests_sequence_size;
+        
+        uint32_t certs_sequence_size = read_uint32_le(ptr);
+        uint32_t cert_size = read_uint32_le(ptr);
+        
+        size_t read_bytes = ptr - payload;
+        if (read_bytes + cert_size > payload_size) return "";
+
+        StandaloneSHA256 sha;
+        sha.update(ptr, cert_size);
+        return sha.finalize();
+    } catch (...) {
+        return "";
+    }
+}
+
 extern "C" JNIEXPORT jboolean JNICALL
 Java_com_adb_kitty_compose_data_NativeLibs_V3Signature(JNIEnv* env, jobject thiz, jstring apk_path_obj) {
     if (!apk_path_obj) return JNI_FALSE;
@@ -200,8 +225,11 @@ Java_com_adb_kitty_compose_data_NativeLibs_V3Signature(JNIEnv* env, jobject thiz
     size_t remaining = size_of_block_le - 24;
     size_t offset = 8;
 
-    const uint8_t* v3_payload = nullptr;
-    size_t v3_payload_size = 0;
+    bool verified_v3 = false;
+    bool verified_v31 = false;
+
+    std::string expected_old_sha256 = "926f6e0360e3e8f6ddc4e9d9fff0749d73085a6478d461a763ac489f4c879576";
+    std::string expected_new_sha256 = "a5ba3eccfc226ecb62d593cfbb826c0be79b59480cf7bec2a8c54659dc0a55fa";
 
     while (remaining > 12) {
         uint64_t pair_size = block_data[offset] | (static_cast<uint64_t>(block_data[offset+1]) << 8) |
@@ -210,10 +238,19 @@ Java_com_adb_kitty_compose_data_NativeLibs_V3Signature(JNIEnv* env, jobject thiz
                              (static_cast<uint64_t>(block_data[offset+6]) << 48) | (static_cast<uint64_t>(block_data[offset+7]) << 56);
         uint32_t pair_id = block_data[offset+8] | (block_data[offset+9] << 8) | (block_data[offset+10] << 16) | (block_data[offset+11] << 24);
 
-        if (pair_id == 0xf05368c0 || pair_id == 0x1b93ad61) { 
-            v3_payload = &block_data[offset + 12];
-            v3_payload_size = pair_size - 4;
-            break;
+        if (pair_id == 0xf05368c0) {
+            const uint8_t* v3_payload = &block_data[offset + 12];
+            size_t v3_payload_size = pair_size - 4;
+            if (get_block_cert_sha256(v3_payload, v3_payload_size) == expected_old_sha256) {
+                verified_v3 = true;
+            }
+        } 
+        else if (pair_id == 0x1b93ad61) {
+            const uint8_t* v31_payload = &block_data[offset + 12];
+            size_t v31_payload_size = pair_size - 4;
+            if (get_block_cert_sha256(v31_payload, v31_payload_size) == expected_new_sha256) {
+                verified_v31 = true;
+            }
         }
 
         size_t consumed = 8 + pair_size;
@@ -222,34 +259,8 @@ Java_com_adb_kitty_compose_data_NativeLibs_V3Signature(JNIEnv* env, jobject thiz
         offset += consumed;
     }
 
-    if (!v3_payload || v3_payload_size < 32) return JNI_FALSE;
-
-    const uint8_t* ptr = v3_payload;
-    try {
-        uint32_t total_signers_size = read_uint32_le(ptr);
-        uint32_t signer_size = read_uint32_le(ptr);
-        uint32_t signed_data_size = read_uint32_le(ptr);
-        
-        uint32_t digests_sequence_size = read_uint32_le(ptr);
-        ptr += digests_sequence_size;
-        
-        uint32_t certs_sequence_size = read_uint32_le(ptr);
-        uint32_t cert_size = read_uint32_le(ptr);
-        
-        size_t read_bytes = ptr - v3_payload;
-        if (read_bytes + cert_size > v3_payload_size) return JNI_FALSE;
-
-        StandaloneSHA256 sha;
-        sha.update(ptr, cert_size);
-        std::string current_sha256 = sha.finalize();
-
-        std::string expected_sha256 = "926f6e0360e3e8f6ddc4e9d9fff0749d73085a6478d461a763ac489f4c879576";
-        
-        if (current_sha256 == expected_sha256) {
-            return JNI_TRUE;
-        }
-    } catch (...) {
-        return JNI_FALSE;
+    if (verified_v3 && verified_v31) {
+        return JNI_TRUE;
     }
 
     return JNI_FALSE;
