@@ -73,8 +73,10 @@ jobs:
           
           java -jar bundletool.jar build-apks \
             --bundle="$RELEASE_AAB" \
-            --output=aab-release.apks \
+            --output=app/build/outputs/bundle/release/aab-release.apks \
             --mode=default \
+            --v1-signing-enabled=false \
+            --v2-signing-enabled=false \
             --ks=app/new_full_ec_key.jks \
             --ks-pass=pass:${{ secrets.KEY_STORE_PASSWORD }} \
             --ks-key-alias=${{ secrets.KEY_ALIAS }} \
@@ -84,8 +86,10 @@ jobs:
             
           java -jar bundletool.jar build-apks \
             --bundle="$DEBUG_AAB" \
-            --output=aab-debug.apks \
+            --output=app/build/outputs/bundle/debug/aab-debug.apks \
             --mode=default \
+            --v1-signing-enabled=false \
+            --v2-signing-enabled=false \
             --ks=app/new_full_ec_key.jks \
             --ks-pass=pass:${{ secrets.KEY_STORE_PASSWORD }} \
             --ks-key-alias=${{ secrets.KEY_ALIAS }} \
@@ -127,20 +131,6 @@ jobs:
           name: release-apks
           path: app/build/outputs/apk/release/*
           archive: true
-          
-      - name: Upload Release APKs Splits
-        uses: actions/upload-artifact@v7
-        with:
-          name: aab-release-apks
-          path: aab-release.apks
-          archive: false
-          
-      - name: Upload Debug APKs Splits
-        uses: actions/upload-artifact@v7
-        with:
-          name: aab-debug-apks
-          path: aab-debug.apks
-          archive: false
           
       - name: Upload Native Debug Symbols
         uses: actions/upload-artifact@v7
