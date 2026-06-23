@@ -70,9 +70,9 @@ jobs:
           ks-key-alias=${{ secrets.OLD_KEY_ALIAS }}
           key-pass=pass:${{ secrets.OLD_KEY_PASSWORD }}
           rotation-min-sdk-version=33
+          v1-signing-enabled=false
+          v2-signing-enabled=false
           EOF
-          
-          echo '{"signingConfiguration": {"v1SigningEnabled": false, "v2SigningEnabled": false, "v3SigningEnabled": true, "v4SigningEnabled": true}}' > device-spec.json
           
           java -jar bundletool.jar build-apks \
             --bundle="$RELEASE_AAB" \
@@ -83,8 +83,7 @@ jobs:
             --ks-key-alias=${{ secrets.KEY_ALIAS }} \
             --key-pass=pass:${{ secrets.KEY_PASSWORD }} \
             --lineage=app/app_lineage.bin \
-            --oldest-signer=oldest-signer.properties \
-            --device-spec=device-spec.json
+            --oldest-signer=oldest-signer.properties
             
           java -jar bundletool.jar build-apks \
             --bundle="$DEBUG_AAB" \
@@ -95,8 +94,7 @@ jobs:
             --ks-key-alias=${{ secrets.KEY_ALIAS }} \
             --key-pass=pass:${{ secrets.KEY_PASSWORD }} \
             --lineage=app/app_lineage.bin \
-            --oldest-signer=oldest-signer.properties \
-            --device-spec=device-spec.json
+            --oldest-signer=oldest-signer.properties
 
       - name: Upload Build Log
         uses: actions/upload-artifact@v7
