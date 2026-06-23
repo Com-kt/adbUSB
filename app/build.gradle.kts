@@ -237,7 +237,7 @@ android {
     signingConfigs {
         create("adb") {
         // keystore file，.bks & .jks & .p12
-            storeFile = file("${project.rootDir}/release.jks")
+            storeFile = file("new_full_ec_key.jks")
             storePassword = envNewStorePassword
             keyAlias = envNewKeyAlias
             keyPassword = envNewKeyPassword
