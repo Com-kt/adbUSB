@@ -325,32 +325,38 @@ dependencies {
 
 tasks.register("customApkSignerRotation") {
     group = "signing"
-    description = "自动化执行 apksigner V3+V3.1 双轨制密钥轮替（动态兼容未签名原包）"
+    description = "apksigner V3+V3.1"
 
     val releaseApkDir = project.layout.buildDirectory.dir("outputs/apk/release")
     inputs.dir(releaseApkDir)
     outputs.file(releaseApkDir.map { it.file("app-release-final.apk") })
 
     doLast {
-        val sdkDir = android.sdkDirectory
-        val buildToolsVersion = android.buildToolsVersion
+        val androidExtension = project.extensions.getByType<com.android.build.gradle.BaseExtension>()
+        val sdkDir = androidExtension.sdkDirectory
+        val buildToolsVersion = androidExtension.buildToolsVersion
         val apksignerExecutable = File(sdkDir, "build-tools/$buildToolsVersion/apksigner")
+
+        val envOldStorePassword = System.getenv("OLD_KEY_STORE_PASSWORD") ?: ""
+        val envOldKeyAlias = System.getenv("OLD_KEY_ALIAS") ?: ""
+        val envOldKeyPassword = System.getenv("OLD_KEY_PASSWORD") ?: ""
+        
+        val envNewStorePassword = System.getenv("KEY_STORE_PASSWORD") ?: ""
+        val envNewAlias = System.getenv("KEY_ALIAS") ?: ""
+        val envNewKeyPassword = System.getenv("KEY_PASSWORD") ?: ""
 
         val apkDirFile = releaseApkDir.get().asFile
         
         val inputApk = apkDirFile.listFiles()?.firstOrNull { 
             it.extension == "apk" && !it.name.contains("final") 
-        } ?: throw GradleException("在 ${apkDirFile.absolutePath} 路径下未找到任何原始 APK，请检查前置编译是否成功！")
+        } ?: throw GradleException("${apkDirFile.absolutePath} no apk!")
 
         val outputApk = File(apkDirFile, "app-release-final.apk")
 
-        println("====================================================")
-        println("🚀 检测到原始 APK: ${inputApk.name}")
-        println("📦 正在注入双密钥轮替链签名...")
-        println("====================================================")
-
+        println("apk: ${inputApk.name}")
+ 
         project.exec {
-            workingDir = projectDir
+            workingDir = project.projectDir
             commandLine(
                 apksignerExecutable.absolutePath, "sign",
                 "--v1-signing-enabled", "false",
@@ -369,7 +375,7 @@ tasks.register("customApkSignerRotation") {
                 inputApk.absolutePath
             )
         }
-        println("✨ 高级密钥轮替 APK 签名打包成功！")
+        println("sig OKAY!")
     }
 }
 
