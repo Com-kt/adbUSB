@@ -39,6 +39,8 @@ val envNewStorePassword = System.getenv("RELEASE_STORE_PASSWORD") ?: ""
 val envNewKeyAlias = System.getenv("RELEASE_KEY_ALIAS") ?: ""
 val envNewKeyPassword = System.getenv("RELEASE_KEY_PASSWORD") ?: ""
 
+val buildVariants = listOf("release", "debug")
+
 abstract class GenerateKotlinMetadataTask : DefaultTask() {
     @get:OutputDirectory abstract val outputDir: DirectoryProperty
 
@@ -244,8 +246,8 @@ android {
             storeType = "PKCS12"
             enableV1Signing = false
             enableV2Signing = false
-            enableV3Signing = false
-            enableV4Signing = false
+            enableV3Signing = true
+            enableV4Signing = true
         }
     }
     
@@ -324,61 +326,66 @@ dependencies {
     debugImplementation(libs.bundles.compose.debug)
 }
 
-tasks.register("customApkSignerRotation") {
-    group = "signing"
-    description = "apksigner V3+V3.1"
-
-    val releaseApkDir = project.layout.buildDirectory.dir("outputs/apk/release")
-    inputs.dir(releaseApkDir)
-    outputs.file(releaseApkDir.map { it.file("app-release-final.apk") })
-
-    val androidComponents = project.extensions.getByType<ApplicationAndroidComponentsExtension>()
-    val sdkDirProvider = androidComponents.sdkComponents.sdkDirectory
+buildVariants.forEach { variant ->
+    val taskName = "customApkSignerRotation${variant.replaceFirstChar { it.uppercase() }}"
     
-    val currentProjectDir = project.projectDir 
-    val execOperations = project.providers
+    tasks.register(taskName) {
+        group = "signing"
+        description = "apksigner V3+V3.1 for $variant"
 
-    doLast {
-        val sdkDir = sdkDirProvider.get().asFile
-        val apksignerExecutable = File(sdkDir, "build-tools/$propBuildTools/apksigner")
+        val apkDirProvider = project.layout.buildDirectory.dir("outputs/apk/$variant")
+        inputs.dir(apkDirProvider)
+        outputs.file(apkDirProvider.map { it.file("app-$variant-final.apk") })
 
-        val apkDirFile = releaseApkDir.get().asFile
+        val androidComponents = project.extensions.getByType<ApplicationAndroidComponentsExtension>()
+        val sdkDirProvider = androidComponents.sdkComponents.sdkDirectory
         
-        val inputApk = apkDirFile.listFiles()?.firstOrNull { 
-            it.extension == "apk" && !it.name.contains("final") 
-        } ?: throw GradleException("${apkDirFile.absolutePath} no apk!")
+        val currentProjectDir = project.projectDir 
+        val execOperations = project.providers
 
-        val outputApk = File(apkDirFile, "app-release-final.apk")
+        doLast {
+            val sdkDir = sdkDirProvider.get().asFile
+            val apksignerExecutable = File(sdkDir, "build-tools/$propBuildTools/apksigner")
 
-        println("apk: ${inputApk.name}")
- 
-        execOperations.exec {
+            val apkDirFile = apkDirProvider.get().asFile
+            
+            val inputApk = apkDirFile.listFiles()?.firstOrNull { 
+                it.extension == "apk" && !it.name.contains("final") 
+            } ?: throw GradleException("${apkDirFile.absolutePath} no apk!")
+
+            val outputApk = File(apkDirFile, "app-$variant-final.apk")
+
+            println("apk ($variant): ${inputApk.name}")
+     
+            execOperations.exec {
             workingDir(currentProjectDir)
-            commandLine(
-                apksignerExecutable.absolutePath, "sign",
-                "--v1-signing-enabled", "false",
-                "--v2-signing-enabled", "false",
-                "--ks", "old_key.jks",
-                "--ks-pass", "pass:$envOldStorePassword",
-                "--ks-key-alias", envOldKeyAlias,
-                "--key-pass", "pass:$envOldKeyPassword",
-                "--next-signer", 
-                "--ks", "new_full_ec_key.jks",
-                "--ks-pass", "pass:$envNewStorePassword",
-                "--ks-key-alias", envNewKeyAlias,
-                "--key-pass", "pass:$envNewKeyPassword",
-                "--lineage", "app_lineage.bin",
-                "--out", outputApk.absolutePath,
-                inputApk.absolutePath
-            )
-        }.result.get()
+                commandLine(
+                    apksignerExecutable.absolutePath, "sign",
+                    "--v1-signing-enabled", "false",
+                    "--v2-signing-enabled", "false",
+                    "--ks", "old_key.jks",
+                    "--ks-pass", "pass:$envOldStorePassword",
+                    "--ks-key-alias", envOldKeyAlias,
+                    "--key-pass", "pass:$envOldKeyPassword",
+                    "--next-signer", 
+                    "--ks", "new_full_ec_key.jks",
+                    "--ks-pass", "pass:$envNewStorePassword",
+                    "--ks-key-alias", envNewKeyAlias,
+                    "--key-pass", "pass:$envNewKeyPassword",
+                    "--lineage", "app_lineage.bin",
+                    "--out", outputApk.absolutePath,
+                    inputApk.absolutePath
+                )
+            }.result.get()
 
-        println("sig OKAY!")
+            println("sig ($variant) OKAY!")
+        }
     }
 }
 
 tasks.configureEach {
-    if (name == "packageRelease") {
-        finalizedBy("customApkSignerRotation")
+    when (name) {
+        "packageRelease" -> finalizedBy("customApkSignerRotationRelease")
+        "packageDebug" -> finalizedBy("customApkSignerRotationDebug")
     }
 }
