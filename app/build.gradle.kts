@@ -323,41 +323,54 @@ dependencies {
     debugImplementation(libs.bundles.compose.debug)
 }
 
-tasks.register<Exec>("customApkSignerRotation") {
+tasks.register("customApkSignerRotation") {
     group = "signing"
-    description = "apksigner V3+V3.1"
+    description = "自动化执行 apksigner V3+V3.1 双轨制密钥轮替（动态兼容未签名原包）"
 
-    val sdkDir = android.sdkDirectory
-    val buildToolsVersion = android.buildToolsVersion
-    val apksignerExecutable = File(sdkDir, "build-tools/$buildToolsVersion/apksigner")
+    val releaseApkDir = project.layout.buildDirectory.dir("outputs/apk/release")
+    inputs.dir(releaseApkDir)
+    outputs.file(releaseApkDir.map { it.file("app-release-final.apk") })
 
-    val buildDir = project.layout.buildDirectory.get().asFile
-    val inputApk = File(buildDir, "outputs/apk/release/app-release.apk")
-    val outputApk = File(buildDir, "outputs/apk/release/app-release-final.apk")
+    doLast {
+        val sdkDir = android.sdkDirectory
+        val buildToolsVersion = android.buildToolsVersion
+        val apksignerExecutable = File(sdkDir, "build-tools/$buildToolsVersion/apksigner")
 
-    workingDir = projectDir
+        val apkDirFile = releaseApkDir.get().asFile
+        
+        val inputApk = apkDirFile.listFiles()?.firstOrNull { 
+            it.extension == "apk" && !it.name.contains("final") 
+        } ?: throw GradleException("在 ${apkDirFile.absolutePath} 路径下未找到任何原始 APK，请检查前置编译是否成功！")
 
-    commandLine(
-        apksignerExecutable.absolutePath, "sign",
-        "--v1-signing-enabled", "false",
-        "--v2-signing-enabled", "false",
-        
-        "--ks", "old_key.jks",
-        "--ks-pass", "pass:$envOldStorePassword",
-        "--ks-key-alias", envOldKeyAlias,
-        "--key-pass", "pass:$envOldKeyPassword",
-        
-        "--next-signer", 
-        
-        "--ks", "new_full_ec_key.jks",
-        "--ks-pass", "pass:$envNewStorePassword",
-        "--ks-key-alias", envNewKeyAlias,
-        "--key-pass", "pass:$envNewKeyPassword",
-        
-        "--lineage", "app_lineage.bin",
-        "--out", outputApk.absolutePath,
-        inputApk.absolutePath
-    )
+        val outputApk = File(apkDirFile, "app-release-final.apk")
+
+        println("====================================================")
+        println("🚀 检测到原始 APK: ${inputApk.name}")
+        println("📦 正在注入双密钥轮替链签名...")
+        println("====================================================")
+
+        project.exec {
+            workingDir = projectDir
+            commandLine(
+                apksignerExecutable.absolutePath, "sign",
+                "--v1-signing-enabled", "false",
+                "--v2-signing-enabled", "false",
+                "--ks", "old_key.jks",
+                "--ks-pass", "pass:$envOldStorePassword",
+                "--ks-key-alias", envOldKeyAlias,
+                "--key-pass", "pass:$envOldKeyPassword",
+                "--next-signer", 
+                "--ks", "new_full_ec_key.jks",
+                "--ks-pass", "pass:$envNewStorePassword",
+                "--ks-key-alias", envNewAlias,
+                "--key-pass", "pass:$envNewKeyPassword",
+                "--lineage", "app_lineage.bin",
+                "--out", outputApk.absolutePath,
+                inputApk.absolutePath
+            )
+        }
+        println("✨ 高级密钥轮替 APK 签名打包成功！")
+    }
 }
 
 tasks.named("packageRelease") {
