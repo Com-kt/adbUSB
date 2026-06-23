@@ -57,6 +57,13 @@ jobs:
         run: |
           gh release download --repo google/bundletool --pattern "bundletool-all-*.jar" --clobber
           mv bundletool-all-*.jar bundletool.jar
+          
+          RELEASE_AAB=$(ls app/build/outputs/bundle/release/*.aab | head -n 1)
+          DEBUG_AAB=$(ls app/build/outputs/bundle/debug/*.aab | head -n 1)
+          
+          echo "=== Release AAB: $RELEASE_AAB ==="
+          echo "=== Debug AAB: $DEBUG_AAB ==="
+          
           cat <<EOF > oldest-signer.properties
           ks=app/old_key.jks
           ks-pass=pass:${{ secrets.OLD_KEY_STORE_PASSWORD }}
@@ -65,7 +72,7 @@ jobs:
           EOF
           
           java -jar bundletool.jar build-apks \
-            --bundle=app/build/outputs/bundle/release/app-release.aab \
+            --bundle="$RELEASE_AAB" \
             --output=aab-release.apks \
             --mode=default \
             --ks=app/new_full_ec_key.jks \
@@ -76,7 +83,7 @@ jobs:
             --oldest-signer=oldest-signer.properties
             
           java -jar bundletool.jar build-apks \
-            --bundle=app/build/outputs/bundle/debug/app-debug.aab \
+            --bundle="$DEBUG_AAB" \
             --output=aab-debug.apks \
             --mode=default \
             --ks=app/new_full_ec_key.jks \
