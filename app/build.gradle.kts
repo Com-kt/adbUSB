@@ -356,19 +356,17 @@ tasks.register("customApkSignerRotation") {
             workingDir(currentProjectDir)
             commandLine(
                 apksignerExecutable.absolutePath, "sign",
+                "--v1-signing-enabled", "false",
+                "--v2-signing-enabled", "false",
                 "--ks", "old_key.jks",
                 "--ks-pass", "pass:$envOldStorePassword",
                 "--ks-key-alias", envOldKeyAlias,
                 "--key-pass", "pass:$envOldKeyPassword",
-                "--v1-signing-enabled", "false",
-                "--v2-signing-enabled", "false",
                 "--next-signer", 
                 "--ks", "new_full_ec_key.jks",
                 "--ks-pass", "pass:$envNewStorePassword",
-                "--ks-key-alias", envNewAlias,
+                "--ks-key-alias", envNewKeyAlias,
                 "--key-pass", "pass:$envNewKeyPassword",
-                "--v1-signing-enabled", "false",
-                "--v2-signing-enabled", "false",
                 "--lineage", "app_lineage.bin",
                 "--out", outputApk.absolutePath,
                 inputApk.absolutePath
