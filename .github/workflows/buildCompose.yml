@@ -75,8 +75,8 @@ jobs:
             --bundle="$RELEASE_AAB" \
             --output=app/build/outputs/bundle/release/aab-release.apks \
             --mode=default \
-            --v1-signing-enabled=false \
-            --v2-signing-enabled=false \
+            --v1SigningEnabled=false \
+            --v2SigningEnabled=false \
             --ks=app/new_full_ec_key.jks \
             --ks-pass=pass:${{ secrets.KEY_STORE_PASSWORD }} \
             --ks-key-alias=${{ secrets.KEY_ALIAS }} \
@@ -88,8 +88,8 @@ jobs:
             --bundle="$DEBUG_AAB" \
             --output=app/build/outputs/bundle/debug/aab-debug.apks \
             --mode=default \
-            --v1-signing-enabled=false \
-            --v2-signing-enabled=false \
+            --v1SigningEnabled=false \
+            --v2SigningEnabled=false \
             --ks=app/new_full_ec_key.jks \
             --ks-pass=pass:${{ secrets.KEY_STORE_PASSWORD }} \
             --ks-key-alias=${{ secrets.KEY_ALIAS }} \
