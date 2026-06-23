@@ -57,6 +57,12 @@ jobs:
         run: |
           gh release download --repo google/bundletool --pattern "bundletool-all-*.jar" --clobber
           mv bundletool-all-*.jar bundletool.jar
+          cat <<EOF > oldest-signer.properties
+          ks=app/old_key.jks
+          ks-pass=pass:${{ secrets.OLD_KEY_STORE_PASSWORD }}
+          ks-key-alias=${{ secrets.OLD_KEY_ALIAS }}
+          key-pass=pass:${{ secrets.OLD_KEY_PASSWORD }}
+          EOF
           
           java -jar bundletool.jar build-apks \
             --bundle=app/build/outputs/bundle/release/app-release.aab \
@@ -66,7 +72,8 @@ jobs:
             --ks-pass=pass:${{ secrets.KEY_STORE_PASSWORD }} \
             --ks-key-alias=${{ secrets.KEY_ALIAS }} \
             --key-pass=pass:${{ secrets.KEY_PASSWORD }} \
-            --lineage=app/app_lineage.bin
+            --lineage=app/app_lineage.bin \
+            --oldest-signer=oldest-signer.properties
             
           java -jar bundletool.jar build-apks \
             --bundle=app/build/outputs/bundle/debug/app-debug.aab \
@@ -76,8 +83,9 @@ jobs:
             --ks-pass=pass:${{ secrets.KEY_STORE_PASSWORD }} \
             --ks-key-alias=${{ secrets.KEY_ALIAS }} \
             --key-pass=pass:${{ secrets.KEY_PASSWORD }} \
-            --lineage=app/app_lineage.bin
-          
+            --lineage=app/app_lineage.bin \
+            --oldest-signer=oldest-signer.properties
+
       - name: Upload Build Log
         uses: actions/upload-artifact@v7
         with:
