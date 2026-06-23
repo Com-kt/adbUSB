@@ -340,8 +340,7 @@ tasks.register("customApkSignerRotation") {
 
     doLast {
         val sdkDir = sdkDirProvider.get().asFile
-        val buildToolsVersion = "35.0.0" 
-        val apksignerExecutable = File(sdkDir, "build-tools/$buildToolsVersion/apksigner")
+        val apksignerExecutable = File(sdkDir, "build-tools/$propBuildTools/apksigner")
 
         val envOldStorePassword = System.getenv("OLD_KEY_STORE_PASSWORD") ?: ""
         val envOldKeyAlias = System.getenv("OLD_KEY_ALIAS") ?: ""
