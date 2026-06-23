@@ -384,6 +384,13 @@ tasks.register("customApkSignerRotation") {
     }
 }
 
-tasks.named("packageRelease") {
-    finalizedBy("customApkSignerRotation")
+val androidComponents = project.extensions.getByType<ApplicationAndroidComponentsExtension>()
+
+androidComponents.onVariants(androidComponents.selector().withName("release")) { variant ->
+    val packageName = "package${variant.name.replaceFirstChar { it.uppercase() }}"
+    tasks.configureEach {
+        if (name == packageName) {
+            finalizedBy("customApkSignerRotation")
+        }
+    }
 }
