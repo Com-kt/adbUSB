@@ -12,6 +12,8 @@ import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.OutputDirectory
 import org.gradle.api.tasks.TaskAction
 import org.gradle.util.GradleVersion
+import com.android.build.api.dsl.ApplicationExtension
+import com.android.build.gradle.BaseExtension
 
 plugins {
     alias(libs.plugins.android.application)
@@ -332,9 +334,11 @@ tasks.register("customApkSignerRotation") {
     outputs.file(releaseApkDir.map { it.file("app-release-final.apk") })
 
     doLast {
-        val androidExtension = project.extensions.getByType<com.android.build.gradle.BaseExtension>()
-        val sdkDir = androidExtension.sdkDirectory
-        val buildToolsVersion = androidExtension.buildToolsVersion
+        val androidExtension = project.extensions.getByType<ApplicationExtension>()
+        val sdkDir = androidExtension.sdkComponents.sdkDirectory.get().asFile
+        val buildToolsVersion = (androidExtension as? BaseExtension)?.buildToolsVersion 
+            ?: "37.0.0"
+            
         val apksignerExecutable = File(sdkDir, "build-tools/$buildToolsVersion/apksigner")
 
         val envOldStorePassword = System.getenv("OLD_KEY_STORE_PASSWORD") ?: ""
@@ -356,7 +360,7 @@ tasks.register("customApkSignerRotation") {
         println("apk: ${inputApk.name}")
  
         project.exec {
-            workingDir = project.projectDir
+            workingDir(project.projectDir)
             commandLine(
                 apksignerExecutable.absolutePath, "sign",
                 "--v1-signing-enabled", "false",
