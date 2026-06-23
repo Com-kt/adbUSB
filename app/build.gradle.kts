@@ -31,13 +31,13 @@ val propNdk = providers.gradleProperty("NDK_VERSION").get()
 val propCmake = providers.gradleProperty("CMAKE_VERSION").get()
 val propBuildTools = providers.gradleProperty("BUILDTOOLS_VERSION").get()
 
-val envOldStorePassword = System.getenv("OLD_STORE_PASSWORD")
-val envOldKeyAlias = System.getenv("OLD_KEY_ALIAS")
-val envOldKeyPassword = System.getenv("OLD_KEY_PASSWORD")
+val envOldStorePassword = System.getenv("OLD_STORE_PASSWORD") ?: ""
+val envOldKeyAlias = System.getenv("OLD_KEY_ALIAS") ?: ""
+val envOldKeyPassword = System.getenv("OLD_KEY_PASSWORD") ?: ""
 
-val envNewStorePassword = System.getenv("RELEASE_STORE_PASSWORD")
-val envNewKeyAlias = System.getenv("RELEASE_KEY_ALIAS")
-val envNewKeyPassword = System.getenv("RELEASE_KEY_PASSWORD")
+val envNewStorePassword = System.getenv("RELEASE_STORE_PASSWORD") ?: ""
+val envNewKeyAlias = System.getenv("RELEASE_KEY_ALIAS") ?: ""
+val envNewKeyPassword = System.getenv("RELEASE_KEY_PASSWORD") ?: ""
 
 abstract class GenerateKotlinMetadataTask : DefaultTask() {
     @get:OutputDirectory abstract val outputDir: DirectoryProperty
@@ -332,7 +332,7 @@ tasks.register("customApkSignerRotation") {
     inputs.dir(releaseApkDir)
     outputs.file(releaseApkDir.map { it.file("app-release-final.apk") })
 
-    val androidComponents = project.extensions.getByType<com.android.build.api.variant.ApplicationAndroidComponentsExtension>()
+    val androidComponents = project.extensions.getByType<ApplicationAndroidComponentsExtension>()
     val sdkDirProvider = androidComponents.sdkComponents.sdkDirectory
     
     val currentProjectDir = project.projectDir 
@@ -341,14 +341,6 @@ tasks.register("customApkSignerRotation") {
     doLast {
         val sdkDir = sdkDirProvider.get().asFile
         val apksignerExecutable = File(sdkDir, "build-tools/$propBuildTools/apksigner")
-
-        val envOldStorePassword = System.getenv("OLD_KEY_STORE_PASSWORD") ?: ""
-        val envOldKeyAlias = System.getenv("OLD_KEY_ALIAS") ?: ""
-        val envOldKeyPassword = System.getenv("OLD_KEY_PASSWORD") ?: ""
-        
-        val envNewStorePassword = System.getenv("KEY_STORE_PASSWORD") ?: ""
-        val envNewAlias = System.getenv("KEY_ALIAS") ?: ""
-        val envNewKeyPassword = System.getenv("KEY_PASSWORD") ?: ""
 
         val apkDirFile = releaseApkDir.get().asFile
         
