@@ -604,14 +604,23 @@ class MainActivity : ComponentActivity() {
         }
     }
     
-    private fun handleLocalAdbInstall(command: String) {
-        val parts = command.split("\\s+".toRegex()).filter { it.isNotBlank() }
-        if (parts.size < 3) {
-            appendLog("[错误] 请使用: adb install [本地路径/文件名]")
+    private fun handleLocalAdbInstall(context: Context, command: String) {
+        appendLog("安装 >> $command")
+        val trimmedCmd = command.trim()
+        if (!trimmedCmd.startsWith("adb install", ignoreCase = true)) {
+            appendLog("[错误] 请使用正规格式: adb install [本地路径/文件名]")
+            return
+        }
+        
+        val pathInput = trimmedCmd.substring("adb install".length).trim()
+            .removeSurrounding("\"")
+            .removeSurrounding("'")
+
+        if (pathInput.isEmpty()) {
+            appendLog("[错误] 找不到输入路径")
             return
         }
 
-        val pathInput = parts[2]
         val file = if (pathInput.startsWith("/")) File(pathInput) else File(flashFolder, pathInput)
 
         if (!file.exists()) {
@@ -619,49 +628,78 @@ class MainActivity : ComponentActivity() {
             return
         }
 
-        // 1. 判断是单 APK 还是 多 APK (目录 或 apks/xapk 后缀)
         val ext = file.extension.lowercase()
-        val isMultiple = file.isDirectory || ext == "apks" || ext == "xapk"
+        val isCompressedBundle = ext == "apks" || ext == "xapk"
+        val isMultiple = file.isDirectory || isCompressedBundle
 
         lifecycleScope.launch(Dispatchers.IO) {
+            var tempExtractDir: File? = null
+            
             try {
-                val kadb = kadbInstance ?: throw IllegalStateException("数据通道未建立")
+                val kadb = kadbInstance ?: throw IllegalStateException("数据通道未建立，请先并网设备")
             
                 if (isMultiple) {
-                    // 2. 多文件安装逻辑
-                    appendLog("[Install] 检测到多文件模式 (Split APKs)...")
-                
-                    // 如果是目录，列出目录下所有的 apk
-                    val apkList = if (file.isDirectory) {
-                        file.listFiles { _, name -> name.lowercase().endsWith(".apk") }?.toList() ?: emptyList()
-                    } else {
-                        // 注意：如果用户直接给了一个 .apks/.xapk 文件，Kadb 的 installMultiple 需要的是 List<File>
-                        // 如果它是压缩包，你可能需要先解压。这里假设它是一个包含多个 APK 的逻辑集合或你可以直接处理的列表
-                        listOf(file) 
+                    withContext(Dispatchers.Main) { appendLog("[Install] 检测到多文件/多组件安装模式 (Split APKs)...") }
+                    
+                    val apkList = mutableListOf<File>()
+
+                    if (file.isDirectory) {
+                        val files = file.listFiles { _, name -> name.lowercase().endsWith(".apk") }
+                        if (files != null) apkList.addAll(files)
+                    } else if (isCompressedBundle) {
+                        withContext(Dispatchers.Main) { appendLog("[Install] 正在对 [${file.name}] 容器进行物理破壳与流提取...") }
+                        
+                        tempExtractDir = File(context.cacheDir, "kadb_extracted_${System.currentTimeMillis()}")
+                        if (!tempExtractDir.mkdirs()) throw IOException("无法创建临时解压释放区")
+
+                        ZipFile(file).use { zip ->
+                            val entries = zip.entries()
+                            while (entries.hasMoreElements()) {
+                                val entry = entries.nextElement()
+                                if (!entry.isDirectory && entry.name.endsWith(".apk", ignoreCase = true)) {
+                                    val pureFileName = File(entry.name).name
+                                    val targetFile = File(tempExtractDir, pureFileName)
+                                    
+                                    zip.getInputStream(entry).use { input ->
+                                        targetFile.outputStream().use { output -> input.copyTo(output) }
+                                    }
+                                    apkList.add(targetFile)
+                                }
+                            }
+                        }
                     }
 
                     if (apkList.isEmpty()) {
-                        withContext(Dispatchers.Main) { appendLog("[错误] 目录下未找到 .apk 文件") }
+                        withContext(Dispatchers.Main) { appendLog("[错误] 目标路径下或容器内未提取到任何有效的 .apk 安装元组件") }
                         return@launch
                     }
 
+                    withContext(Dispatchers.Main) { appendLog("[Install] 物理集群总线传输中，共计 ${apkList.size} 个组件...") }
+                    
                     kadb.installMultiple(apkList)
-                    withContext(Dispatchers.Main) { appendLog("[成功] 多组件安装完成") }
+                    
+                    withContext(Dispatchers.Main) { appendLog("[成功] 👍 多组件联装全量部署成功！") }
                 } else {
-                    // 3. 单文件安装逻辑
-                    appendLog("[Install] 正在安装: ${file.name}")
+                    withContext(Dispatchers.Main) { appendLog("[Install] 正在传输独立架构包: ${file.name}") }
                     kadb.install(file)
-                    withContext(Dispatchers.Main) { appendLog("[成功] 安装完成: ${file.name}") }
+                    withContext(Dispatchers.Main) { appendLog("[成功] 👍 独立包安装完成: ${file.name}") }
                 }
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) { 
-                    appendLog("[安装失败] ${e.message}") 
+                    appendLog("[安装失败] 核心熔断原因: ${e.message}") 
+                }
+            } finally {
+                tempExtractDir?.let {
+                    if (it.exists()) {
+                        it.deleteRecursively()
+                    }
                 }
             }
         }
     }
-    
+
     private fun handleLocalAdbUninstall(command: String) {
+        appendLog("卸载 >> $command")
         val parts = command.split("\\s+".toRegex()).filter { it.isNotBlank() }
         if (parts.size < 3) {
             appendLog("[错误] 请使用: adb uninstall [包名]")
@@ -920,6 +958,7 @@ class MainActivity : ComponentActivity() {
     }
     
     private fun handleLocalAdbPush(command: String) {
+        appendLog("推送 >> $command")
         val parts = command.split("\\s+".toRegex()).filter { it.isNotBlank() }
         if (parts.size < 4) {
             appendLog("[错误] 请使用: adb push [本地文件名] [远端路径]")
@@ -992,6 +1031,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun handleLocalAdbPull(command: String) {
+        appendLog("拉取 >> $command")
         val parts = command.split("\\s+".toRegex()).filter { it.isNotBlank() }
         if (parts.size < 3) {
             appendLog("[错误] 请使用: adb pull [远端路径] (可选本地落地名)")

@@ -187,7 +187,7 @@ android {
         minSdk = propMinSdk
         targetSdk = propTargetSdk
         versionCode = propVersionCode
-        versionName = "$versionPrefix-$buildDate-android"
+        versionName = "$versionPrefix-$buildDate"
         
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         
