@@ -375,7 +375,7 @@ class MainActivity : ComponentActivity() {
                     cmd.startsWith("adb connect") -> handleLocalAdbConnect(cmd)
                     cmd.startsWith("adb push") -> handleLocalAdbPush(cmd)
                     cmd.startsWith("adb pull") -> handleLocalAdbPull(cmd)
-                    cmd.startsWith("adb install") -> handleLocalAdbInstall(this, cmd)
+                    cmd.startsWith("adb install") -> handleLocalAdbInstall(this@MainActivity, cmd)
                     cmd.startsWith("adb uninstall") -> handleLocalAdbUninstall(cmd)
                     else -> sendAdbShell(cmd)
                 }
