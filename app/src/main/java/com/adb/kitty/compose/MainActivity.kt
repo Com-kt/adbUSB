@@ -375,14 +375,14 @@ class MainActivity : ComponentActivity() {
                     cmd.startsWith("adb connect") -> handleLocalAdbConnect(cmd)
                     cmd.startsWith("adb push") -> handleLocalAdbPush(cmd)
                     cmd.startsWith("adb pull") -> handleLocalAdbPull(cmd)
-                    cmd.startsWith("adb install") -> handleLocalAdbInstall(cmd)
+                    cmd.startsWith("adb install") -> handleLocalAdbInstall(this, cmd)
                     cmd.startsWith("adb uninstall") -> handleLocalAdbUninstall(cmd)
                     else -> sendAdbShell(cmd)
                 }
             }
         }
     }
-    
+
     fun FbSeLinuxCmd() {
         if (!isFastbootMode) {
              Toast.makeText(this, "当前不是 Fastboot 模式", Toast.LENGTH_SHORT).show()
@@ -650,7 +650,7 @@ class MainActivity : ComponentActivity() {
                         withContext(Dispatchers.Main) { appendLog("[Install] 正在对 [${file.name}] 容器进行物理破壳与流提取...") }
                         
                         tempExtractDir = File(context.cacheDir, "kadb_extracted_${System.currentTimeMillis()}")
-                        if (!tempExtractDir.mkdirs()) throw IOException("无法创建临时解压释放区")
+                        if (!tempExtractDir.mkdirs()) throw java.io.IOException("无法创建临时解压释放区")
 
                         ZipFile(file).use { zip ->
                             val entries = zip.entries()
