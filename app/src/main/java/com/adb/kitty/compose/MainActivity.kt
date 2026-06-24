@@ -472,7 +472,7 @@ class MainActivity : ComponentActivity() {
         }
         appendLog("发现设备但无 ADB/Fastboot 接口")
     }
- 
+    
     private fun connectToInterface(device: UsbDevice) {
         val protocolTarget = if (isFastbootMode) 3 else 1
         val intf = (0 until device.interfaceCount).map { device.getInterface(it) }
@@ -514,7 +514,12 @@ class MainActivity : ComponentActivity() {
                     }
 
                     val instance = Kadb.create(host = "127.0.0.1", port = localVirtualPort)
-                    val isConnected = instance.connectionCheck()
+                    val isConnected = runCatching {
+                        // 强行撞门 adbd 成功就是成功，失败就是失败
+                        instance.shell("echo 1") 
+                        // 如果没有抛出 Auth 异常且成功返回，说明通道建立成功
+                        true
+                    }.getOrElse { false }
 
                     withContext(Dispatchers.Main) {
                         if (isConnected) {
@@ -523,6 +528,10 @@ class MainActivity : ComponentActivity() {
                             isAdbAuthorized = true
                             syncDeviceList()
                             appendLog(">>> 👍 ADB 有线授权成功，物理总线全面并网！[$serialNumber] <<<")
+                        } else {
+                            // 握手失败，安全熔断
+                            runCatching { instance.close() }
+                            appendLog("[Error] 有线物理握手校验未通过，请在手机端允许 USB 调试授权。")
                         }
                     }
                 } catch (e: Exception) {
@@ -533,7 +542,7 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
-
+    
     private fun setupFastboot() {
         viewModel.initFastboot(
             usbConn = usbConn!!, 
