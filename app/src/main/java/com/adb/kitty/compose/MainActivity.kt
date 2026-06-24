@@ -523,10 +523,6 @@ class MainActivity : ComponentActivity() {
                             isAdbAuthorized = true
                             syncDeviceList()
                             appendLog(">>> 👍 ADB 有线授权成功，物理总线全面并网！[$serialNumber] <<<")
-                        } else {
-                            // 握手失败，安全熔断
-                            runCatching { instance.close() }
-                            appendLog("[Error] 有线物理握手校验未通过，请在手机端允许 USB 调试授权。")
                         }
                     }
                 } catch (e: Exception) {
