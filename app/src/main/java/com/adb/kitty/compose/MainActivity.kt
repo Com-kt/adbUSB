@@ -159,6 +159,17 @@ class MainActivity : ComponentActivity() {
         viewModel.appendLog(msg)
     }
     
+    private val requestNotificationPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted: Boolean ->
+        if (isGranted) {
+            appendLog("[权限] 通知权限授权成功，正在启动前台服务")
+            startAndBindAdbService()
+        } else {
+            appendLog("[警告] 通知权限被拒绝了，因此无法启动前台服务，已自动禁用功能：adb、adb-wlan、fastboot、usb")
+        }
+    }
+    
     private val requestNetworkPermissionsLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
@@ -279,12 +290,7 @@ class MainActivity : ComponentActivity() {
         
         usbManager = getSystemService(Context.USB_SERVICE) as UsbManager
         keyManager = AdbKeyManager(this)
-
-        if (checkAndRequestNotificationPermission()) {
-            val intent = Intent(this, AdbSessionService::class.java)
-            startService(intent)
-            bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE)
-        }
+        tryToStartService()
 
         val exportFlag = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) RECEIVER_NOT_EXPORTED else 0
         registerReceiver(usbPermissionReceiver, IntentFilter(ACTION_USB_PERMISSION), exportFlag)
@@ -381,6 +387,26 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+    
+    fun tryToStartService() {
+        val permissionCheck = ContextCompat.checkSelfPermission(
+            this, 
+            Manifest.permission.POST_NOTIFICATIONS
+        )
+            
+        if (permissionCheck == PackageManager.PERMISSION_GRANTED) {
+            startAndBindAdbService()
+        } else {
+            appendLog("[权限] 正在申请通知权限...")
+            requestNotificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+    }
+
+    private fun startAndBindAdbService() {
+        val intent = Intent(this, AdbSessionService::class.java)
+        startService(intent)
+        bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE)
     }
 
     fun FbSeLinuxCmd() {
@@ -1207,16 +1233,6 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun checkAndRequestNotificationPermission(): Boolean {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
-                ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.POST_NOTIFICATIONS), 2027)
-                return false
-            }
-        }
-        return true
-    }
-    
     private fun getWifiScanPermission(): String {
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             Manifest.permission.NEARBY_WIFI_DEVICES
