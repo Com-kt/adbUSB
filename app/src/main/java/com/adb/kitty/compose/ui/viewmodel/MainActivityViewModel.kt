@@ -176,7 +176,9 @@ class MainActivityViewModel : ViewModel() {
         AppCommand("打印控制台已输出的日志到本地, 该扩展指令由app提供", "userkitty-log-export"),
         AppCommand("查询高级保护模式状态, 该扩展指令由app提供", "query-apm"),
         AppCommand("文本内容生成二维码, 该扩展指令由app提供", "qr-gen "),
-        AppCommand("二维码解码, 该扩展指令由app提供", "qr-decode ")
+        AppCommand("二维码解码, 该扩展指令由app提供", "qr-decode "),
+        AppCommand("文件加密, 该扩展指令由app提供", "encrypt "),
+        AppCommand("文件解密, 该扩展指令由app提供", "decrypt ")
     )
     
     private val _adbCommands = listOf(

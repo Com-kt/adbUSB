@@ -273,7 +273,6 @@ class MainActivity : ComponentActivity() {
                 Color.Transparent.toArgb()
             )
         )
-        ensureFlashDirExists()
         setContent {
             CenterAlignedTopAppBarExample(
                 viewModel = viewModel,
@@ -322,6 +321,7 @@ class MainActivity : ComponentActivity() {
         
         usbManager = getSystemService(Context.USB_SERVICE) as UsbManager
         keyManager = AdbKeyManager(this)
+        ensureFlashDirExists()
         tryToStartService()
 
         val exportFlag = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) RECEIVER_NOT_EXPORTED else 0
@@ -358,9 +358,66 @@ class MainActivity : ComponentActivity() {
         val cmd = cmdInput.trim()
         if (cmd.isEmpty()) return
         
-        if (cmd.startsWith("qr-gen ")) {
-            val arg = cmd.removePrefix("qr-gen ").trim()
+        if (cmd.startsWith("encrypt ")) {
             appendLog("[系统] 扩展指令 >> $cmd")
+            val args = cmd.removePrefix("encrypt ").trim().split(" ")
+            if (args.size < 2) {
+                appendLog("[错误] 用法: encrypt <flash目录下的文件名> <加密密码>")
+                return
+            }
+            val fileName = args[0]
+            val password = args[1]
+
+            val targetFile = File(flashFolder, fileName)
+            if (!targetFile.exists() || !targetFile.isFile) {
+                appendLog("[错误] 未找到文件: flash/$fileName")
+                return
+            }
+
+            val outputFile = File(flashFolder, "$fileName.enc")
+            appendLog("[系统] 正在对 ${fileName} 执行 AES-256 加密...")
+    
+            val success = CryptoUtils.encryptFile(targetFile, outputFile, password)
+            if (success) {
+                appendLog("[系统] 加密成功！输出文件: flash/${outputFile.name}")
+            } else {
+                appendLog("[错误] 加密失败，请检查异常日志")
+            }
+            return
+        }
+
+        if (cmd.startsWith("decrypt ")) {
+            appendLog("[系统] 扩展指令 >> $cmd")
+            val args = cmd.removePrefix("decrypt ").trim().split(" ")
+            if (args.size < 2) {
+                appendLog("[错误] 用法: decrypt <加密文件名> <解密密码>")
+                return
+            }
+            val fileName = args[0]
+            val password = args[1]
+
+            val targetFile = File(flashFolder, fileName)
+            if (!targetFile.exists() || !targetFile.isFile) {
+                appendLog("[错误] 未找到加密文件: flash/$fileName")
+                return
+            }
+
+            val outName = if (fileName.endsWith(".enc")) fileName.removeSuffix(".enc") else "$fileName.dec"
+            val outputFile = File(flashFolder, outName)
+    
+            appendLog("[系统] 正在解密文件: $fileName ...")
+            val success = CryptoUtils.decryptFile(targetFile, outputFile, password)
+            if (success) {
+                appendLog("[系统] 解密成功！完整性校验通过。已还原为: flash/$outName")
+            } else {
+                appendLog("[错误] 解密失败！可能是密码错误或文件已被篡改！")
+            }
+            return
+        }
+
+        if (cmd.startsWith("qr-gen ")) {
+            appendLog("[系统] 扩展指令 >> $cmd")
+            val arg = cmd.removePrefix("qr-gen ").trim()
         
             if (arg.isEmpty()) {
                 appendLog("[错误] qr-gen 指令缺少参数！用法: qr-gen <文本> 或 qr-gen <flash目录下的文件名>")
@@ -376,7 +433,7 @@ class MainActivity : ComponentActivity() {
             if (targetFile != null) {
                 appendLog("[系统] 匹配到本地文件: ${targetFile.absolutePath}")
                 try {
-                    if (targetFile.length() > 3000) {
+                    if (targetFile.length() > 2000) {
                         appendLog("[警告] 文件大小 (${targetFile.length()} 字节) 超过二维码实用上限！")
                         val fallbackText = if (targetFile.parentFile?.name == "flash") arg else targetFile.name
                         appendLog("[系统] 已自动降级为【生成文件名二维码】: $fallbackText")
@@ -395,8 +452,8 @@ class MainActivity : ComponentActivity() {
                     qrCodeDialogContent = arg
                 }
             } else {
-                if (arg.length > 3000) {
-                    appendLog("[错误] 输入文本过长 (${arg.length} 字)，请保持在 3000 字以内！")
+                if (arg.length > 2000) {
+                    appendLog("[错误] 输入文本过长 (${arg.length} 字)，请保持在 2000 字以内！")
                 } else {
                     appendLog("[系统] 未匹配到同名文件，将作为纯文本生成二维码...")
                     qrCodeDialogContent = arg
@@ -406,8 +463,8 @@ class MainActivity : ComponentActivity() {
         }
         
         if (cmd.startsWith("qr-decode ")) {
+            appendLog("[系统] 扩展指令 >> $cmd")
             val arg = cmd.removePrefix("qr-decode ").trim()
-            appendLog("[系统] 扩展指令 >> qr-decode")
         
             if (arg.isEmpty()) {
                 appendLog("[错误] qr-decode 指令缺少参数！用法: qr-decode <flash目录下的图片名>")
@@ -444,12 +501,12 @@ class MainActivity : ComponentActivity() {
                 return
             }
             "ip-test" -> {
-                appendLog("[系统] 扩展指令(由app提供) >> $cmd")
+                appendLog("[系统] 扩展指令 >> $cmd")
                 startIpNetworkTest()
                 return
             }
             "usb-host" -> {
-                appendLog("[系统] 扩展指令(由app提供) >> $cmd")
+                appendLog("[系统] 扩展指令 >> $cmd")
                 findHostDevice()
                 return
             }
