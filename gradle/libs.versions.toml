@@ -17,7 +17,7 @@ libsuVersion = "6.0.0"
 lifecycle = "2.11.0"
 
 kadb = "2.1.2"
-
+zxing = "3.5.3"
 annotationExperimental = "1.6.0"
 
 compose-bom = "2026.06.00"
@@ -46,6 +46,7 @@ mt-dataFilesProvider = { group = "com.github.L-JINBIN", name = "MTDataFilesProvi
 lsposed-hiddenapibypass = { module = "org.lsposed.hiddenapibypass:hiddenapibypass", version.ref = "hiddenapibypassVersion" }
 
 nayuki-qrcode = { group = "io.nayuki", name = "qrcodegen", version.ref = "nayukiQR" }
+zxing-core = { group = "com.google.zxing", name = "core", version.ref = "zxing" }
 
 libsu-core = { module = "com.github.topjohnwu.libsu:core", version.ref = "libsuVersion" }
 libsu-service = { module = "com.github.topjohnwu.libsu:service", version.ref = "libsuVersion" }

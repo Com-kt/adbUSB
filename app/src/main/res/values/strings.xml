@@ -21,4 +21,7 @@
     <string name="action_qr_close">closure</string>
     <string name="action_qr_fail">QR code matrix generation failed and may contain illegal characters</string>
     <string name="action_qr_content">Content preview</string>
+    <string name="action_qr_osa">output to file</string>
+    <string name="action_qr_osb">copy all</string>
+    <string name="action_qr_osc">🔍 QR code analysis results</string>
 </resources>

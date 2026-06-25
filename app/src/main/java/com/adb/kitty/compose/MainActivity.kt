@@ -66,6 +66,7 @@ import androidx.lifecycle.viewmodel.compose.*
 import androidx.compose.foundation.*
 import androidx.compose.foundation.lazy.*
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.*
 import androidx.compose.foundation.interaction.*
 import androidx.compose.foundation.text.selection.*
 import androidx.compose.material.icons.*
@@ -133,6 +134,7 @@ class MainActivity : ComponentActivity() {
     var matchedDevicesList = mutableStateListOf<AdbDevice>()
     
     var qrCodeDialogContent by mutableStateOf<String?>(null)
+    var qrDecodeResult by mutableStateOf<String?>(null)
     
     var adbService: AdbSessionService? = null
     private var isServiceBound = false
@@ -301,6 +303,20 @@ class MainActivity : ComponentActivity() {
                     onDismiss = { qrCodeDialogContent = null }
                 )
             }
+            
+            qrDecodeResult?.let { decodedText ->
+                QrDecodeResultDialog(
+                    rawResult = decodedText,
+                    onDismiss = { qrDecodeResult = null },
+                    onExportToFile = { content ->
+                        val savedName = saveTextToFlashFolder(this@MainActivity, flashFolder, content)
+                        if (savedName != null) {
+                            appendLog("[系统] 解码内容已成功全部输出至: flash/$savedName")
+                        }
+                        qrDecodeResult = null 
+                    }
+                )
+            }
         }
         
         usbManager = getSystemService(Context.USB_SERVICE) as UsbManager
@@ -384,6 +400,39 @@ class MainActivity : ComponentActivity() {
                     appendLog("[系统] 未匹配到同名文件，将作为纯文本生成二维码...")
                     qrCodeDialogContent = arg
                 }
+            }
+            return
+        }
+        
+        if (cmd.startsWith("qr-decode ")) {
+            val arg = cmd.removePrefix("qr-decode ").trim()
+            appendLog("[系统] 扩展指令 >> qr-decode")
+        
+            if (arg.isEmpty()) {
+                appendLog("[错误] qr-decode 指令缺少参数！用法: qr-decode <flash目录下的图片名>")
+                return
+            }
+
+            val fileInFlash = File(flashFolder, arg)
+            val targetFile = when {
+                fileInFlash.exists() && fileInFlash.isFile -> fileInFlash
+                File(arg).exists() && File(arg).isFile -> File(arg)
+                else -> null
+            }
+
+            if (targetFile != null) {
+                appendLog("[系统] 开始解码图片: ${targetFile.name}...")
+            
+                val result = QrCodeUtils.decodeQrCodeFromFile(targetFile)
+            
+                if (result != null) {
+                    appendLog("[系统] 二维码解码成功！")
+                    qrDecodeResult = result
+                } else {
+                    appendLog("[错误] 二维码解析失败，请确保图片清晰且确实包含二维码")
+                }
+            } else {
+                appendLog("[错误] 未找到指定图片文件: $arg")
             }
             return
         }
@@ -2086,5 +2135,111 @@ fun saveQrCodeToGallery(context: Context, bitmap: Bitmap, fileName: String = "QR
         }
     } else {
         Toast.makeText(context, "无法创建媒体文件条目", Toast.LENGTH_SHORT).show()
+    }
+}
+
+@Keep
+@Composable
+fun QrDecodeResultDialog(
+    rawResult: String,
+    onDismiss: () -> Unit,
+    onExportToFile: (String) -> Unit
+) {
+    val context = LocalContext.current
+    val isList = rawResult.contains("\n")
+    val listItems = if (isList) rawResult.split("\n").filter { it.isNotBlank() } else emptyList()
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(text = stringResource(R.string.action_qr_osc)) },
+        text = {
+            Column(modifier = Modifier.fillMaxWidth().maxHeight(360.dp)) {
+                SelectionContainer {
+                    if (isList) {
+                        LazyColumn(
+                            verticalArrangement = Arrangement.spacedBy(6.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            items(listItems) { item ->
+                                Surface(
+                                    shape = RoundedCornerShape(6.dp),
+                                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Text(
+                                        text = item,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontFamily = FontFamily.Monospace,
+                                        modifier = Modifier.padding(10.dp)
+                                    )
+                                }
+                            }
+                        }
+                    } else {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
+                                .padding(12.dp)
+                        ) {
+                            Text(
+                                text = rawResult,
+                                style = MaterialTheme.typography.bodyLarge,
+                                fontFamily = FontFamily.Monospace
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                TextButton(
+                    onClick = { onExportToFile(rawResult) }
+                ) {
+                    Text(stringResource(R.string.action_qr_osa))
+                }
+                
+                Button(
+                    onClick = {
+                        val clipboard = context.getSystemService(ClipboardManager::class.java)
+                        val clip = ClipData.newPlainText("QR_Result", rawResult)
+                        clipboard.setPrimaryClip(clip)
+                        Toast.makeText(context, "已复制全部内容到剪贴板", Toast.LENGTH_SHORT).show()
+                    }
+                ) {
+                    Text(stringResource(R.string.action_qr_osb))
+                }
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(
+                    stringResource(R.string.action_qr_close)
+                )
+            }
+        }
+    )
+}
+
+@Keep
+fun saveTextToFlashFolder(context: Context, flashFolder: File, content: String): String? {
+    try {
+        if (!flashFolder.exists()) {
+            flashFolder.mkdirs()
+        }
+
+        val timeStamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
+        val fileName = "QR_DECODE_$timeStamp.txt"
+        val targetFile = File(flashFolder, fileName)
+
+        targetFile.writeText(content, Charsets.UTF_8)
+
+        Toast.makeText(context, "文件已成功输出至 flash/$fileName", Toast.LENGTH_LONG).show()
+        return fileName
+    } catch (e: Exception) {
+        e.printStackTrace()
+        Toast.makeText(context, "文件写入失败: ${e.message}", Toast.LENGTH_SHORT).show()
+        return null
     }
 }

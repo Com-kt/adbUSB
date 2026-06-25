@@ -20,4 +20,7 @@
     <string name="action_qr_close">关闭</string>
     <string name="action_qr_fail">二维码矩阵生成失败，可能包含非法字符</string>
     <string name="action_qr_content">内容预览</string>
+    <string name="action_qr_osa">输出到文件</string>
+    <string name="action_qr_osb">复制全部</string>
+    <string name="action_qr_osc">🔍 二维码解析结果</string>
 </resources>

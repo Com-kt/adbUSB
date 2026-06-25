@@ -55,6 +55,7 @@ abstract class GenerateKotlinMetadataTask : DefaultTask() {
     @get:Input abstract val mtDataFilesProviderVersion: Property<String>
     @get:Input abstract val lifecycleVersion: Property<String>
     @get:Input abstract val nayukiQRVersion: Property<String>
+    @get:Input abstract val zxingCodeVersion: Property<String>
     
     @get:Input abstract val sourceCompatibility: Property<String>
     @get:Input abstract val targetCompatibility: Property<String>
@@ -101,7 +102,8 @@ abstract class GenerateKotlinMetadataTask : DefaultTask() {
             "org.lsposed.hiddenapibypass:hiddenapibypassVersion": "${hiddenapibypassVersion.get()}",
             "com.github.topjohnwu.libsu:libsuVersion": "${libsuVersion.get()}",
             "MTDataFilesProviderVersion": "${mtDataFilesProviderVersion.get()}",
-            "nayukiQRVersion": "${nayukiQRVersion.get()}"
+            "nayukiQRVersion": "${nayukiQRVersion.get()}",
+            "zxingCodeVersion": "${zxingCodeVersion.get()}"
           },
           "projectTargets": [
             {
@@ -138,6 +140,7 @@ val injectKotlinMetadataToRoot = tasks.register<GenerateKotlinMetadataTask>("inj
     mtDataFilesProviderVersion.set(providers.provider { libs.versions.mtDataFilesProvider.get() })
     lifecycleVersion.set(providers.provider { libs.versions.lifecycle.get() })
     nayukiQRVersion.set(providers.provider { libs.versions.nayukiQR.get() })
+    zxingCodeVersion.set(providers.provider { libs.versions.zxing.get() })
 
     sourceCompatibility.set(providers.provider { android.compileOptions.sourceCompatibility.toString() })
     targetCompatibility.set(providers.provider { android.compileOptions.targetCompatibility.toString() })
@@ -317,6 +320,7 @@ dependencies {
     implementation(libs.mt.dataFilesProvider)
     implementation(libs.lsposed.hiddenapibypass)
     implementation(libs.nayuki.qrcode)
+    implementation(libs.zxing.core)
     implementation(libs.bundles.libsu)
     implementation(libs.com.flyfishxu.kadb)
     implementation(libs.androidx.annotation.experimental)

@@ -174,7 +174,8 @@ class MainActivityViewModel : ViewModel() {
         AppCommand("测试 ipv4 和 ipv6 地址, 该扩展指令由app提供", "ip-test"),
         AppCommand("打印控制台已输出的日志到本地, 该扩展指令由app提供", "userkitty-log-export"),
         AppCommand("查询高级保护模式状态, 该扩展指令由app提供", "query-apm"),
-        AppCommand("文本内容生成二维码, 该扩展指令由app提供", "qr-gen ")
+        AppCommand("文本内容生成二维码, 该扩展指令由app提供", "qr-gen "),
+        AppCommand("二维码解码, 该扩展指令由app提供", "qr-decode ")
     )
     
     private val _adbCommands = listOf(
