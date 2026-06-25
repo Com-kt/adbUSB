@@ -146,9 +146,29 @@
     <uses-feature 
           android:name="android.hardware.audio.pro"
           android:required="false" />
-    <!-- 麦克风 -->
+    <!-- 任何相机 -->
     <uses-feature 
-          android:name="android.hardware.microphone"
+          android:name="android.hardware.camera.any"
+          android:required="false" />
+    <!-- 后置相机 -->
+    <uses-feature 
+          android:name="android.hardware.camera"
+          android:required="false" />
+    <!-- 前置相机 -->
+    <uses-feature 
+          android:name="android.hardware.camera.front"
+          android:required="false" />
+    <!-- 外接相机 -->
+    <uses-feature 
+          android:name="android.hardware.camera.external"
+          android:required="false" />
+    <!-- 自动对焦 -->
+    <uses-feature 
+          android:name="android.hardware.camera.autofocus"
+          android:required="false" />
+    <!-- 闪光灯 -->
+    <uses-feature 
+          android:name="android.hardware.camera.flash"
           android:required="false" />
     
     <!-- 使用相机 -->
