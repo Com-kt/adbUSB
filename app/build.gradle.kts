@@ -276,6 +276,7 @@ android {
                 ignoreFrom("com.github.topjohnwu.libsu:core")
                 ignoreFrom("org.lsposed.hiddenapibypass:hiddenapibypass")
                 ignoreFrom("io.nayuki:qrcodegen")
+                ignoreFrom("com.google.zxing:core")
             }
             signingConfig = signingConfigs.getByName("adb")
         }

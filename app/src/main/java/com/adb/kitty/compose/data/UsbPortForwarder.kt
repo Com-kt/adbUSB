@@ -9,6 +9,7 @@ import java.net.Socket
 import kotlin.concurrent.thread
 import com.adb.kitty.compose.ui.theme.*
 import com.adb.kitty.compose.ui.viewmodel.*
+import com.adb.kitty.compose.ui.it.*
 import com.adb.kitty.compose.*
 
 @Keep
