@@ -14,6 +14,10 @@
     <uses-feature 
           android:name="android.software.leanback"
           android:required="false" />
+    <!-- 直播电视 -->
+    <uses-feature 
+          android:name="android.software.live_tv"
+          android:required="false" />
     <!-- 电话 -->
     <uses-feature 
           android:name="android.hardware.telephony"
@@ -122,7 +126,43 @@
     <uses-feature 
           android:name="android.software.companion_device_setup"
           android:required="false" />
+    <!-- 打印 -->
+    <uses-feature 
+          android:name="android.software.print"
+          android:required="false" />
+    <!-- MIDI -->
+    <uses-feature 
+          android:name="android.software.midi"
+          android:required="false" />
+    <!-- 低延迟音频 -->
+    <uses-feature 
+          android:name="android.hardware.audio.low_latency"
+          android:required="false" />
+    <!-- 音频输出 -->
+    <uses-feature 
+          android:name="android.hardware.audio.output"
+          android:required="false" />
+    <!-- 专业音频 -->
+    <uses-feature 
+          android:name="android.hardware.audio.pro"
+          android:required="false" />
+    <!-- 麦克风 -->
+    <uses-feature 
+          android:name="android.hardware.microphone"
+          android:required="false" />
     
+    <!-- 使用相机 -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <!-- 录音 -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <!-- Android 16+ 查询高级保护模式状态 -->
+    <uses-permission android:name="android.permission.QUERY_ADVANCED_PROTECTION_MODE" />
+    <!-- 读取共享存储空间中的图片文件 -->
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <!-- 从共享存储空间读取音频文件 -->
+    <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
+    <!-- 从共享存储空间读取视频文件 -->
+    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
     <!-- 控制近距离通信 -->
     <uses-permission android:name="android.permission.NFC" />
     <!-- 读取 NFC 交易事件 -->
@@ -161,13 +201,13 @@
         android:usesPermissionFlags="neverForLocation"
         tools:ignore="UnusedAttribute" />
     <!-- 通过 GPS 获取访问精确的位置信息 -->
-    <uses-permission 
-        android:name="android.permission.ACCESS_FINE_LOCATION" 
-        android:maxSdkVersion="32" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <!-- 通过网络访问粗略的位置信息 -->
-    <uses-permission 
-        android:name="android.permission.ACCESS_COARSE_LOCATION" 
-        android:maxSdkVersion="32" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <!-- 获取额外的位置信息提供程序命令 -->
+    <uses-permission android:name="android.permission.ACCESS_LOCATION_EXTRA_COMMANDS" />
+    <!-- 访问媒体中的地理位置信息 -->
+    <uses-permission android:name="android.permission.ACCESS_MEDIA_LOCATION" />
     <!-- 使用证书 -->
     <uses-permission android:name="android.permission.USE_CREDENTIALS" />
     <!-- 使用生物识别 -->

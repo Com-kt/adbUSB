@@ -356,6 +356,25 @@ class MainActivity : ComponentActivity() {
                 }
                 return
             }
+            "query-apm" -> {
+                appendLog("[系统] 扩展指令 >> $cmd")
+                if (android.os.Build.VERSION.SDK_INT >= 36) {
+                    try {
+                        val apm = getSystemService(android.security.advancedprotection.AdvancedProtectionManager::class.java)
+                        if (apm != null) {
+                            val isEnabled = apm.isAdvancedProtectionEnabled
+                            appendLog("[系统] 高级保护模式 (AAPM) 状态: ${if (isEnabled) "【已开启 🛡️】" else "【已关闭 🔓】"}")
+                        } else {
+                            appendLog("[错误] 无法获取 AdvancedProtectionManager 服务")
+                        }
+                    } catch (e: Exception) {
+                        appendLog("[错误] 查询失败: ${e.message}")
+                    }
+                } else {
+                    appendLog("[提示] 当前系统级别 (API ${android.os.Build.VERSION.SDK_INT}) 低于 Android 16，不支持高级保护模式。")
+                }
+                return
+            }
         }
 
         if (isFastbootMode) {
