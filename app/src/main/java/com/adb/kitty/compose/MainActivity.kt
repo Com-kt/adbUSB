@@ -5,6 +5,7 @@ import android.util.*
 import android.content.pm.*
 import android.graphics.*
 import android.animation.*
+import android.provider.*
 import android.app.PendingIntent
 
 import android.os.*
@@ -2054,4 +2055,36 @@ fun QrCodePopupDialog(
             }
         }
     )
+}
+
+@Keep
+fun saveQrCodeToGallery(context: Context, bitmap: Bitmap, fileName: String = "QR_${System.currentTimeMillis()}") {
+    val resolver = context.contentResolver
+    val imageDetails = ContentValues().apply {
+        put(MediaStore.Images.Media.DISPLAY_NAME, "$fileName.png")
+        put(MediaStore.Images.Media.MIME_TYPE, "image/png")
+        put(MediaStore.Images.Media.RELATIVE_PATH, "Pictures/UsbFlashQR")
+    }
+
+    val imageUri = resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, imageDetails)
+
+    if (imageUri != null) {
+        var outputStream: OutputStream? = null
+        try {
+            outputStream = resolver.openOutputStream(imageUri)
+            if (outputStream != null) {
+                bitmap.compress(Bitmap.CompressFormat.PNG, 100, outputStream)
+                Toast.makeText(context, "二维码已保存至相册 Pictures/UsbFlashQR", Toast.LENGTH_SHORT).show()
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            Toast.makeText(context, "保存失败: ${e.message}", Toast.LENGTH_SHORT).show()
+        } finally {
+            try {
+                outputStream?.close()
+            } catch (_: Exception) {}
+        }
+    } else {
+        Toast.makeText(context, "无法创建媒体文件条目", Toast.LENGTH_SHORT).show()
+    }
 }
