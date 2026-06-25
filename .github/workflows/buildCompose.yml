@@ -52,7 +52,6 @@ jobs:
           RELEASE_KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
       
       - name: Builds APKs Splits & Sign with V3.1 Key Rotation
-        continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
