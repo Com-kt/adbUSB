@@ -130,6 +130,7 @@ class MainActivity : ComponentActivity() {
     
     var adbService: AdbSessionService? = null
     private var isServiceBound = false
+    private var isBindingRequested = false
     val connectedDevices = mutableStateListOf<String>()
     var activeDeviceId by mutableStateOf<String?>(null)
     private var kadbInstance: Kadb?
@@ -148,6 +149,7 @@ class MainActivity : ComponentActivity() {
 
         override fun onServiceDisconnected(name: ComponentName?) {
             isServiceBound = false
+            isBindingRequested = false
             adbService = null
             connectedDevices.clear()
             activeDeviceId = null
@@ -163,10 +165,10 @@ class MainActivity : ComponentActivity() {
         ActivityResultContracts.RequestPermission()
     ) { isGranted: Boolean ->
         if (isGranted) {
-            appendLog("[权限] 通知权限授权成功，正在启动前台服务")
+            appendLog("[权限] Android 13+ 通知权限授权成功，正在激活前台服务...")
             startAndBindAdbService()
         } else {
-            appendLog("[警告] 通知权限被拒绝了，因此无法启动前台服务，已自动禁用功能：adb、adb-wlan、fastboot、usb")
+            handlePermissionDeniedSituation()
         }
     }
     
@@ -390,20 +392,34 @@ class MainActivity : ComponentActivity() {
     }
     
     fun tryToStartService() {
-        val permissionCheck = ContextCompat.checkSelfPermission(
-            this, 
-            Manifest.permission.POST_NOTIFICATIONS
-        )
-            
-        if (permissionCheck == PackageManager.PERMISSION_GRANTED) {
-            startAndBindAdbService()
+        if (isBindingRequested) return
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            val permissionCheck = ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
+            if (permissionCheck == PackageManager.PERMISSION_GRANTED) {
+                startAndBindAdbService()
+            } else {
+                appendLog("[权限] 正在申请 Android 13+ 前台服务通知权限")
+                requestNotificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            }
         } else {
-            appendLog("[权限] 正在申请通知权限...")
-            requestNotificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            if (NotificationManagerCompat.from(this).areNotificationsEnabled()) {
+                appendLog("[系统] 检查通过：常驻通知总线完好，正在激活前台服务")
+                startAndBindAdbService()
+            } else {
+                handlePermissionDeniedSituation()
+            }
         }
     }
-
+    
+    private fun handlePermissionDeniedSituation() {
+        appendLog("[错误] ❌ 通知权限被拦截/拒绝！")
+        appendLog("[警告] ⚠️ 前台服务失去通知将导致服务被系统瞬间抹杀。")
+        appendLog("[保护] 🚨 已自动熔断并禁用核心功能：[adb]、[adb-wlan]、[fastboot]、[usb]")
+    }
+    
     private fun startAndBindAdbService() {
+        if (isBindingRequested) return
+        isBindingRequested = true
         val intent = Intent(this, AdbSessionService::class.java)
         startService(intent)
         bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE)
