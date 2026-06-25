@@ -2153,7 +2153,7 @@ fun QrDecodeResultDialog(
         onDismissRequest = onDismiss,
         title = { Text(text = stringResource(R.string.action_qr_osc)) },
         text = {
-            Column(modifier = Modifier.fillMaxWidth().maxHeight(360.dp)) {
+            Column(modifier = Modifier.fillMaxWidth().heightIn(max = 360.dp)) {
                 SelectionContainer {
                     if (isList) {
                         LazyColumn(
@@ -2202,10 +2202,16 @@ fun QrDecodeResultDialog(
                 
                 Button(
                     onClick = {
-                        val clipboard = context.getSystemService(ClipboardManager::class.java)
-                        val clip = ClipData.newPlainText("QR_Result", rawResult)
-                        clipboard.setPrimaryClip(clip)
-                        Toast.makeText(context, "已复制全部内容到剪贴板", Toast.LENGTH_SHORT).show()
+                        try {
+                            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                            val clip = ClipData.newPlainText("QR_Result", rawResult)
+                            
+                            clipboard.setPrimaryClip(clip)
+                            Toast.makeText(context, "已复制全部内容到剪贴板", Toast.LENGTH_SHORT).show()
+                        } catch (e: Exception) {
+                            e.printStackTrace()
+                            Toast.makeText(context, "复制失败: ${e.message}", Toast.LENGTH_SHORT).show()
+                        }
                     }
                 ) {
                     Text(stringResource(R.string.action_qr_osb))
