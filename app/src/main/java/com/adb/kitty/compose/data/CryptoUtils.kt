@@ -1,6 +1,8 @@
 package com.adb.kitty.compose.data
 
 import java.io.File
+import java.io.FileInputStream
+import java.io.FileOutputStream
 import java.security.SecureRandom
 import javax.crypto.Cipher
 import javax.crypto.SecretKeyFactory
@@ -18,12 +20,14 @@ object CryptoUtils {
     private const val SALT_LENGTH = 16
     private const val IV_LENGTH = 12
     private const val TAG_LENGTH_BITS = 128
+    private const val BUFFER_SIZE = 8192
 
-    /**
-     * 加密文件：输出后缀为 .enc 的加密文件
-     */
     fun encryptFile(inputFile: File, outputFile: File, password: CharSequence): Boolean {
         if (!inputFile.exists()) return false
+        
+        var fis: FileInputStream? = null
+        var fos: FileOutputStream? = null
+        
         return try {
             val secureRandom = SecureRandom()
             val salt = ByteArray(SALT_LENGTH).also { secureRandom.nextBytes(it) }
@@ -38,33 +42,49 @@ object CryptoUtils {
             val gcmSpec = GCMParameterSpec(TAG_LENGTH_BITS, iv)
             cipher.init(Cipher.ENCRYPT_MODE, secretKey, gcmSpec)
 
-            val plainBytes = inputFile.readBytes()
-            val cipherBytes = cipher.doFinal(plainBytes)
+            fis = FileInputStream(inputFile)
+            fos = FileOutputStream(outputFile)
+            fos.write(salt)
+            fos.write(iv)
 
-            outputFile.outputStream().use { fos ->
-                fos.write(salt)
-                fos.write(iv)
-                fos.write(cipherBytes)
+            val buffer = ByteArray(BUFFER_SIZE)
+            var bytesRead = fis.read(buffer)
+            while (bytesRead != -1) {
+                val cipherBytes = cipher.update(buffer, 0, bytesRead)
+                if (cipherBytes != null) {
+                    fos.write(cipherBytes)
+                }
+                bytesRead = fis.read(buffer)
+            }
+            
+            val finalBytes = cipher.doFinal()
+            if (finalBytes != null) {
+                fos.write(finalBytes)
             }
             true
         } catch (e: Exception) {
             e.printStackTrace()
             false
+        } finally {
+            try { fis?.close() } catch (_: Exception) {}
+            try { fos?.close() } catch (_: Exception) {}
         }
     }
 
-    /**
-     * 解密文件
-     */
     fun decryptFile(encryptedFile: File, outputFile: File, password: CharSequence): Boolean {
         if (!encryptedFile.exists()) return false
+        
+        var fis: FileInputStream? = null
+        var fos: FileOutputStream? = null
+        
         return try {
-            val fileBytes = encryptedFile.readBytes()
-            if (fileBytes.size < SALT_LENGTH + IV_LENGTH) return false
-
-            val salt = fileBytes.copyOfRange(0, SALT_LENGTH)
-            val iv = fileBytes.copyOfRange(SALT_LENGTH, SALT_LENGTH + IV_LENGTH)
-            val cipherBytes = fileBytes.copyOfRange(SALT_LENGTH + IV_LENGTH, fileBytes.size)
+            fis = FileInputStream(encryptedFile)
+            
+            val salt = ByteArray(SALT_LENGTH)
+            val iv = ByteArray(IV_LENGTH)
+            if (fis.read(salt) != SALT_LENGTH || fis.read(iv) != IV_LENGTH) {
+                return false
+            }
 
             val factory = SecretKeyFactory.getInstance(KEY_DERIVATION_ALGORITHM)
             val spec = PBEKeySpec(password.toString().toCharArray(), salt, ITERATION_COUNT, KEY_LENGTH)
@@ -75,13 +95,29 @@ object CryptoUtils {
             val gcmSpec = GCMParameterSpec(TAG_LENGTH_BITS, iv)
             cipher.init(Cipher.DECRYPT_MODE, secretKey, gcmSpec)
 
-            val decryptedBytes = cipher.doFinal(cipherBytes)
+            fos = FileOutputStream(outputFile)
 
-            outputFile.writeBytes(decryptedBytes)
+            val buffer = ByteArray(BUFFER_SIZE)
+            var bytesRead = fis.read(buffer)
+            while (bytesRead != -1) {
+                val plainBytes = cipher.update(buffer, 0, bytesRead)
+                if (plainBytes != null) {
+                    fos.write(plainBytes)
+                }
+                bytesRead = fis.read(buffer)
+            }
+
+            val finalBytes = cipher.doFinal()
+            if (finalBytes != null) {
+                fos.write(finalBytes)
+            }
             true
         } catch (e: Exception) {
             e.printStackTrace()
             false
+        } finally {
+            try { fis?.close() } catch (_: Exception) {}
+            try { fos?.close() } catch (_: Exception) {}
         }
     }
 }

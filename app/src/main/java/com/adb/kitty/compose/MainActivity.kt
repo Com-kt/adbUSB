@@ -376,12 +376,16 @@ class MainActivity : ComponentActivity() {
 
             val outputFile = File(flashFolder, "$fileName.enc")
             appendLog("[系统] 正在对 ${fileName} 执行 AES-256 加密...")
-    
-            val success = CryptoUtils.encryptFile(targetFile, outputFile, password)
-            if (success) {
-                appendLog("[系统] 加密成功！输出文件: flash/${outputFile.name}")
-            } else {
-                appendLog("[错误] 加密失败，请检查异常日志")
+
+            lifecycleScope.launch {
+                val success = withContext(Dispatchers.IO) {
+                    CryptoUtils.encryptFile(targetFile, outputFile, password)
+                }
+                if (success) {
+                    appendLog("[系统] 加密成功！输出文件: flash/${outputFile.name}")
+                } else {
+                    appendLog("[错误] 加密失败，请检查异常日志")
+                }
             }
             return
         }
@@ -404,13 +408,18 @@ class MainActivity : ComponentActivity() {
 
             val outName = if (fileName.endsWith(".enc")) fileName.removeSuffix(".enc") else "$fileName.dec"
             val outputFile = File(flashFolder, outName)
-    
+
             appendLog("[系统] 正在解密文件: $fileName ...")
-            val success = CryptoUtils.decryptFile(targetFile, outputFile, password)
-            if (success) {
-                appendLog("[系统] 解密成功！完整性校验通过。已还原为: flash/$outName")
-            } else {
-                appendLog("[错误] 解密失败！可能是密码错误或文件已被篡改！")
+
+            lifecycleScope.launch {
+                val success = withContext(Dispatchers.IO) {
+                    CryptoUtils.decryptFile(targetFile, outputFile, password)
+                }
+                if (success) {
+                    appendLog("[系统] 解密成功！完整性校验通过。已还原为: flash/$outName")
+                } else {
+                    appendLog("[错误] 解密失败！可能是密码错误或文件已被篡改！")
+                }
             }
             return
         }
