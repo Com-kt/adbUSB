@@ -172,7 +172,9 @@ class MainActivityViewModel : ViewModel() {
         AppCommand("以root权限启动帧率测试, 该扩展指令由app提供", "root-rate"),
         AppCommand("扫描/识别 USB 设备, 该扩展指令由app提供", "usb-host"),
         AppCommand("测试 ipv4 和 ipv6 地址, 该扩展指令由app提供", "ip-test"),
-        AppCommand("打印控制台已输出的日志到本地, 该扩展指令由app提供", "userkitty-log-export")
+        AppCommand("打印控制台已输出的日志到本地, 该扩展指令由app提供", "userkitty-log-export"),
+        AppCommand("查询高级保护模式状态, 该扩展指令由app提供", "query-apm"),
+        AppCommand("文本内容生成二维码, 该扩展指令由app提供", "qr-gen ")
     )
     
     private val _adbCommands = listOf(

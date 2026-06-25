@@ -185,6 +185,10 @@
     <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
     <!-- 仅获取用户选择的图片与视频 -->
     <uses-permission android:name="android.permission.READ_MEDIA_VISUAL_USER_SELECTED" />
+    <!-- 读取共享存储空间中的内容 -->
+    <uses-permission 
+        android:name="android.permission.READ_EXTERNAL_STORAGE" 
+        android:maxSdkVersion="32" />
     <!-- 控制近距离通信 -->
     <uses-permission android:name="android.permission.NFC" />
     <!-- 读取 NFC 交易事件 -->

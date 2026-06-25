@@ -16,4 +16,9 @@
     <string name="action_menu_rate">Start testing rate[root]</string>
     <string name="action_menu_rate_stop">Stop testing rate[root]</string>
     <string name="action_menu_sospl">enter adb cmd / fastboot cmd</string>
+    <string name="action_qr_okay">🛡️ QR code generated successfully</string>
+    <string name="action_qr_store">Save to album</string>
+    <string name="action_qr_close">closure</string>
+    <string name="action_qr_fail">QR code matrix generation failed and may contain illegal characters</string>
+    <string name="action_qr_content">Content preview</string>
 </resources>

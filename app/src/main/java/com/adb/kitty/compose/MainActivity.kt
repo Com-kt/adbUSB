@@ -78,6 +78,8 @@ import androidx.compose.runtime.saveable.*
 import androidx.compose.ui.*
 import androidx.compose.ui.res.*
 import androidx.compose.ui.unit.*
+import androidx.compose.ui.window.*
+import androidx.compose.ui.platform.*
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.input.nestedscroll.*
@@ -128,6 +130,8 @@ class MainActivity : ComponentActivity() {
     
     var showDeviceListBottomSheet = mutableStateOf(false)
     var matchedDevicesList = mutableStateListOf<AdbDevice>()
+    
+    var qrCodeDialogContent by mutableStateOf<String?>(null)
     
     var adbService: AdbSessionService? = null
     private var isServiceBound = false
@@ -289,6 +293,13 @@ class MainActivity : ComponentActivity() {
                     onDismiss = { showDeviceListBottomSheet.value = false }
                 )
             }
+            
+            qrCodeDialogContent?.let { textToEncode ->
+                QrCodePopupDialog(
+                    contentString = textToEncode,
+                    onDismiss = { qrCodeDialogContent = null }
+                )
+            }
         }
         
         usbManager = getSystemService(Context.USB_SERVICE) as UsbManager
@@ -328,6 +339,53 @@ class MainActivity : ComponentActivity() {
     private fun dispatchCommandRoute(cmdInput: String) {
         val cmd = cmdInput.trim()
         if (cmd.isEmpty()) return
+        
+        if (cmd.startsWith("qr-gen ")) {
+            val arg = cmd.removePrefix("qr-gen ").trim()
+            appendLog("[系统] 扩展指令 >> $cmd")
+        
+            if (arg.isEmpty()) {
+                appendLog("[错误] qr-gen 指令缺少参数！用法: qr-gen <文本> 或 qr-gen <flash目录下的文件名>")
+                return
+            }
+            val fileInFlash = File(flashFolder, arg)
+            val targetFile = when {
+                fileInFlash.exists() && fileInFlash.isFile -> fileInFlash
+                File(arg).exists() && File(arg).isFile -> File(arg)
+                else -> null
+            }
+
+            if (targetFile != null) {
+                appendLog("[系统] 匹配到本地文件: ${targetFile.absolutePath}")
+                try {
+                    if (targetFile.length() > 2000) {
+                        appendLog("[警告] 文件大小 (${targetFile.length()} 字节) 超过二维码实用上限！")
+                        val fallbackText = if (targetFile.parentFile?.name == "flash") arg else targetFile.name
+                        appendLog("[系统] 已自动降级为【生成文件名二维码】: $fallbackText")
+                        qrCodeDialogContent = fallbackText
+                    } else {
+                        val fileText = targetFile.readText(Charsets.UTF_8).trim()
+                        if (fileText.isEmpty()) {
+                            appendLog("[错误] 文件内容为空，无法生成二维码")
+                        } else {
+                            appendLog("[系统] 成功读取文件内容，准备生成二维码...")
+                            qrCodeDialogContent = fileText
+                        }
+                    }
+                } catch (e: Exception) {
+                    appendLog("[错误] 读取文件失败 (${e.message})，将直接对参数文本生成二维码")
+                    qrCodeDialogContent = arg
+                }
+            } else {
+                if (arg.length > 2000) {
+                    appendLog("[错误] 输入文本过长 (${arg.length} 字)，请保持在 2000 字以内！")
+                } else {
+                    appendLog("[系统] 未匹配到同名文件，将作为纯文本生成二维码...")
+                    qrCodeDialogContent = arg
+                }
+            }
+            return
+        }
         
         when (cmd) {
             "userkitty-log-export" -> {
@@ -1930,4 +1988,70 @@ private fun getRelativeTime(timeMs: Long): String {
         minutes < 60 -> "${minutes}分钟前"
         else -> "${hours}小时前"
     }
+}
+
+@Keep
+@Composable
+fun QrCodePopupDialog(
+    contentString: String,
+    onDismiss: () -> Unit
+) {
+    val context = LocalContext.current
+    
+    val qrBitmap = remember(contentString) {
+        QrCodeUtils.createQrCode(contentString, targetSize = 512)
+    }
+    
+    val qrString = stringResource(R.string.action_qr_content)
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(text = stringResource(R.string.action_qr_okay)) },
+        text = {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                if (qrBitmap != null) {
+                    Image(
+                        bitmap = qrBitmap.asImageBitmap(),
+                        contentDescription = "Generated QR Code",
+                        modifier = Modifier.size(240.dp),
+                        filterQuality = FilterQuality.None 
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    
+                    Text(
+                        text = "$qrString: $contentString",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                } else {
+                    Text(text = stringResource(R.string.action_qr_fail), color = MaterialTheme.colorScheme.error)
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    if (qrBitmap != null) {
+                        saveQrCodeToGallery(context, qrBitmap)
+                    }
+                }
+            ) {
+                Text(
+                    stringResource(R.string.action_qr_store)
+                )
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(
+                    stringResource(R.string.action_qr_close)
+                )
+            }
+        }
+    )
 }
