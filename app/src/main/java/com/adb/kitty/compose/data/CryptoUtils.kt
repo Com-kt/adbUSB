@@ -6,22 +6,24 @@ import java.io.FileOutputStream
 import java.security.SecureRandom
 import javax.crypto.Cipher
 import javax.crypto.SecretKeyFactory
-import javax.crypto.spec.GCMParameterSpec
+import javax.crypto.spec.IvParameterSpec
 import javax.crypto.spec.PBEKeySpec
 import javax.crypto.spec.SecretKeySpec
 
 object CryptoUtils {
 
     private const val KEY_DERIVATION_ALGORITHM = "PBKDF2WithHmacSHA256"
-    private const val CIPHER_ALGORITHM = "AES/GCM/NoPadding"
+    private const val CIPHER_ALGORITHM = "AES/CBC/PKCS5Padding"
     
     private const val ITERATION_COUNT = 10000
     private const val KEY_LENGTH = 256
     private const val SALT_LENGTH = 16
-    private const val IV_LENGTH = 12
-    private const val TAG_LENGTH_BITS = 128
+    private const val IV_LENGTH = 16
     private const val BUFFER_SIZE = 8192
 
+    /**
+     * 流式加密：完美支持数 GB 级系统镜像，内存稳如老狗
+     */
     fun encryptFile(inputFile: File, outputFile: File, password: CharSequence): Boolean {
         if (!inputFile.exists()) return false
         
@@ -39,8 +41,7 @@ object CryptoUtils {
             val secretKey = SecretKeySpec(tmp.encoded, "AES")
 
             val cipher = Cipher.getInstance(CIPHER_ALGORITHM)
-            val gcmSpec = GCMParameterSpec(TAG_LENGTH_BITS, iv)
-            cipher.init(Cipher.ENCRYPT_MODE, secretKey, gcmSpec)
+            cipher.init(Cipher.ENCRYPT_MODE, secretKey, IvParameterSpec(iv))
 
             fis = FileInputStream(inputFile)
             fos = FileOutputStream(outputFile)
@@ -71,6 +72,9 @@ object CryptoUtils {
         }
     }
 
+    /**
+     * 流式解密
+     */
     fun decryptFile(encryptedFile: File, outputFile: File, password: CharSequence): Boolean {
         if (!encryptedFile.exists()) return false
         
@@ -92,8 +96,7 @@ object CryptoUtils {
             val secretKey = SecretKeySpec(tmp.encoded, "AES")
 
             val cipher = Cipher.getInstance(CIPHER_ALGORITHM)
-            val gcmSpec = GCMParameterSpec(TAG_LENGTH_BITS, iv)
-            cipher.init(Cipher.DECRYPT_MODE, secretKey, gcmSpec)
+            cipher.init(Cipher.DECRYPT_MODE, secretKey, IvParameterSpec(iv))
 
             fos = FileOutputStream(outputFile)
 
