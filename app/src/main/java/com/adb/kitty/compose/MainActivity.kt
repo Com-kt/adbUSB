@@ -358,6 +358,76 @@ class MainActivity : ComponentActivity() {
         val cmd = cmdInput.trim()
         if (cmd.isEmpty()) return
         
+        if (cmd.startsWith("compress ")) {
+            appendLog("[系统] 扩展指令 >> $cmd")
+            val args = cmd.removePrefix("compress ").trim().split(" ")
+            if (args.size < 2) {
+                appendLog("[错误] 用法: compress <目标> <格式: zip|7z|tar|gz|bz2>")
+                return
+            }
+            val sourceName = args[0]
+            val format = args[1].lowercase()
+
+            val sourceFile = File(flashFolder, sourceName)
+            if (!sourceFile.exists()) {
+                appendLog("[错误] 找不到压缩源: flash/$sourceName")
+                return
+            }
+
+            val outputFile = File(flashFolder, "$sourceName.$format")
+            appendLog("[系统] 7-Zip C++ 核心准备就绪，正在高速压缩中...")
+
+            lifecycleScope.launch {
+                val success = withContext(Dispatchers.IO) {
+                    OmniCompressUtils.compress(format, sourceFile, outputFile)
+                }
+                if (success) {
+                    appendLog("[系统] 7-Zip 压缩成功！输出至: flash/${outputFile.name}")
+                } else {
+                    appendLog("[错误] 压缩失败，请确认输出格式是否正确（RAR 仅支持解压）")
+                }
+            }
+            return
+        }
+
+        if (cmd.startsWith("decompress ")) {
+            appendLog("[系统] 扩展指令 >> $cmd")
+            val args = cmd.removePrefix("decompress ").trim().split(" ")
+            if (args.isEmpty() || args[0].isEmpty()) {
+                appendLog("[错误] 用法: decompress <压缩文件> [解密密码]")
+                return
+            }
+            val fileName = args[0]
+            val password = if (args.size > 1) args[1] else null
+
+            val sourceFile = File(flashFolder, fileName)
+            if (!sourceFile.exists() || !sourceFile.isFile) {
+                appendLog("[错误] 未找到有效的压缩包: flash/$fileName")
+                return
+            }
+
+            val dirName = if (fileName.contains(".")) fileName.substringBeforeLast(".") else "${fileName}_extracted"
+            val outputTarget = File(flashFolder, dirName)
+
+            if (password != null) {
+                appendLog("[系统] 密码载入成功，正在调用 7-Zip 原生引擎执行硬解密...")
+            } else {
+                appendLog("[系统] 正在自适应解析文件头特征...")
+            }
+
+            lifecycleScope.launch {
+                val success = withContext(Dispatchers.IO) {
+                    OmniCompressUtils.decompress(sourceFile, outputTarget, password)
+                }
+                if (success) {
+                    appendLog("[系统] 7-Zip 解包成功！文件已安全释放至: flash/$dirName/")
+                } else {
+                    appendLog("[错误] 7-Zip 异常：解压失败。可能原因：密码不正确或包体损坏。")
+                }
+            }
+            return
+        }
+
         if (cmd.startsWith("encrypt ")) {
             appendLog("[系统] 扩展指令 >> $cmd")
             val args = cmd.removePrefix("encrypt ").trim().split(" ")
