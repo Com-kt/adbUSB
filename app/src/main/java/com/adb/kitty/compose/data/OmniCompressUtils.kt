@@ -18,6 +18,7 @@ object OmniCompressUtils {
         if (!isSevenZipInitialized) {
             try {
                 System.setProperty("sevenzip.jbinding.use.platform.jar", "false")
+                System.setProperty("sevenzip.jbinding.preserve.native.stacktrace", "true")
                 
                 SevenZip.initSevenZipFromPlatformJAR()
                 isSevenZipInitialized = true
