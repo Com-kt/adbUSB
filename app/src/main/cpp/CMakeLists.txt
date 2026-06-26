@@ -17,6 +17,7 @@ find_library(android-lib android)
 target_link_libraries(native-lib
     ${log}
     ${android}
+    z
 )
 
 target_link_options(native-lib PRIVATE "-Wl,-z,max-page-size=65536")
