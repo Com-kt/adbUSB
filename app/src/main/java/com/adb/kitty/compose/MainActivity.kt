@@ -415,17 +415,28 @@ class MainActivity : ComponentActivity() {
                 try {
                     var fileCounter = 0
                     val success = withContext(Dispatchers.IO) {
-                        OmniCompressUtils.compress(realFormat, sourceFile, outputFile, password) { fileName, status ->
-                            fileCounter++
-                            if (fileCounter % 50 == 0 || status == "FAILED") {
-                                lifecycleScope.launch(Dispatchers.Main) {
-                                    when (status) {
-                                        "START"  -> appendLog("[>>] 正在压入: $fileName (已处理 $fileCounter)")
-                                        "FAILED" -> appendLog("[错误] 文件写入失败: $fileName")
+                        OmniCompressUtils.compress(
+                            realFormat = realFormat,
+                            sourceFile = sourceFile,
+                            outputFile = outputFile,
+                            password = password,
+                            onStatusUpdate = { fileName, status ->
+                                fileCounter++
+                                if (fileCounter % 50 == 0 || status == "FAILED") {
+                                    lifecycleScope.launch(Dispatchers.Main) {
+                                        when (status) {
+                                            "START"  -> appendLog("[>>] 正在压入: $fileName (已处理 $fileCounter)")
+                                            "FAILED" -> appendLog("[错误] 文件写入失败: $fileName")
+                                        }
                                     }
                                 }
+                            },
+                            onErrorOccurred = { detailReason ->
+                                lifecycleScope.launch(Dispatchers.Main) {
+                                    appendLog("[内核崩溃诊断]\n$detailReason")
+                                }
                             }
-                        }
+                        )
                     }
             
                     if (success) {

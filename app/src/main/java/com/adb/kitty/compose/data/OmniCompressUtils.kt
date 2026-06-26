@@ -33,7 +33,8 @@ object OmniCompressUtils {
         source: File, 
         output: File,
         password: String? = null,
-        onStatusUpdate: ((fileName: String, status: String) -> Unit)? = null
+        onStatusUpdate: ((fileName: String, status: String) -> Unit)? = null,
+        onErrorOccurred: ((String) -> Unit)? = null 
     ): Boolean {
         if (!source.exists()) return false
         ensureInitialized()
@@ -48,8 +49,8 @@ object OmniCompressUtils {
         val normFormat = format.lowercase().trim()
         
         return when (normFormat) {
-            "7z" -> compress7z(source, fileList, output, password, onStatusUpdate)
-            "zip" -> compressZip(source, fileList, output, password, onStatusUpdate)
+            "7z" -> compress7z(source, fileList, output, password, onStatusUpdate, onErrorOccurred)
+            "zip" -> compressZip(source, fileList, output, password, onStatusUpdate, onErrorOccurred)
             "tar" -> compressTar(source, fileList, output, onStatusUpdate)
             else -> compressGeneric(normFormat, source, fileList, output, onStatusUpdate)
         }
@@ -60,7 +61,8 @@ object OmniCompressUtils {
         fileList: List<File>,
         output: File,
         password: String?, 
-        onStatusUpdate: ((String, String) -> Unit)?
+        onStatusUpdate: ((String, String) -> Unit)?,
+        onErrorOccurred: ((String) -> Unit)? = null
     ): Boolean {
         var raf: RandomAccessFile? = null
         var outArchive: IOutCreateArchive7z? = null 
@@ -121,7 +123,8 @@ object OmniCompressUtils {
             outArchive.createArchive(outStream, fileList.size, callback)
             true
         } catch (e: Exception) {
-            e.printStackTrace()
+            val fullStackTrace = "${e.javaClass.name}: ${e.message}\n" + Log.getStackTraceString(e)
+            onErrorOccurred?.invoke(fullStackTrace)
             false
         } finally {
             outArchive?.close()
@@ -134,11 +137,16 @@ object OmniCompressUtils {
         fileList: List<File>,
         output: File,
         password: String?, 
-        onStatusUpdate: ((String, String) -> Unit)?
+        onStatusUpdate: ((String, String) -> Unit)?,
+        onErrorOccurred: ((String) -> Unit)? = null
     ): Boolean {
         var raf: RandomAccessFile? = null
         var outArchive: IOutCreateArchiveZip? = null
         return try {
+            if (fileList.isEmpty()) {
+                onErrorOccurred?.invoke("Fail: 待压缩文件列表为空")
+                return false
+            }
             if (output.exists()) output.delete()
             
             raf = RandomAccessFile(output, "rw")
@@ -147,7 +155,6 @@ object OmniCompressUtils {
             
             outArchive = SevenZip.openOutArchiveZip()
             outArchive.setLevel(5)
-            applyMultiThreading(outArchive)
             
             open class BaseZipCallback : IOutCreateCallback<IOutItemZip> {
                 var currentFileIndex: Int = -1
@@ -158,12 +165,20 @@ object OmniCompressUtils {
                     val file = fileList[index]
                     val outItem = outItemFactory.createOutItem()
                     
-                    outItem.setPropertyPath(getRelativePath(baseDir, file))
-                    outItem.setPropertyIsDir(file.isDirectory)
+                    var attr = PropID.AttributesBitMask.FILE_ATTRIBUTE_UNIX_EXTENSION
                     
-                    if (!file.isDirectory) {
+                    outItem.setPropertyPath(getRelativePath(baseDir, file))
+                    
+                    if (file.isDirectory) {
+                        outItem.setPropertyIsDir(true)
+                        attr = attr or PropID.AttributesBitMask.FILE_ATTRIBUTE_DIRECTORY
+                        attr = attr or (0x81ED shl 16)
+                    } else {
                         outItem.setDataSize(file.length())
+                        attr = attr or (0x81a4 shl 16)
                     }
+                    
+                    outItem.setPropertyAttributes(attr)
                     return outItem
                 }
 
@@ -196,7 +211,9 @@ object OmniCompressUtils {
             outArchive.createArchive(outStream, fileList.size, callback)
             true
         } catch (e: Throwable) {
-            Log.e("7ZipCore", "ZIP压缩底层发生异常: ${e.message}", e)
+            val fullStackTrace = "${e.javaClass.name}: ${e.message}\n" + Log.getStackTraceString(e)
+            Log.e("7ZipCore", "ZIP压缩底层发生异常", e)
+            onErrorOccurred?.invoke(fullStackTrace)
             false
         } finally {
             outArchive?.close()
