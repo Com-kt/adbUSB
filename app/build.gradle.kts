@@ -326,7 +326,7 @@ dependencies {
     implementation(libs.lsposed.hiddenapibypass)
     implementation(libs.nayuki.qrcode)
     implementation(libs.zxing.core)
-    implementation(libs.7zip.jbinding.4android)
+    implementation(libs.7zip.jbinding)
     implementation(libs.bundles.libsu)
     implementation(libs.com.flyfishxu.kadb)
     implementation(libs.androidx.annotation.experimental)

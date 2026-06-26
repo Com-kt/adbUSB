@@ -48,7 +48,7 @@ lsposed-hiddenapibypass = { module = "org.lsposed.hiddenapibypass:hiddenapibypas
 
 nayuki-qrcode = { group = "io.nayuki", name = "qrcodegen", version.ref = "nayukiQR" }
 zxing-core = { group = "com.google.zxing", name = "core", version.ref = "zxing" }
-7zip-jbinding-4android = { group = "com.github.omicronapps", name = "7-Zip-JBinding-4Android", version.ref = "7zip" }
+7zip-jbinding = { group = "com.github.omicronapps", name = "7-Zip-JBinding-4Android", version.ref = "7zip" }
 
 libsu-core = { module = "com.github.topjohnwu.libsu:core", version.ref = "libsuVersion" }
 libsu-service = { module = "com.github.topjohnwu.libsu:service", version.ref = "libsuVersion" }
