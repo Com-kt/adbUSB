@@ -360,13 +360,16 @@ class MainActivity : ComponentActivity() {
         
         if (cmd.startsWith("compress ")) {
             appendLog("[系统] 扩展指令 >> $cmd")
-            val args = cmd.removePrefix("compress ").trim().split(" ")
-            if (args.size < 2) {
-                appendLog("[错误] 用法: compress <目标> <格式: zip|7z|tar|gz|bz2>")
+            val trimCmd = cmd.removePrefix("compress ").trim()
+            val lastSpace = trimCmd.lastIndexOf(' ')
+    
+            if (lastSpace == -1) {
+                appendLog("[错误] 用法: compress <目标路径(支持空格)> <格式: zip|7z|tar|gz|bz2>")
                 return
             }
-            val sourceName = args[0]
-            val format = args[1].lowercase()
+    
+            val sourceName = trimCmd.substring(0, lastSpace).trim()
+            val format = trimCmd.substring(lastSpace + 1).lowercase()
 
             val sourceFile = File(flashFolder, sourceName)
             if (!sourceFile.exists()) {
@@ -374,12 +377,26 @@ class MainActivity : ComponentActivity() {
                 return
             }
 
-            val outputFile = File(flashFolder, "$sourceName.$format")
+            val realFormat = if (format == "gzip") "gz" else format
+            if ((realFormat == "gz" || realFormat == "gzip") && sourceFile.isDirectory) {
+                appendLog("[错误] GZIP 格式不支持直接压缩文件夹，请改用 7z 或 zip！")
+                return
+            }
+
+            val outputFile = File(flashFolder, "$sourceName.$realFormat")
             appendLog("[系统] 7-Zip C++ 核心准备就绪，正在高速压缩中...")
 
             lifecycleScope.launch {
                 val success = withContext(Dispatchers.IO) {
-                    OmniCompressUtils.compress(format, sourceFile, outputFile)
+                    OmniCompressUtils.compress(realFormat, sourceFile, outputFile) { fileName, status ->
+                        launch(Dispatchers.Main) {
+                            when (status) {
+                                "START"   -> appendLog("[>>] 核心正在压入: $fileName ...")
+                                "SUCCESS" -> appendLog("[OK] 成功压入包体: $fileName")
+                                "FAILED"  -> appendLog("[错误] 文件写入失败: $fileName")
+                            }
+                        }
+                    }
                 }
                 if (success) {
                     appendLog("[系统] 7-Zip 压缩成功！输出至: flash/${outputFile.name}")
@@ -392,13 +409,27 @@ class MainActivity : ComponentActivity() {
 
         if (cmd.startsWith("decompress ")) {
             appendLog("[系统] 扩展指令 >> $cmd")
-            val args = cmd.removePrefix("decompress ").trim().split(" ")
-            if (args.isEmpty() || args[0].isEmpty()) {
-                appendLog("[错误] 用法: decompress <压缩文件> [解密密码]")
+            val trimCmd = cmd.removePrefix("decompress ").trim()
+    
+            if (trimCmd.isEmpty()) {
+                appendLog("[错误] 用法: decompress <压缩文件(支持空格)> [解密密码]")
                 return
             }
-            val fileName = args[0]
-            val password = if (args.size > 1) args[1] else null
+
+            val lastSpace = trimCmd.lastIndexOf(' ')
+            val fileName: String
+            val password: String?
+    
+            if (lastSpace != -1 && !trimCmd.substring(0, lastSpace).contains('.')) {
+                fileName = trimCmd.substring(0, lastSpace).trim()
+                password = trimCmd.substring(lastSpace + 1).trim().ifEmpty { null }
+            } else if (lastSpace != -1) {
+                fileName = trimCmd.substring(0, lastSpace).trim()
+                password = trimCmd.substring(lastSpace + 1).trim().ifEmpty { null }
+            } else {
+                fileName = trimCmd
+                password = null
+            }
 
             val sourceFile = File(flashFolder, fileName)
             if (!sourceFile.exists() || !sourceFile.isFile) {
@@ -414,6 +445,7 @@ class MainActivity : ComponentActivity() {
             } else {
                 appendLog("[系统] 正在自适应解析文件头特征...")
             }
+            appendLog("[系统] 目标解压路径: flash/$dirName/")
 
             lifecycleScope.launch {
                 val success = withContext(Dispatchers.IO) {
