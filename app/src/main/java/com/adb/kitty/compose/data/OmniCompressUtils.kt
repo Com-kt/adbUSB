@@ -8,23 +8,26 @@ import java.io.*
 object OmniCompressUtils {
 
     private const val BUFFER_SIZE = 65536
+    
+    private var isSevenZipInitialized = false
 
     private fun ensureInitialized() {
-        if (!SevenZip.isInitialized()) {
+        if (!isSevenZipInitialized) {
             SevenZip.initSevenZipFromPlatformJAR()
+            isSevenZipInitialized = true
         }
     }
 
     fun compress(format: String, source: File, output: File): Boolean {
         if (!source.exists()) return false
         var raf: RandomAccessFile? = null
-        var outArchive: IOutArchive? = null
+        var outArchive: IOutArchive<IOutItemAllFormats>? = null
 
         return try {
             ensureInitialized()
 
             val archiveFormat = when (format.lowercase().trim()) {
-                "7z" -> ArchiveFormat.SEVEN_Z
+                "7z" -> ArchiveFormat.SEVENZ
                 "zip" -> ArchiveFormat.ZIP
                 "tar" -> ArchiveFormat.TAR
                 "gzip", "gz" -> ArchiveFormat.GZIP
@@ -33,7 +36,6 @@ object OmniCompressUtils {
                 else -> throw IllegalArgumentException("不支持的输出格式: $format")
             }
 
-            // 递归收集所有待打包文件
             val fileList = mutableListOf<File>()
             if (source.isDirectory) {
                 collectFilesRecursive(source, fileList)
@@ -43,7 +45,9 @@ object OmniCompressUtils {
 
             raf = RandomAccessFile(output, "rw")
             val outStream = RandomAccessFileOutStream(raf)
-            outArchive = SevenZip.openOutArchive(archiveFormat)
+            
+            @Suppress("UNCHECKED_CAST")
+            outArchive = SevenZip.openOutArchive(archiveFormat) as IOutArchive<IOutItemAllFormats>
 
             val callback = CreateArchiveCallback(source, fileList)
             outArchive.updateItems(outStream, fileList.size, callback)
@@ -108,8 +112,8 @@ object OmniCompressUtils {
         override fun setTotal(total: Long) {}
         override fun setCompleted(complete: Long) {}
 
-        override fun getStream(index: Int, askMode: AskMode): ISequentialOutStream? {
-            if (askMode != AskMode.EXTRACT) return null
+        override fun getStream(index: Int, askMode: ExtractAskMode): ISequentialOutStream? {
+            if (askMode != ExtractAskMode.EXTRACT) return null
 
             val isFolder = inArchive.getProperty(index, PropID.IS_FOLDER) as? Boolean ?: false
             var path = inArchive.getProperty(index, PropID.PATH) as? String
@@ -132,25 +136,25 @@ object OmniCompressUtils {
 
             return ISequentialOutStream { data ->
                 bos?.write(data)
-                data.size
+                data.size 
             }
         }
 
-        override fun prepareOperation(askMode: AskMode?) {}
+        override fun prepareOperation(askMode: ExtractAskMode) {}
 
-        override fun setOperationResult(result: OperationResult) {
+        override fun setOperationResult(result: ExtractOperationResult) {
             bos?.flush()
             bos?.close()
             fos?.close()
             bos = null
             fos = null
-            if (result != OperationResult.OK) {
-                currentFile?.delete()
-                throw RuntimeException("7-Zip 操作失败: $result (可能是密码错误或文件损坏)")
+            if (result != ExtractOperationResult.OK) {
+                currentFile?.delete() 
+                throw RuntimeException("7-Zip 操作失败: $result")
             }
         }
 
-        override fun CryptoGetTextPassword(): String? = password
+        override fun cryptoGetTextPassword(): String? = password
     }
 
     private class CreateArchiveCallback(
