@@ -5,7 +5,9 @@ import net.sf.sevenzipjbinding.impl.OutItemFactory
 import net.sf.sevenzipjbinding.impl.RandomAccessFileInStream
 import net.sf.sevenzipjbinding.impl.RandomAccessFileOutStream
 import java.io.*
+import androidx.annotation.Keep
 
+@Keep
 object OmniCompressUtils {
 
     private const val BUFFER_SIZE = 65536

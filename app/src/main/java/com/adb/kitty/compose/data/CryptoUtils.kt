@@ -9,7 +9,9 @@ import javax.crypto.SecretKeyFactory
 import javax.crypto.spec.IvParameterSpec
 import javax.crypto.spec.PBEKeySpec
 import javax.crypto.spec.SecretKeySpec
+import androidx.annotation.Keep
 
+@Keep
 object CryptoUtils {
 
     private const val KEY_DERIVATION_ALGORITHM = "PBKDF2WithHmacSHA256"
