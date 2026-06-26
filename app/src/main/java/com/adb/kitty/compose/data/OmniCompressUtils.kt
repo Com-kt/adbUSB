@@ -187,11 +187,11 @@ object OmniCompressUtils {
                 file.name
             }
 
-            outItem.setPath(relativePath)
-            outItem.setIsFolder(file.isDirectory)
+            outItem.propertyPath = relativePath
+            outItem.propertyIsDir = file.isDirectory
 
             if (!file.isDirectory) {
-                outItem.setDataSize(file.length())
+                outItem.propertySize = file.length()
             }
 
             return outItem
