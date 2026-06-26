@@ -131,15 +131,16 @@ Java_com_adb_kitty_compose_data_NativeLibs_compressToKBA(
         int nextBlockToWrite = 0;
         std::mutex queueMutex;
         std::condition_variable queueCv;
+        bool processingDone = false;
 
         auto diskWriter = std::thread([&]() {
             while (true) {
                 std::unique_lock<std::mutex> lock(queueMutex);
-                queueCv.wait(lock, [&] { 
-                    return writeQueue.count(nextBlockToWrite) > 0 || nextBlockToWrite == blockIdCounter; 
+                queueCv.wait(lock, [&] {
+                    return writeQueue.count(nextBlockToWrite) > 0 || (processingDone && nextBlockToWrite == blockIdCounter); 
                 });
 
-                if (nextBlockToWrite == blockIdCounter && writeQueue.empty()) break;
+                if (processingDone && nextBlockToWrite == blockIdCounter && writeQueue.empty()) break;
 
                 if (auto node = writeQueue.extract(nextBlockToWrite)) {
                     lock.unlock();
@@ -215,6 +216,16 @@ Java_com_adb_kitty_compose_data_NativeLibs_compressToKBA(
                 }
                 queueCv.notify_all();
             }));
+        }
+
+        {
+            std::scoped_lock lock(queueMutex);
+            processingDone = true;
+        }
+        queueCv.notify_all();
+
+        for (auto& f : compressFutures) {
+            if (f.valid()) f.get();
         }
 
         if (diskWriter.joinable()) diskWriter.join();

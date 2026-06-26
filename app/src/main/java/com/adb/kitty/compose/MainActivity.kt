@@ -363,11 +363,11 @@ class MainActivity : ComponentActivity() {
             val trimCmd = cmd.removePrefix("7zip ").trim()
             val words = trimCmd.split("\\s+".toRegex())
             if (words.size < 2) {
-                appendLog("[错误] 用法: 7zip <目标路径(支持空格)> <格式: zip|7z|tar|gz|bz2> [压缩密码] [压缩级别:0-9]")
+                appendLog("[错误] 用法: 7zip <目标路径(支持空格)> <格式: kba|zip|7z|tar|gz|bz2> [压缩密码] [压缩级别:0-9]")
                 return
             }
 
-            val supportedFormats = setOf("zip", "7z", "tar", "gz", "bz2", "gzip")
+            val supportedFormats = setOf("zip", "7z", "tar", "gz", "bz2", "gzip", "kba")
             var sourceName = ""
             var format = ""
             var password: String? = null
@@ -382,26 +382,22 @@ class MainActivity : ComponentActivity() {
             var formatWordIndex = -1
 
             when {
-                // 1. 目标 格式 密码 级别 (例如: 7zip my_dir zip admin 9)
                 wThird != null && supportedFormats.contains(wThird.lowercase()) && lastIsLevel -> {
                     format = wThird.lowercase()
                     password = wSecond
                     compressionLevel = wLast.toInt()
                     formatWordIndex = size - 3
                 }
-                // 2. 目标 格式 级别 (例如: 7zip my_dir zip 9)
                 wSecond != null && supportedFormats.contains(wSecond.lowercase()) && lastIsLevel -> {
                     format = wSecond.lowercase()
                     compressionLevel = wLast.toInt()
                     formatWordIndex = size - 2
                 }
-                // 3. 目标 格式 密码 (例如: 7zip my_dir zip admin)
                 wSecond != null && supportedFormats.contains(wSecond.lowercase()) -> {
                     format = wSecond.lowercase()
                     password = wLast
                     formatWordIndex = size - 2
                 }
-                // 4. 目标 格式 (例如: 7zip my_dir zip)
                 supportedFormats.contains(wLast.lowercase()) -> {
                     format = wLast.lowercase()
                     formatWordIndex = size - 1

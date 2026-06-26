@@ -51,7 +51,7 @@ object OmniCompressUtils {
         
         return when (normFormat) {
             "7z" -> compress7z(source, fileList, output, password, onStatusUpdate, onErrorOccurred)
-            "zip" -> compressZip(
+            "kba" -> compressZip(
                         baseDir = source, 
                         fileList = fileList, 
                         output = output, 
