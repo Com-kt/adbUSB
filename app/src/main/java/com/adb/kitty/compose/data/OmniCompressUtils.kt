@@ -33,7 +33,7 @@ object OmniCompressUtils {
             ensureInitialized()
 
             val archiveFormat = when (format.lowercase().trim()) {
-                "7z" -> ArchiveFormat.SEVENZ
+                "7z" -> ArchiveFormat.SEVEN_ZIP
                 "zip" -> ArchiveFormat.ZIP
                 "tar" -> ArchiveFormat.TAR
                 "gzip", "gz" -> ArchiveFormat.GZIP
@@ -187,11 +187,11 @@ object OmniCompressUtils {
                 file.name
             }
 
-            outItem.path = relativePath
-            outItem.isFolder = file.isDirectory
+            outItem.setPath(relativePath)
+            outItem.setIsFolder(file.isDirectory)
 
             if (!file.isDirectory) {
-                outItem.dataSize = file.length()
+                outItem.setDataSize(file.length())
             }
 
             return outItem
