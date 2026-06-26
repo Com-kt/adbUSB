@@ -387,12 +387,9 @@ class MainActivity : ComponentActivity() {
             appendLog("[系统] 7-Zip C++ 核心准备就绪，正在高速压缩中...")
             
             lifecycleScope.launch {
-                val success = withContext(Dispatchers.IO) {
-                    var lastLogTime = 0L
-                    OmniCompressUtils.compress(realFormat, sourceFile, outputFile) { fileName, status ->
-                        val currentTime = System.currentTimeMillis()
-                        if (status == "FAILED" || currentTime - lastLogTime > 300) {
-                            lastLogTime = currentTime
+                try {
+                    val success = withContext(Dispatchers.IO) {
+                        OmniCompressUtils.compress(realFormat, sourceFile, outputFile) { fileName, status ->
                             launch(Dispatchers.Main) {
                                 when (status) {
                                     "START"   -> appendLog("[>>] 核心正在压入: $fileName")
@@ -402,11 +399,15 @@ class MainActivity : ComponentActivity() {
                             }
                         }
                     }
-                }
-                if (success) {
-                    appendLog("[系统] 7-Zip 压缩成功！输出至: flash/${outputFile.name}")
-                } else {
-                    appendLog("[错误] 压缩失败，请确认输出格式是否正确（RAR 仅支持解压）")
+                    if (success) {
+                        appendLog("[系统] 7-Zip 压缩成功！输出至: flash/${outputFile.name}")
+                    } else {
+                        appendLog("[错误] 压缩失败，请确认输出格式是否正确（RAR 仅支持解压）")
+                    }
+                } catch (e: Exception) {
+                    launch(Dispatchers.Main) {
+                         appendLog("[崩溃] 7-Zip 内部异常: ${e.localizedMessage ?: e.message}")
+                    }
                 }
             }
             return

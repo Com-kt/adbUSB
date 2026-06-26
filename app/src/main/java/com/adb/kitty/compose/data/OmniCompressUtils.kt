@@ -18,8 +18,6 @@ object OmniCompressUtils {
         if (!isSevenZipInitialized) {
             try {
                 System.setProperty("sevenzip.jbinding.use.platform.jar", "false")
-                System.setProperty("sevenzip.jbinding.preserve.native.stacktrace", "true")
-                
                 SevenZip.initSevenZipFromPlatformJAR()
                 isSevenZipInitialized = true
             } catch (e: Exception) {
@@ -37,7 +35,7 @@ object OmniCompressUtils {
     ): Boolean {
         if (!source.exists()) return false
         var raf: RandomAccessFile? = null
-        var outArchive: IOutArchive<IOutItemAllFormats>? = null
+        var outArchive: IOutArchiveBase? = null
 
         return try {
             ensureInitialized()
@@ -62,10 +60,10 @@ object OmniCompressUtils {
             raf = RandomAccessFile(output, "rw")
             val outStream = RandomAccessFileOutStream(raf)
             
-            @Suppress("UNCHECKED_CAST")
-            outArchive = SevenZip.openOutArchive(archiveFormat) as IOutArchive<IOutItemAllFormats>
+            outArchive = SevenZip.openOutArchive(archiveFormat)
 
             val callback = CreateArchiveCallback(source, fileList, onStatusUpdate)
+            
             outArchive.updateItems(outStream, fileList.size, callback)
             true
         } catch (e: Exception) {
@@ -177,7 +175,7 @@ object OmniCompressUtils {
         private val baseDir: File,
         private val fileList: List<File>,
         private val onStatusUpdate: ((fileName: String, status: String) -> Unit)?
-    ) : IOutCreateCallback<IOutItemAllFormats> {
+    ) : IOutCreateCallback<IOutItemBase> {
 
         private var currentFileIndex: Int = -1
 
@@ -186,8 +184,8 @@ object OmniCompressUtils {
 
         override fun getItemInformation(
             index: Int, 
-            outItemFactory: OutItemFactory<IOutItemAllFormats>
-        ): IOutItemAllFormats {
+            outItemFactory: OutItemFactory<IOutItemBase>
+        ): IOutItemBase {
             val file = fileList[index]
             val outItem = outItemFactory.createOutItem()
             
