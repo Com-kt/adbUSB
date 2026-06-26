@@ -27,6 +27,7 @@ object OmniCompressUtils {
         }
     }
 
+    @Suppress("UNCHECKED_CAST", "RAW_RUN_TIME_TYPE")
     fun compress(
         format: String, 
         source: File, 
@@ -35,7 +36,8 @@ object OmniCompressUtils {
     ): Boolean {
         if (!source.exists()) return false
         var raf: RandomAccessFile? = null
-        var outArchive: IOutArchiveBase? = null
+        
+        var outArchive: IOutArchive<IOutItemBase>? = null
 
         return try {
             ensureInitialized()
@@ -60,7 +62,7 @@ object OmniCompressUtils {
             raf = RandomAccessFile(output, "rw")
             val outStream = RandomAccessFileOutStream(raf)
             
-            outArchive = SevenZip.openOutArchive(archiveFormat)
+            outArchive = SevenZip.openOutArchive(archiveFormat) as IOutArchive<IOutItemBase>
 
             val callback = CreateArchiveCallback(source, fileList, onStatusUpdate)
             
@@ -195,11 +197,23 @@ object OmniCompressUtils {
                 file.name
             }
 
-            outItem.setPropertyPath(relativePath)
-            outItem.setPropertyIsDir(file.isDirectory)
-
-            if (!file.isDirectory) {
-                outItem.setDataSize(file.length())
+            try {
+                outItem.javaClass.getMethod("setPropertyPath", String::class.java).invoke(outItem, relativePath)
+                outItem.javaClass.getMethod("setPropertyIsDir", Boolean::class.javaPrimitiveType).invoke(outItem, file.isDirectory)
+                
+                if (!file.isDirectory) {
+                    outItem.javaClass.getMethod("setDataSize", Long::class.javaPrimitiveType).invoke(outItem, file.length())
+                }
+            } catch (e: Exception) {
+                try {
+                    outItem.javaClass.getMethod("setPath", String::class.java).invoke(outItem, relativePath)
+                    outItem.javaClass.getMethod("setIsFolder", Boolean::class.javaPrimitiveType).invoke(outItem, file.isDirectory)
+                    if (!file.isDirectory) {
+                        outItem.javaClass.getMethod("setDataSize", Long::class.javaPrimitiveType).invoke(outItem, file.length())
+                    }
+                } catch (ex: Exception) {
+                    ex.printStackTrace()
+                }
             }
 
             return outItem
