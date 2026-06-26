@@ -56,7 +56,7 @@ abstract class GenerateKotlinMetadataTask : DefaultTask() {
     @get:Input abstract val lifecycleVersion: Property<String>
     @get:Input abstract val nayukiQRVersion: Property<String>
     @get:Input abstract val zxingCodeVersion: Property<String>
-    @get:Input abstract val 7zipVersion: Property<String>
+    @get:Input abstract val zipVersion: Property<String>
     
     @get:Input abstract val sourceCompatibility: Property<String>
     @get:Input abstract val targetCompatibility: Property<String>
@@ -105,7 +105,7 @@ abstract class GenerateKotlinMetadataTask : DefaultTask() {
             "MTDataFilesProviderVersion": "${mtDataFilesProviderVersion.get()}",
             "nayukiQRVersion": "${nayukiQRVersion.get()}",
             "zxingCodeVersion": "${zxingCodeVersion.get()}",
-            "7zipVersion": "${7zipVersion.get()}"
+            "zipVersion": "${zipVersion.get()}"
           },
           "projectTargets": [
             {
@@ -143,7 +143,7 @@ val injectKotlinMetadataToRoot = tasks.register<GenerateKotlinMetadataTask>("inj
     lifecycleVersion.set(providers.provider { libs.versions.lifecycle.get() })
     nayukiQRVersion.set(providers.provider { libs.versions.nayukiQR.get() })
     zxingCodeVersion.set(providers.provider { libs.versions.zxing.get() })
-    7zipVersion.set(providers.provider { libs.versions.7zip.get() })
+    zipVersion.set(providers.provider { libs.versions.zip.get() })
 
     sourceCompatibility.set(providers.provider { android.compileOptions.sourceCompatibility.toString() })
     targetCompatibility.set(providers.provider { android.compileOptions.targetCompatibility.toString() })
@@ -326,7 +326,7 @@ dependencies {
     implementation(libs.lsposed.hiddenapibypass)
     implementation(libs.nayuki.qrcode)
     implementation(libs.zxing.core)
-    implementation(libs.7zip.jbinding)
+    implementation(libs.zip.jbinding)
     implementation(libs.bundles.libsu)
     implementation(libs.com.flyfishxu.kadb)
     implementation(libs.androidx.annotation.experimental)
