@@ -4,6 +4,7 @@ import net.sf.sevenzipjbinding.*
 import net.sf.sevenzipjbinding.impl.OutItemFactory
 import net.sf.sevenzipjbinding.impl.RandomAccessFileInStream
 import net.sf.sevenzipjbinding.impl.RandomAccessFileOutStream
+import net.sf.sevenzipjbinding.impl.VolumedArchiveInStream
 import java.io.*
 import androidx.annotation.Keep
 
@@ -26,10 +27,14 @@ object OmniCompressUtils {
         }
     }
 
+    /**
+     * 核心压缩入口：新增 password 参数
+     */
     fun compress(
         format: String, 
         source: File, 
         output: File,
+        password: String? = null, // 🔑 新增可选密码参数
         onStatusUpdate: ((fileName: String, status: String) -> Unit)? = null
     ): Boolean {
         if (!source.exists()) return false
@@ -45,21 +50,25 @@ object OmniCompressUtils {
         val normFormat = format.lowercase().trim()
         
         return when (normFormat) {
-            "7z" -> compress7z(source, fileList, output, onStatusUpdate)
-            "zip" -> compressZip(source, fileList, output, onStatusUpdate)
-            "tar" -> compressTar(source, fileList, output, onStatusUpdate)
-            else -> compressGeneric(normFormat, source, fileList, output, onStatusUpdate)
+            "7z" -> compress7z(source, fileList, output, password, onStatusUpdate) // 🔑 传入密码
+            "zip" -> compressZip(source, fileList, output, password, onStatusUpdate) // 🔑 传入密码
+            "tar" -> compressTar(source, fileList, output, onStatusUpdate) // TAR 不支持原生加密
+            else -> compressGeneric(normFormat, source, fileList, output, onStatusUpdate) // GZ/BZ2 不支持
         }
     }
 
+    /**
+     * 7z 压缩：支持多线程 + 密码 + 头部文件名加密
+     */
     private fun compress7z(
         baseDir: File,
         fileList: List<File>,
         output: File,
+        password: String?, // 🔑 密码参数
         onStatusUpdate: ((String, String) -> Unit)?
     ): Boolean {
         var raf: RandomAccessFile? = null
-        var outArchive: IOutArchive<IOutItem7z>? = null
+        var outArchive: IOutCreateArchive7z? = null // 🛠️ 遵循 Snippet，改用 7z 专用接口
         return try {
             if (output.exists()) output.delete()
             
@@ -67,10 +76,19 @@ object OmniCompressUtils {
             raf.setLength(0)
             val outStream = RandomAccessFileOutStream(raf)
             
-            @Suppress("UNCHECKED_CAST")
-            outArchive = SevenZip.openOutArchive(ArchiveFormat.SEVEN_ZIP) as IOutArchive<IOutItem7z>
+            // 打开 7z 专用归档器
+            outArchive = SevenZip.openOutArchive7z()
             
-            val callback = object : IOutCreateCallback<IOutItem7z> {
+            // 开启多线程加速
+            applyMultiThreading(outArchive)
+            
+            // 🔑 注入 Snippet 核心：如果设置了密码，开启 7z 独有的“加密文件列表”功能
+            if (!password.isNullOrEmpty()) {
+                outArchive.setHeaderEncryption(true)
+            }
+            
+            // 🔑 同时继承创建回调与密码接口
+            val callback = object : IOutCreateCallback<IOutItem7z>, ICryptoGetTextPassword {
                 private var currentFileIndex: Int = -1
                 override fun setTotal(total: Long) {}
                 override fun setCompleted(complete: Long) {}
@@ -98,9 +116,15 @@ object OmniCompressUtils {
                 override fun setOperationResult(result: Boolean) {
                     notifyResult(currentFileIndex, fileList, result, onStatusUpdate)
                 }
+
+                // 🔑 密码接口实现：向 Native 核心提供加密密钥
+                override fun cryptoGetTextPassword(): String {
+                    return password ?: ""
+                }
             }
 
-            outArchive.updateItems(outStream, fileList.size, callback)
+            // 使用 createArchive 替代旧版的 updateItems
+            outArchive.createArchive(outStream, fileList.size, callback)
             true
         } catch (e: Exception) {
             e.printStackTrace()
@@ -111,32 +135,32 @@ object OmniCompressUtils {
         }
     }
 
+    /**
+     * ZIP 压缩：支持多线程 + 注入 Unix 权限 + 密码保护
+     */
     private fun compressZip(
         baseDir: File,
         fileList: List<File>,
         output: File,
+        password: String?, // 🔑 密码参数
         onStatusUpdate: ((String, String) -> Unit)?
     ): Boolean {
         var raf: RandomAccessFile? = null
-        var outArchive: IOutArchive<IOutItemZip>? = null
+        var outArchive: IOutCreateArchiveZip? = null
         return try {
-            if (output.exists()) {
-                output.delete()
-            }
+            if (output.exists()) output.delete()
             
             raf = RandomAccessFile(output, "rw")
             raf.setLength(0) 
-            
             val outStream = RandomAccessFileOutStream(raf)
             
-            @Suppress("UNCHECKED_CAST")
-            outArchive = SevenZip.openOutArchive(ArchiveFormat.ZIP) as IOutArchive<IOutItemZip>
+            outArchive = SevenZip.openOutArchiveZip()
+            outArchive.setLevel(5)
             
-            if (outArchive is net.sf.sevenzipjbinding.IOutFeatureSetLevel) {
-                outArchive.setLevel(5)
-            }
+            applyMultiThreading(outArchive)
             
-            val callback = object : IOutCreateCallback<IOutItemZip> {
+            // 🔑 同时继承创建回调与密码接口
+            val callback = object : IOutCreateCallback<IOutItemZip>, ICryptoGetTextPassword {
                 private var currentFileIndex: Int = -1
                 override fun setTotal(total: Long) {}
                 override fun setCompleted(complete: Long) {}
@@ -144,8 +168,19 @@ object OmniCompressUtils {
                 override fun getItemInformation(index: Int, outItemFactory: OutItemFactory<IOutItemZip>): IOutItemZip {
                     val file = fileList[index]
                     val outItem = outItemFactory.createOutItem()
+                    
+                    var attr = PropID.AttributesBitMask.FILE_ATTRIBUTE_UNIX_EXTENSION
+                    if (file.isDirectory) {
+                        outItem.setPropertyIsDir(true)
+                        attr = attr or PropID.AttributesBitMask.FILE_ATTRIBUTE_DIRECTORY
+                        attr = attr or (0x81ED shl 16) // drwxr-xr-x
+                    } else {
+                        outItem.setDataSize(file.length())
+                        attr = attr or (0x81a4 shl 16) // -rw-r--r--
+                    }
+                    
                     outItem.setPropertyPath(getRelativePath(baseDir, file))
-                    outItem.setPropertyIsDir(file.isDirectory)
+                    outItem.setPropertyAttributes(attr)
                     return outItem
                 }
 
@@ -163,9 +198,14 @@ object OmniCompressUtils {
                 override fun setOperationResult(result: Boolean) {
                     notifyResult(currentFileIndex, fileList, result, onStatusUpdate)
                 }
+
+                // 🔑 密码接口实现：底层检测到此方法且有值时，会自动为每个 Item 启用 ZIP 传统加密
+                override fun cryptoGetTextPassword(): String {
+                    return password ?: ""
+                }
             }
 
-            outArchive.updateItems(outStream, fileList.size, callback)
+            outArchive.createArchive(outStream, fileList.size, callback)
             true
         } catch (e: Exception) {
             e.printStackTrace()
@@ -185,11 +225,14 @@ object OmniCompressUtils {
         var raf: RandomAccessFile? = null
         var outArchive: IOutArchive<IOutItemTar>? = null
         return try {
+            if (output.exists()) output.delete()
             raf = RandomAccessFile(output, "rw")
             val outStream = RandomAccessFileOutStream(raf)
             
             @Suppress("UNCHECKED_CAST")
             outArchive = SevenZip.openOutArchive(ArchiveFormat.TAR) as IOutArchive<IOutItemTar>
+            
+            applyMultiThreading(outArchive)
             
             val callback = object : IOutCreateCallback<IOutItemTar> {
                 private var currentFileIndex: Int = -1
@@ -244,9 +287,12 @@ object OmniCompressUtils {
                 "bzip2", "bz2" -> ArchiveFormat.BZIP2
                 else -> throw IllegalArgumentException("Unsupported format: $format")
             }
+            if (output.exists()) output.delete()
             raf = RandomAccessFile(output, "rw")
             val outStream = RandomAccessFileOutStream(raf)
             outArchive = SevenZip.openOutArchive(archiveFormat) as IOutArchive<IOutItemAllFormats>
+            
+            applyMultiThreading(outArchive)
             
             val callback = object : IOutCreateCallback<IOutItemAllFormats> {
                 private var currentFileIndex: Int = -1
@@ -282,17 +328,29 @@ object OmniCompressUtils {
         }
     }
 
-    fun decompress(sourceFile: File, outputTarget: File, password: String? = null): Boolean {
+    fun decompress(
+        sourceFile: File, 
+        outputTarget: File, 
+        password: String? = null,
+        onProgress: ((currentFile: String, progressPercent: Int) -> Unit)? = null
+    ): Boolean {
         if (!sourceFile.exists()) return false
-        var raf: RandomAccessFile? = null
+        ensureInitialized()
+
+        val volumeCallback = SmartVolumeCallback(sourceFile)
         var inArchive: IInArchive? = null
+        
         return try {
-            ensureInitialized()
-            raf = RandomAccessFile(sourceFile, "r")
-            val inStream = RandomAccessFileInStream(raf)
-            inArchive = SevenZip.openInArchive(null, inStream)
+            val inStream = if (sourceFile.name.endsWith(".001")) {
+                VolumedArchiveInStream(sourceFile.absolutePath, volumeCallback)
+            } else {
+                volumeCallback.getStream(sourceFile.name) ?: throw FileNotFoundException("无法加载初始卷")
+            }
+
+            inArchive = SevenZip.openInArchive(null, inStream, volumeCallback)
             if (!outputTarget.exists()) outputTarget.mkdirs()
-            val callback = ExtractArchiveCallback(sourceFile, inArchive, outputTarget, password)
+            
+            val callback = ExtractArchiveCallback(sourceFile, inArchive, outputTarget, password, onProgress)
             inArchive.extract(null, false, callback)
             true
         } catch (e: Exception) {
@@ -300,7 +358,14 @@ object OmniCompressUtils {
             false
         } finally {
             inArchive?.close()
-            raf?.close()
+            volumeCallback.close()
+        }
+    }
+
+    private fun applyMultiThreading(outArchive: Any) {
+        if (outArchive is IOutFeatureSetMultithreading) {
+            val cores = Runtime.getRuntime().availableProcessors()
+            outArchive.setThreadCount(if (cores > 2) cores - 1 else 1)
         }
     }
 
@@ -351,18 +416,62 @@ object OmniCompressUtils {
         }
     }
 
+    private class SmartVolumeCallback(private val firstVolume: File) : IArchiveOpenVolumeCallback, Closeable {
+        private val openedFiles = mutableMapOf<String, RandomAccessFile>()
+        private var lastName: String = firstVolume.name
+
+        override fun getProperty(propID: PropID): Any? {
+            return if (propID == PropID.NAME) lastName else null
+        }
+
+        override fun getStream(filename: String): IInStream? {
+            val fileToOpen = if (filename == firstVolume.name) {
+                firstVolume
+            } else {
+                File(firstVolume.parentFile, filename)
+            }
+            if (!fileToOpen.exists()) return null
+
+            return try {
+                val raf = openedFiles.getOrPut(filename) { RandomAccessFile(fileToOpen, "r") }
+                raf.seek(0)
+                lastName = filename
+                RandomAccessFileInStream(raf)
+            } catch (e: Exception) {
+                null
+            }
+        }
+
+        override fun close() {
+            openedFiles.values.forEach { runCatching { it.close() } }
+            openedFiles.clear()
+        }
+    }
+
     private class ExtractArchiveCallback(
         private val sourceFile: File, 
         private val inArchive: IInArchive, 
         private val outputDir: File, 
-        private val password: String?
+        private val password: String?,
+        private val onProgress: ((String, Int) -> Unit)?
     ) : IArchiveExtractCallback, ICryptoGetTextPassword {
         private var fos: FileOutputStream? = null
         private var bos: BufferedOutputStream? = null
         private var currentFile: File? = null
+        private var currentFileName: String = ""
+        private var totalBytes: Long = 0
 
-        override fun setTotal(total: Long) {}
-        override fun setCompleted(complete: Long) {}
+        override fun setTotal(total: Long) {
+            this.totalBytes = total
+        }
+
+        override fun setCompleted(complete: Long) {
+            if (totalBytes > 0) {
+                val percent = ((complete * 100) / totalBytes).toInt()
+                onProgress?.invoke(currentFileName, percent.coerceIn(0, 100))
+            }
+        }
+
         override fun prepareOperation(askMode: ExtractAskMode) {}
 
         override fun getStream(index: Int, askMode: ExtractAskMode): ISequentialOutStream? {
@@ -371,6 +480,7 @@ object OmniCompressUtils {
             var path = inArchive.getProperty(index, PropID.PATH) as? String
             if (path.isNullOrEmpty()) path = sourceFile.nameWithoutExtension
 
+            currentFileName = File(path).name
             val targetFile = File(outputDir, path)
             currentFile = targetFile
 

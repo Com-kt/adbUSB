@@ -179,8 +179,8 @@ class MainActivityViewModel : ViewModel() {
         AppCommand("二维码解码, 该扩展指令由app提供", "qr-decode "),
         AppCommand("文件加密, 该扩展指令由app提供", "encrypt "),
         AppCommand("文件解密, 该扩展指令由app提供", "decrypt "),
-        AppCommand("压缩文件夹/文件, 该扩展指令由app提供", "compress "),
-        AppCommand("解压文件夹/文件, 该扩展指令由app提供", "decompress ")
+        AppCommand("压缩文件夹/文件, 该扩展指令由app提供", "7zip "),
+        AppCommand("解压压缩包, 该扩展指令由app提供", "un7zip ")
     )
     
     private val _adbCommands = listOf(

@@ -358,18 +358,40 @@ class MainActivity : ComponentActivity() {
         val cmd = cmdInput.trim()
         if (cmd.isEmpty()) return
         
-        if (cmd.startsWith("compress")) {
+        if (cmd.startsWith("7zip")) {
             appendLog("[系统] 扩展指令 >> $cmd")
-            val trimCmd = cmd.removePrefix("compress ").trim()
-            val lastSpace = trimCmd.lastIndexOf(' ')
-    
-            if (lastSpace == -1) {
-                appendLog("[错误] 用法: compress <目标路径(支持空格)> <格式: zip|7z|tar|gz|bz2>")
+            val trimCmd = cmd.removePrefix("7zip ").trim()
+            val words = trimCmd.split("\\s+".toRegex())
+            if (words.size < 2) {
+                appendLog("[错误] 用法: 7zip <目标路径(支持空格)> <格式: zip|7z|tar|gz|bz2> [压缩密码]")
                 return
             }
-    
-            val sourceName = trimCmd.substring(0, lastSpace).trim()
-            val format = trimCmd.substring(lastSpace + 1).lowercase()
+
+            val supportedFormats = setOf("zip", "7z", "tar", "gz", "bz2", "gzip")
+            var sourceName = ""
+            var format = ""
+            var password: String? = null
+
+            val lastWord = words.last().lowercase()
+            val secondLastWord = if (words.size >= 3) words[words.size - 2].lowercase() else null
+
+            when {
+                supportedFormats.contains(lastWord) -> {
+                    format = lastWord
+                    val formatIndex = trimCmd.lastIndexOf(words.last())
+                    sourceName = trimCmd.substring(0, formatIndex).trim()
+                }
+                secondLastWord != null && supportedFormats.contains(secondLastWord) -> {
+                    format = secondLastWord
+                    password = words.last()
+                    val formatIndex = trimCmd.lastIndexOf(words[words.size - 2])
+                    sourceName = trimCmd.substring(0, formatIndex).trim()
+                }
+                else -> {
+                    appendLog("[错误] 未能识别压缩格式。请检查格式位置是否正确。")
+                    return
+                }
+            }
 
             val sourceFile = File(flashFolder, sourceName)
             if (!sourceFile.exists()) {
@@ -379,62 +401,68 @@ class MainActivity : ComponentActivity() {
 
             val realFormat = if (format == "gzip") "gz" else format
             if ((realFormat == "gz" || realFormat == "gzip") && sourceFile.isDirectory) {
-                appendLog("[错误] GZIP 格式不支持直接压缩文件夹，请改用 7z 或 zip！")
+                appendLog("[错误] GZIP 不支持压缩文件夹，请改用 7z 或 zip！")
                 return
             }
 
             val outputFile = File(flashFolder, "$sourceName.$realFormat")
-            appendLog("[系统] 7-Zip C++ 核心准备就绪，正在高速压缩中...")
-            
+            if (!password.isNullOrEmpty()) {
+                appendLog("[系统] 密码机制已就绪，正在构建安全归档...")
+            }
+            appendLog("[系统] 7-Zip 多线程核心已拉满，高速压缩中...")
+
             lifecycleScope.launch {
                 try {
+                    var fileCounter = 0
                     val success = withContext(Dispatchers.IO) {
-                        OmniCompressUtils.compress(realFormat, sourceFile, outputFile) { fileName, status ->
-                            launch(Dispatchers.Main) {
-                                when (status) {
-                                    "START"   -> appendLog("[>>] 核心正在压入: $fileName")
-                                    "SUCCESS" -> appendLog("[OK] 成功压入包体: $fileName")
-                                    "FAILED"  -> appendLog("[错误] 文件写入失败: $fileName")
+                        OmniCompressUtils.compress(realFormat, sourceFile, outputFile, password) { fileName, status ->
+                            fileCounter++
+                            if (fileCounter % 50 == 0 || status == "FAILED") {
+                                lifecycleScope.launch(Dispatchers.Main) {
+                                    when (status) {
+                                        "START"  -> appendLog("[>>] 正在压入: $fileName (已处理 $fileCounter)")
+                                        "FAILED" -> appendLog("[错误] 文件写入失败: $fileName")
+                                    }
                                 }
                             }
                         }
                     }
+            
                     if (success) {
                         appendLog("[系统] 7-Zip 压缩成功！输出至: flash/${outputFile.name}")
                     } else {
                         appendLog("[错误] 压缩失败，请确认输出格式是否正确（RAR 仅支持解压）")
                     }
                 } catch (e: Exception) {
-                    launch(Dispatchers.Main) {
-                         appendLog("[崩溃] 7-Zip 内部异常: ${e.localizedMessage ?: e.message}")
-                    }
+                    appendLog("[崩溃] 7-Zip 内部异常: ${e.localizedMessage ?: e.message}")
                 }
             }
             return
         }
 
-        if (cmd.startsWith("decompress")) {
+        if (cmd.startsWith("un7zip")) {
             appendLog("[系统] 扩展指令 >> $cmd")
-            val trimCmd = cmd.removePrefix("decompress ").trim()
-    
+            val trimCmd = cmd.removePrefix("un7zip ").trim()
+
             if (trimCmd.isEmpty()) {
-                appendLog("[错误] 用法: decompress <压缩文件(支持空格)> [解密密码]")
+                appendLog("[错误] 用法: un7zip <压缩文件(支持空格)> [解密密码]")
                 return
             }
 
-            val lastSpace = trimCmd.lastIndexOf(' ')
-            val fileName: String
-            val password: String?
-    
-            if (lastSpace != -1 && !trimCmd.substring(0, lastSpace).contains('.')) {
-                fileName = trimCmd.substring(0, lastSpace).trim()
-                password = trimCmd.substring(lastSpace + 1).trim().ifEmpty { null }
-            } else if (lastSpace != -1) {
-                fileName = trimCmd.substring(0, lastSpace).trim()
-                password = trimCmd.substring(lastSpace + 1).trim().ifEmpty { null }
-            } else {
-                fileName = trimCmd
-                password = null
+            var fileName = trimCmd
+            var password: String? = null
+
+            if (!File(flashFolder, fileName).exists()) {
+                val lastSpaceIdx = trimCmd.lastIndexOf(' ')
+                if (lastSpaceIdx != -1) {
+                    val potentialFile = trimCmd.substring(0, lastSpaceIdx).trim()
+                    val potentialPassword = trimCmd.substring(lastSpaceIdx + 1).trim()
+            
+                    if (File(flashFolder, potentialFile).exists()) {
+                        fileName = potentialFile
+                        password = potentialPassword.ifEmpty { null }
+                    }
+                }
             }
 
             val sourceFile = File(flashFolder, fileName)
@@ -454,13 +482,26 @@ class MainActivity : ComponentActivity() {
             appendLog("[系统] 目标解压路径: flash/$dirName/")
 
             lifecycleScope.launch {
-                val success = withContext(Dispatchers.IO) {
-                    OmniCompressUtils.decompress(sourceFile, outputTarget, password)
-                }
-                if (success) {
-                    appendLog("[系统] 7-Zip 解包成功！文件已安全释放至: flash/$dirName/")
-                } else {
-                    appendLog("[错误] 7-Zip 异常：解压失败。可能原因：密码不正确或包体损坏。")
+                try {
+                    var lastPercent = -1
+                    val success = withContext(Dispatchers.IO) {
+                        OmniCompressUtils.decompress(sourceFile, outputTarget, password) { currentFile, percent ->
+                            if (percent != lastPercent && percent % 5 == 0) {
+                                lastPercent = percent
+                                lifecycleScope.launch(Dispatchers.Main) {
+                                    appendLog("[进度] 正在解压: $percent% | 当前释放: $currentFile")
+                                }
+                            }
+                        }
+                    }
+            
+                    if (success) {
+                        appendLog("[系统] 7-Zip 解包成功！文件已安全释放至: flash/$dirName/")
+                    } else {
+                        appendLog("[错误] 7-Zip 异常：解压失败。可能原因：密码不正确或包体损坏。")
+                    }
+                } catch (e: Exception) {
+                    appendLog("[崩溃] 解压引擎运行时异常: ${e.localizedMessage ?: e.message}")
                 }
             }
             return
