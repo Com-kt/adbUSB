@@ -358,7 +358,7 @@ class MainActivity : ComponentActivity() {
         val cmd = cmdInput.trim()
         if (cmd.isEmpty()) return
         
-        if (cmd.startsWith("compress ")) {
+        if (cmd.startsWith("compress")) {
             appendLog("[系统] 扩展指令 >> $cmd")
             val trimCmd = cmd.removePrefix("compress ").trim()
             val lastSpace = trimCmd.lastIndexOf(' ')
@@ -388,7 +388,7 @@ class MainActivity : ComponentActivity() {
 
             lifecycleScope.launch {
                 val success = withContext(Dispatchers.IO) {
-                    OmniCompressUtils.compress(realFormat, sourceFile, outputFile) { fileName, status ->
+                    OmniCompressUtils.compress(this@MainActivity, realFormat, sourceFile, outputFile) { fileName, status ->
                         launch(Dispatchers.Main) {
                             when (status) {
                                 "START"   -> appendLog("[>>] 核心正在压入: $fileName ...")
@@ -407,7 +407,7 @@ class MainActivity : ComponentActivity() {
             return
         }
 
-        if (cmd.startsWith("decompress ")) {
+        if (cmd.startsWith("decompress")) {
             appendLog("[系统] 扩展指令 >> $cmd")
             val trimCmd = cmd.removePrefix("decompress ").trim()
     
@@ -449,7 +449,7 @@ class MainActivity : ComponentActivity() {
 
             lifecycleScope.launch {
                 val success = withContext(Dispatchers.IO) {
-                    OmniCompressUtils.decompress(sourceFile, outputTarget, password)
+                    OmniCompressUtils.decompress(this@MainActivity, sourceFile, outputTarget, password)
                 }
                 if (success) {
                     appendLog("[系统] 7-Zip 解包成功！文件已安全释放至: flash/$dirName/")
@@ -460,7 +460,7 @@ class MainActivity : ComponentActivity() {
             return
         }
 
-        if (cmd.startsWith("encrypt ")) {
+        if (cmd.startsWith("encrypt")) {
             appendLog("[系统] 扩展指令 >> $cmd")
             val args = cmd.removePrefix("encrypt ").trim().split(" ")
             if (args.size < 2) {
@@ -492,7 +492,7 @@ class MainActivity : ComponentActivity() {
             return
         }
 
-        if (cmd.startsWith("decrypt ")) {
+        if (cmd.startsWith("decrypt")) {
             appendLog("[系统] 扩展指令 >> $cmd")
             val args = cmd.removePrefix("decrypt ").trim().split(" ")
             if (args.size < 2) {
@@ -526,7 +526,7 @@ class MainActivity : ComponentActivity() {
             return
         }
 
-        if (cmd.startsWith("qr-gen ")) {
+        if (cmd.startsWith("qr-gen")) {
             appendLog("[系统] 扩展指令 >> $cmd")
             val arg = cmd.removePrefix("qr-gen ").trim()
         
@@ -573,7 +573,7 @@ class MainActivity : ComponentActivity() {
             return
         }
         
-        if (cmd.startsWith("qr-decode ")) {
+        if (cmd.startsWith("qr-decode")) {
             appendLog("[系统] 扩展指令 >> $cmd")
             val arg = cmd.removePrefix("qr-decode ").trim()
         
