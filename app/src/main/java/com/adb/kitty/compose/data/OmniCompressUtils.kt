@@ -115,28 +115,29 @@ object OmniCompressUtils {
         onStatusUpdate: ((String, String) -> Unit)?
     ): Boolean {
         var raf: RandomAccessFile? = null
-        var outArchive: IOutArchive<IOutItemAllFormats>? = null
+        var outArchive: IOutArchive<IOutItemZip>? = null
         return try {
             raf = RandomAccessFile(output, "rw")
             val outStream = RandomAccessFileOutStream(raf)
             
             @Suppress("UNCHECKED_CAST")
-            outArchive = SevenZip.openOutArchive(ArchiveFormat.ZIP) as IOutArchive<IOutItemAllFormats>
+            outArchive = SevenZip.openOutArchive(ArchiveFormat.ZIP) as IOutArchive<IOutItemZip>
             
-            val callback = object : IOutCreateCallback<IOutItemAllFormats> {
+            if (outArchive is net.sf.sevenzipjbinding.IOutFeatureSetLevel) {
+                outArchive.setLevel(5)
+            }
+            
+            val callback = object : IOutCreateCallback<IOutItemZip> {
                 private var currentFileIndex: Int = -1
                 override fun setTotal(total: Long) {}
                 override fun setCompleted(complete: Long) {}
 
-                override fun getItemInformation(index: Int, outItemFactory: OutItemFactory<IOutItemAllFormats>): IOutItemAllFormats {
+                override fun getItemInformation(index: Int, outItemFactory: OutItemFactory<IOutItemZip>): IOutItemZip {
                     val file = fileList[index]
                     val outItem = outItemFactory.createOutItem()
                     outItem.setPropertyPath(getRelativePath(baseDir, file))
                     outItem.setPropertyIsDir(file.isDirectory)
                     
-                    if (!file.isDirectory) {
-                        outItem.setDataSize(file.length())
-                    }
                     return outItem
                 }
 
