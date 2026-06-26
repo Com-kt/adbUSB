@@ -161,7 +161,7 @@ Java_com_adb_kitty_compose_data_NativeLibs_compressToKBA(
             const char* c_path = env->GetStringUTFChars(j_path, nullptr);
             const char* c_name = env->GetStringUTFChars(j_name, nullptr);
 
-            if (fs::path filePath(c_path); fs::exists(filePath)) {
+            if (fs::path filePath(c_path); fs::exists(filePath) && !fs::is_directory(filePath)) {
                 uint64_t size = fs::file_size(filePath);
 
                 registry.push_back({c_name, currentGlobalStreamOffset, size});

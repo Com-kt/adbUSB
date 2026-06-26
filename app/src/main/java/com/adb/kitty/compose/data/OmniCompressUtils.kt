@@ -51,15 +51,15 @@ object OmniCompressUtils {
         
         return when (normFormat) {
             "7z" -> compress7z(source, fileList, output, password, onStatusUpdate, onErrorOccurred)
-            "zip", "kba" -> compressZip(
-                                baseDir = source, 
-                                fileList = fileList, 
-                                output = output, 
-                                password = password, 
-                                compressionLevel = compressionLevel,
-                                onStatusUpdate = onStatusUpdate, 
-                                onErrorOccurred = onErrorOccurred
-                            )
+            "zip" -> compressZip(
+                        baseDir = source, 
+                        fileList = fileList, 
+                        output = output, 
+                        password = password, 
+                        compressionLevel = compressionLevel,
+                        onStatusUpdate = onStatusUpdate, 
+                        onErrorOccurred = onErrorOccurred
+                    )
             "tar" -> compressTar(source, fileList, output, onStatusUpdate)
             else -> compressGeneric(normFormat, source, fileList, output, onStatusUpdate)
         }

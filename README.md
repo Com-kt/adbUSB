@@ -36,13 +36,13 @@
     - [x] push (Android 9+)
     - [x] install (Android 9+)
     - [x] uninstall (Android 9+)
-    - [x] installMultiple (Android 9+)
     - [x] pair (Android 11+)
     - [x] connect (Android 11+)
     - [x] interface
         - [x] 255/66/1
         - [ ] 6/1/1
 - [x] Application
+    - [x] aab-Bundle
     - [x] Android TV
     - [x] Android Tablet
     - [x] There may be surprises
