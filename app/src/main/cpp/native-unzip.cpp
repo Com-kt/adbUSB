@@ -109,6 +109,8 @@ Java_com_adb_kitty_compose_data_NativeLibs_decompressKBA(
         std::mutex queueMutex;
         std::condition_variable queueCv;
         bool readAllBlocks = false;
+        
+        std::vector<std::future<void>> decompFutures;
 
         auto fileWriter = std::thread([&]() {
             size_t currentFileIdx = 0;
@@ -190,14 +192,14 @@ Java_com_adb_kitty_compose_data_NativeLibs_decompressKBA(
             }
             lock.unlock();
 
-            std::async(std::launch::async, [bId, compBuffer = std::move(compBuffer), isEncrypted, cryptoKey, &unwrapQueue, &queueMutex, &queueCv]() {
+            decompFutures.push_back(std::async(std::launch::async, [bId, compBuffer = std::move(compBuffer), isEncrypted, cryptoKey, &unwrapQueue, &queueMutex, &queueCv]() {
                 auto [id, data, success] = DecompressBlockWorker(bId, std::move(compBuffer), isEncrypted, cryptoKey);
                 if (success) {
                     std::scoped_lock lock(queueMutex);
                     unwrapQueue[id] = std::move(data);
                 }
                 queueCv.notify_all();
-            });
+            }));
         }
 
         {

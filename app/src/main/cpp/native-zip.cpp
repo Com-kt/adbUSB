@@ -119,6 +119,8 @@ Java_com_adb_kitty_compose_data_NativeLibs_compressToKBA(
 
         std::vector<VirtualFileEntry> registry;
         uint64_t currentGlobalStreamOffset = 0;
+        
+        std::vector<std::future<void>> compressFutures;
 
         const size_t CHUNK_SIZE = 4 * 1024 * 1024;
         std::vector<uint8_t> chunkBuffer;
@@ -175,7 +177,7 @@ Java_com_adb_kitty_compose_data_NativeLibs_compressToKBA(
                         chunkBuffer.resize(oldSize + toRead);
                         inFile.read(reinterpret_cast<char*>(chunkBuffer.data() + oldSize), toRead);
                         bytesProcessed += toRead;
-
+                        
                         if (chunkBuffer.size() == CHUNK_SIZE) {
                             int bId = blockIdCounter++;
                             
@@ -184,14 +186,14 @@ Java_com_adb_kitty_compose_data_NativeLibs_compressToKBA(
                                 queueCv.wait(lock, [&] { return bId - nextBlockToWrite <= std::thread::hardware_concurrency() * 2; });
                             }
 
-                            std::async(std::launch::async, [bId, chunkBuffer, level, useEncryption, cryptoKey, &writeQueue, &queueMutex, &queueCv]() {
+                            compressFutures.push_back(std::async(std::launch::async, [bId, chunkBuffer, level, useEncryption, cryptoKey, &writeQueue, &queueMutex, &queueCv]() {
                                 auto cb = CompressAndEncryptWorker(bId, chunkBuffer.data(), chunkBuffer.size(), level, useEncryption, cryptoKey);
                                 {
                                     std::scoped_lock lock(queueMutex);
                                     writeQueue[cb.blockId] = std::move(cb.data);
                                 }
                                 queueCv.notify_all();
-                            });
+                            }));
 
                             chunkBuffer.clear();
                         }
@@ -205,14 +207,14 @@ Java_com_adb_kitty_compose_data_NativeLibs_compressToKBA(
 
         if (!chunkBuffer.empty()) {
             int bId = blockIdCounter++;
-            std::async(std::launch::async, [bId, chunkBuffer, level, useEncryption, cryptoKey, &writeQueue, &queueMutex, &queueCv]() {
+            compressFutures.push_back(std::async(std::launch::async, [bId, chunkBuffer, level, useEncryption, cryptoKey, &writeQueue, &queueMutex, &queueCv]() {
                 auto cb = CompressAndEncryptWorker(bId, chunkBuffer.data(), chunkBuffer.size(), level, useEncryption, cryptoKey);
                 {
                     std::scoped_lock lock(queueMutex);
                     writeQueue[cb.blockId] = std::move(cb.data);
                 }
                 queueCv.notify_all();
-            });
+            }));
         }
 
         if (diskWriter.joinable()) diskWriter.join();
