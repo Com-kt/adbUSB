@@ -61,7 +61,10 @@ object OmniCompressUtils {
         var raf: RandomAccessFile? = null
         var outArchive: IOutArchive<IOutItem7z>? = null
         return try {
+            if (output.exists()) output.delete()
+            
             raf = RandomAccessFile(output, "rw")
+            raf.setLength(0)
             val outStream = RandomAccessFileOutStream(raf)
             
             @Suppress("UNCHECKED_CAST")
@@ -89,7 +92,7 @@ object OmniCompressUtils {
                         onStatusUpdate?.invoke(file.name, "SUCCESS")
                         return null
                     }
-                    return createInputStreamWrapper(file)
+                    return SafeSequentialInStream(file) 
                 }
 
                 override fun setOperationResult(result: Boolean) {
@@ -117,7 +120,13 @@ object OmniCompressUtils {
         var raf: RandomAccessFile? = null
         var outArchive: IOutArchive<IOutItemZip>? = null
         return try {
+            if (output.exists()) {
+                output.delete()
+            }
+            
             raf = RandomAccessFile(output, "rw")
+            raf.setLength(0) 
+            
             val outStream = RandomAccessFileOutStream(raf)
             
             @Suppress("UNCHECKED_CAST")
@@ -137,7 +146,6 @@ object OmniCompressUtils {
                     val outItem = outItemFactory.createOutItem()
                     outItem.setPropertyPath(getRelativePath(baseDir, file))
                     outItem.setPropertyIsDir(file.isDirectory)
-                    
                     return outItem
                 }
 
@@ -149,7 +157,7 @@ object OmniCompressUtils {
                         onStatusUpdate?.invoke(file.name, "SUCCESS")
                         return null
                     }
-                    return createInputStreamWrapper(file)
+                    return SafeSequentialInStream(file) 
                 }
 
                 override fun setOperationResult(result: Boolean) {
@@ -205,7 +213,7 @@ object OmniCompressUtils {
                         onStatusUpdate?.invoke(file.name, "SUCCESS")
                         return null
                     }
-                    return createInputStreamWrapper(file)
+                    return SafeSequentialInStream(file)
                 }
 
                 override fun setOperationResult(result: Boolean) {
@@ -257,7 +265,7 @@ object OmniCompressUtils {
                     val file = fileList[index]
                     onStatusUpdate?.invoke(file.name, "START")
                     if (file.isDirectory) return null
-                    return createInputStreamWrapper(file)
+                    return SafeSequentialInStream(file)
                 }
                 override fun setOperationResult(result: Boolean) {
                     notifyResult(currentFileIndex, fileList, result, onStatusUpdate)
@@ -312,20 +320,27 @@ object OmniCompressUtils {
         }
     }
 
-    private fun createInputStreamWrapper(file: File): ISequentialInStream {
-        val fis = FileInputStream(file)
-        return object : ISequentialInStream {
-            override fun read(data: ByteArray): Int {
-                val read = fis.read(data)
+    private class SafeSequentialInStream(file: File) : ISequentialInStream, Closeable {
+        private var fis: FileInputStream? = FileInputStream(file)
+
+        override fun read(data: ByteArray): Int {
+            val stream = fis ?: return 0
+            return try {
+                val read = stream.read(data)
                 if (read == -1) {
-                    fis.close()
+                    close()
                     return 0
                 }
-                return read
+                read
+            } catch (e: Exception) {
+                close()
+                0
             }
-            override fun close() {
-                fis.close()
-            }
+        }
+
+        override fun close() {
+            fis?.close()
+            fis = null
         }
     }
 
