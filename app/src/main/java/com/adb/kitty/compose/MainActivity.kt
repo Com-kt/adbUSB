@@ -431,10 +431,10 @@ class MainActivity : ComponentActivity() {
                     if (success) {
                         appendLog("[系统] 7-Zip 压缩成功！输出至: flash/${outputFile.name}")
                     } else {
-                        appendLog("[错误] 压缩失败，请确认输出格式是否正确（RAR 仅支持解压）")
+                        appendLog("[错误] 压缩失败：内核拒绝创建，请检查目标文件是否被占用或源文件是否为空。")
                     }
-                } catch (e: Exception) {
-                    appendLog("[崩溃] 7-Zip 内部异常: ${e.localizedMessage ?: e.message}")
+                } catch (e: Throwable) {
+                    appendLog("[崩溃] 7-Zip 内部异常断言: ${e.javaClass.simpleName} -> ${e.localizedMessage}")
                 }
             }
             return

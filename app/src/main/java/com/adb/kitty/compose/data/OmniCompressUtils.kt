@@ -58,11 +58,11 @@ object OmniCompressUtils {
         baseDir: File,
         fileList: List<File>,
         output: File,
-        password: String?,
+        password: String?, 
         onStatusUpdate: ((String, String) -> Unit)?
     ): Boolean {
         var raf: RandomAccessFile? = null
-        var outArchive: IOutCreateArchive7z? = null
+        var outArchive: IOutCreateArchive7z? = null 
         return try {
             if (output.exists()) output.delete()
             
@@ -71,15 +71,14 @@ object OmniCompressUtils {
             val outStream = RandomAccessFileOutStream(raf)
             
             outArchive = SevenZip.openOutArchive7z()
-            
             applyMultiThreading(outArchive)
             
             if (!password.isNullOrEmpty()) {
                 outArchive.setHeaderEncryption(true)
             }
             
-            val callback = object : IOutCreateCallback<IOutItem7z>, ICryptoGetTextPassword {
-                private var currentFileIndex: Int = -1
+            open class Base7zCallback : IOutCreateCallback<IOutItem7z> {
+                var currentFileIndex: Int = -1
                 override fun setTotal(total: Long) {}
                 override fun setCompleted(complete: Long) {}
 
@@ -106,10 +105,16 @@ object OmniCompressUtils {
                 override fun setOperationResult(result: Boolean) {
                     notifyResult(currentFileIndex, fileList, result, onStatusUpdate)
                 }
+            }
 
-                override fun cryptoGetTextPassword(): String {
-                    return password ?: ""
-                }
+            class Crypto7zCallback(private val pass: String) : Base7zCallback(), ICryptoGetTextPassword {
+                override fun cryptoGetTextPassword(): String = pass
+            }
+
+            val callback = if (!password.isNullOrEmpty()) {
+                Crypto7zCallback(password)
+            } else {
+                Base7zCallback()
             }
 
             outArchive.createArchive(outStream, fileList.size, callback)
@@ -127,7 +132,7 @@ object OmniCompressUtils {
         baseDir: File,
         fileList: List<File>,
         output: File,
-        password: String?,
+        password: String?, 
         onStatusUpdate: ((String, String) -> Unit)?
     ): Boolean {
         var raf: RandomAccessFile? = null
@@ -141,11 +146,10 @@ object OmniCompressUtils {
             
             outArchive = SevenZip.openOutArchiveZip()
             outArchive.setLevel(5)
-            
             applyMultiThreading(outArchive)
             
-            val callback = object : IOutCreateCallback<IOutItemZip>, ICryptoGetTextPassword {
-                private var currentFileIndex: Int = -1
+            open class BaseZipCallback : IOutCreateCallback<IOutItemZip> {
+                var currentFileIndex: Int = -1
                 override fun setTotal(total: Long) {}
                 override fun setCompleted(complete: Long) {}
 
@@ -153,18 +157,12 @@ object OmniCompressUtils {
                     val file = fileList[index]
                     val outItem = outItemFactory.createOutItem()
                     
-                    var attr = PropID.AttributesBitMask.FILE_ATTRIBUTE_UNIX_EXTENSION
-                    if (file.isDirectory) {
-                        outItem.setPropertyIsDir(true)
-                        attr = attr or PropID.AttributesBitMask.FILE_ATTRIBUTE_DIRECTORY
-                        attr = attr or (0x81ED shl 16)
-                    } else {
-                        outItem.setDataSize(file.length())
-                        attr = attr or (0x81a4 shl 16)
-                    }
-                    
                     outItem.setPropertyPath(getRelativePath(baseDir, file))
-                    outItem.setPropertyAttributes(attr)
+                    outItem.setPropertyIsDir(file.isDirectory)
+                    
+                    if (!file.isDirectory) {
+                        outItem.setDataSize(file.length())
+                    }
                     return outItem
                 }
 
@@ -182,16 +180,22 @@ object OmniCompressUtils {
                 override fun setOperationResult(result: Boolean) {
                     notifyResult(currentFileIndex, fileList, result, onStatusUpdate)
                 }
+            }
 
-                override fun cryptoGetTextPassword(): String {
-                    return password ?: ""
-                }
+            class CryptoZipCallback(private val pass: String) : BaseZipCallback(), ICryptoGetTextPassword {
+                override fun cryptoGetTextPassword(): String = pass
+            }
+
+            val callback = if (!password.isNullOrEmpty()) {
+                CryptoZipCallback(password)
+            } else {
+                BaseZipCallback()
             }
 
             outArchive.createArchive(outStream, fileList.size, callback)
             true
-        } catch (e: Exception) {
-            e.printStackTrace()
+        } catch (e: Throwable) {
+            Log.e("7ZipCore", "ZIP压缩底层发生异常: ${e.message}", e)
             false
         } finally {
             outArchive?.close()
