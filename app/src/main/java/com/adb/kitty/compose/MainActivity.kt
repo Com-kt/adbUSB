@@ -363,7 +363,7 @@ class MainActivity : ComponentActivity() {
             val trimCmd = cmd.removePrefix("7zip ").trim()
             val words = trimCmd.split("\\s+".toRegex())
             if (words.size < 2) {
-                appendLog("[错误] 用法: 7zip <目标路径(支持空格)> <格式: zip|7z|tar|gz|bz2> [压缩密码]")
+                appendLog("[错误] 用法: 7zip <目标路径(支持空格)> <格式: zip|7z|tar|gz|bz2> [压缩密码] [压缩级别:0-9]")
                 return
             }
 
@@ -371,27 +371,48 @@ class MainActivity : ComponentActivity() {
             var sourceName = ""
             var format = ""
             var password: String? = null
+            var compressionLevel = 5
 
-            val lastWord = words.last().lowercase()
-            val secondLastWord = if (words.size >= 3) words[words.size - 2].lowercase() else null
+            val size = words.size
+            val wLast = words[size - 1]
+            val wSecond = if (size >= 3) words[size - 2] else null
+            val wThird = if (size >= 4) words[size - 3] else null
+
+            val lastIsLevel = wLast.toIntOrNull() in 0..9
+            var formatWordIndex = -1
 
             when {
-                supportedFormats.contains(lastWord) -> {
-                    format = lastWord
-                    val formatIndex = trimCmd.lastIndexOf(words.last())
-                    sourceName = trimCmd.substring(0, formatIndex).trim()
+                // 1. 目标 格式 密码 级别 (例如: 7zip my_dir zip admin 9)
+                wThird != null && supportedFormats.contains(wThird.lowercase()) && lastIsLevel -> {
+                    format = wThird.lowercase()
+                    password = wSecond
+                    compressionLevel = wLast.toInt()
+                    formatWordIndex = size - 3
                 }
-                secondLastWord != null && supportedFormats.contains(secondLastWord) -> {
-                    format = secondLastWord
-                    password = words.last()
-                    val formatIndex = trimCmd.lastIndexOf(words[words.size - 2])
-                    sourceName = trimCmd.substring(0, formatIndex).trim()
+                // 2. 目标 格式 级别 (例如: 7zip my_dir zip 9)
+                wSecond != null && supportedFormats.contains(wSecond.lowercase()) && lastIsLevel -> {
+                    format = wSecond.lowercase()
+                    compressionLevel = wLast.toInt()
+                    formatWordIndex = size - 2
+                }
+                // 3. 目标 格式 密码 (例如: 7zip my_dir zip admin)
+                wSecond != null && supportedFormats.contains(wSecond.lowercase()) -> {
+                    format = wSecond.lowercase()
+                    password = wLast
+                    formatWordIndex = size - 2
+                }
+                // 4. 目标 格式 (例如: 7zip my_dir zip)
+                supportedFormats.contains(wLast.lowercase()) -> {
+                    format = wLast.lowercase()
+                    formatWordIndex = size - 1
                 }
                 else -> {
                     appendLog("[错误] 未能识别压缩格式。请检查格式位置是否正确。")
                     return
                 }
             }
+
+            sourceName = words.take(formatWordIndex).joinToString(" ")
 
             val sourceFile = File(flashFolder, sourceName)
             if (!sourceFile.exists()) {
@@ -409,7 +430,8 @@ class MainActivity : ComponentActivity() {
             if (!password.isNullOrEmpty()) {
                 appendLog("[系统] 密码机制已就绪，正在构建安全归档...")
             }
-            appendLog("[系统] 7-Zip 多线程核心已拉满，高速压缩中...")
+            
+            appendLog("[系统] 固实多线程核心已拉满，正在以 $compressionLevel 级高速压缩中...")
 
             lifecycleScope.launch {
                 try {
@@ -420,6 +442,7 @@ class MainActivity : ComponentActivity() {
                             source = sourceFile,
                             output = outputFile,
                             password = password,
+                            compressionLevel = compressionLevel,
                             onStatusUpdate = { fileName, status ->
                                 fileCounter++
                                 if (fileCounter % 50 == 0 || status == "FAILED") {
@@ -440,12 +463,12 @@ class MainActivity : ComponentActivity() {
                     }
             
                     if (success) {
-                        appendLog("[系统] 7-Zip 压缩成功！输出至: flash/${outputFile.name}")
+                        appendLog("[系统] KBA/7-Zip 压缩成功！输出至: flash/${outputFile.name}")
                     } else {
                         appendLog("[错误] 压缩失败：内核拒绝创建，请检查目标文件是否被占用或源文件是否为空。")
                     }
                 } catch (e: Throwable) {
-                    appendLog("[崩溃] 7-Zip 内部异常断言: ${e.javaClass.simpleName} -> ${e.localizedMessage}")
+                    appendLog("[崩溃] 内部异常断言: ${e.javaClass.simpleName} -> ${e.localizedMessage}")
                 }
             }
             return

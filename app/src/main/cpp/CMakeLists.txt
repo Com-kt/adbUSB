@@ -3,12 +3,13 @@ cmake_minimum_required(VERSION 4.3.3)
 project(NekoProject)
 
 # 设置 C 标准（可选：90, 99, 11, 17, 23)
-set(CMAKE_C_STANDARD 99)
+set(CMAKE_C_STANDARD 17)
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
 set(SOURCE_DIR src/main/cpp)
   
-add_library(native-lib SHARED native-lib.cpp native-sig.cpp)
+add_library(native-lib SHARED native-lib.cpp native-sig.cpp native-zip.cpp native-unzip.cpp)
 
 find_library(log-lib log)
 find_library(android-lib android)

@@ -41,6 +41,20 @@ object NativeLibs {
     }
     external fun UserString(): String
     external fun V3Signature(apkPath: String): Boolean
+    
+    external fun compressToKBA(
+        filePaths: Array<String>,
+        entryNames: Array<String>,
+        outputKbaPath: String,
+        level: Int,
+        password: String?
+    ): Boolean
+
+    external fun decompressKBA(
+        kbaPath: String,
+        outputDir: String,
+        password: String?
+    ): Boolean
 }
 
 @Keep

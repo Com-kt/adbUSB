@@ -33,6 +33,7 @@ object OmniCompressUtils {
         source: File, 
         output: File,
         password: String? = null,
+        compressionLevel: Int = 5,
         onStatusUpdate: ((fileName: String, status: String) -> Unit)? = null,
         onErrorOccurred: ((String) -> Unit)? = null 
     ): Boolean {
@@ -51,6 +52,15 @@ object OmniCompressUtils {
         return when (normFormat) {
             "7z" -> compress7z(source, fileList, output, password, onStatusUpdate, onErrorOccurred)
             "zip" -> compressZip(source, fileList, output, password, onStatusUpdate, onErrorOccurred)
+            "zip", "kba" -> compressZip(
+                                baseDir = source, 
+                                fileList = fileList, 
+                                output = output, 
+                                password = password, 
+                                compressionLevel = compressionLevel,
+                                onStatusUpdate = onStatusUpdate, 
+                                onErrorOccurred = onErrorOccurred
+                            )
             "tar" -> compressTar(source, fileList, output, onStatusUpdate)
             else -> compressGeneric(normFormat, source, fileList, output, onStatusUpdate)
         }
@@ -136,12 +146,11 @@ object OmniCompressUtils {
         baseDir: File,
         fileList: List<File>,
         output: File,
-        password: String?, 
+        password: String?,
+        compressionLevel: Int = 5,
         onStatusUpdate: ((String, String) -> Unit)?,
         onErrorOccurred: ((String) -> Unit)? = null
     ): Boolean {
-        var raf: RandomAccessFile? = null
-        var outArchive: IOutCreateArchiveZip? = null
         return try {
             if (fileList.isEmpty()) {
                 onErrorOccurred?.invoke("Fail: 待压缩文件列表为空")
@@ -149,75 +158,26 @@ object OmniCompressUtils {
             }
             if (output.exists()) output.delete()
             
-            raf = RandomAccessFile(output, "rw")
-            raf.setLength(0) 
-            val outStream = RandomAccessFileOutStream(raf)
+            val filePaths = fileList.map { it.absolutePath }.toTypedArray()
+            val entryNames = fileList.map { getRelativePath(baseDir, it) }.toTypedArray()
             
-            outArchive = SevenZip.openOutArchiveZip()
-            outArchive.setLevel(5)
+            fileList.forEach { onStatusUpdate?.invoke(it.name, "START") }
             
-            open class BaseZipCallback : IOutCreateCallback<IOutItemZip> {
-                var currentFileIndex: Int = -1
-                override fun setTotal(total: Long) {}
-                override fun setCompleted(complete: Long) {}
-
-                override fun getItemInformation(index: Int, outItemFactory: OutItemFactory<IOutItemZip>): IOutItemZip {
-                    val file = fileList[index]
-                    val outItem = outItemFactory.createOutItem()
-                    
-                    var attr = PropID.AttributesBitMask.FILE_ATTRIBUTE_UNIX_EXTENSION
-                    
-                    outItem.setPropertyPath(getRelativePath(baseDir, file))
-                    
-                    if (file.isDirectory) {
-                        outItem.setPropertyIsDir(true)
-                        attr = attr or PropID.AttributesBitMask.FILE_ATTRIBUTE_DIRECTORY
-                        attr = attr or (0x81ED shl 16)
-                    } else {
-                        outItem.setDataSize(file.length())
-                        attr = attr or (0x81a4 shl 16)
-                    }
-                    
-                    outItem.setPropertyAttributes(attr)
-                    return outItem
-                }
-
-                override fun getStream(index: Int): ISequentialInStream? {
-                    currentFileIndex = index
-                    val file = fileList[index]
-                    onStatusUpdate?.invoke(file.name, "START")
-                    if (file.isDirectory) {
-                        onStatusUpdate?.invoke(file.name, "SUCCESS")
-                        return null
-                    }
-                    return SafeSequentialInStream(file) 
-                }
-
-                override fun setOperationResult(result: Boolean) {
-                    notifyResult(currentFileIndex, fileList, result, onStatusUpdate)
-                }
-            }
-
-            class CryptoZipCallback(private val pass: String) : BaseZipCallback(), ICryptoGetTextPassword {
-                override fun cryptoGetTextPassword(): String = pass
-            }
-
-            val callback = if (!password.isNullOrEmpty()) {
-                CryptoZipCallback(password)
+            val safeLevel = compressionLevel.coerceIn(0, 9)
+            
+            val result = NativeLibs.compressToKBA(filePaths, entryNames, output.absolutePath, safeLevel, password)
+            
+            if (result) {
+                fileList.forEach { onStatusUpdate?.invoke(it.name, "SUCCESS") }
             } else {
-                BaseZipCallback()
+                onErrorOccurred?.invoke("Fail: Native 固实多线程加密压缩引擎执行失败")
             }
-
-            outArchive.createArchive(outStream, fileList.size, callback)
-            true
+            result
         } catch (e: Throwable) {
             val fullStackTrace = "${e.javaClass.name}: ${e.message}\n" + Log.getStackTraceString(e)
-            Log.e("7ZipCore", "ZIP压缩底层发生异常", e)
+            Log.e("OmniCompress", "KBA加密压缩并发引擎异常", e)
             onErrorOccurred?.invoke(fullStackTrace)
             false
-        } finally {
-            outArchive?.close()
-            raf?.close()
         }
     }
 
@@ -340,6 +300,21 @@ object OmniCompressUtils {
         onProgress: ((currentFile: String, progressPercent: Int) -> Unit)? = null
     ): Boolean {
         if (!sourceFile.exists()) return false
+        if (sourceFile.name.endsWith(".kba", ignoreCase = true)) {
+            return try {
+                if (!outputTarget.exists()) outputTarget.mkdirs()
+                
+                val result = NativeLibs.decompressKBA(
+                    sourceFile.absolutePath, 
+                    outputTarget.absolutePath, 
+                    password
+                )
+                result
+            } catch (e: Exception) {
+                e.printStackTrace()
+                false
+            }
+        }
         ensureInitialized()
 
         val volumeCallback = SmartVolumeCallback(sourceFile)
