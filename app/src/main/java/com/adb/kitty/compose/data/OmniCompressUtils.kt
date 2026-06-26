@@ -1,6 +1,5 @@
 package com.adb.kitty.compose.data
 
-import android.content.Context
 import net.sf.sevenzipjbinding.*
 import net.sf.sevenzipjbinding.impl.OutItemFactory
 import net.sf.sevenzipjbinding.impl.RandomAccessFileInStream
@@ -13,10 +12,12 @@ object OmniCompressUtils {
     
     private var isSevenZipInitialized = false
 
-    fun ensureInitialized(context: Context) {
+    fun ensureInitialized() {
         if (!isSevenZipInitialized) {
             try {
-                SevenZip.initSevenZipInAndroidContext(context.applicationContext)
+                System.setProperty("sevenzip.jbinding.use.platform.jar", "false")
+                
+                SevenZip.initSevenZipFromPlatformJAR()
                 isSevenZipInitialized = true
             } catch (e: Exception) {
                 e.printStackTrace()
@@ -26,7 +27,6 @@ object OmniCompressUtils {
     }
 
     fun compress(
-        context: Context,
         format: String, 
         source: File, 
         output: File,
@@ -37,7 +37,7 @@ object OmniCompressUtils {
         var outArchive: IOutArchive<IOutItemAllFormats>? = null
 
         return try {
-            ensureInitialized(context)
+            ensureInitialized()
 
             val archiveFormat = when (format.lowercase().trim()) {
                 "7z" -> ArchiveFormat.SEVEN_ZIP
@@ -74,13 +74,13 @@ object OmniCompressUtils {
         }
     }
 
-    fun decompress(context: Context, sourceFile: File, outputTarget: File, password: String? = null): Boolean {
+    fun decompress(sourceFile: File, outputTarget: File, password: String? = null): Boolean {
         if (!sourceFile.exists()) return false
         var raf: RandomAccessFile? = null
         var inArchive: IInArchive? = null
 
         return try {
-            ensureInitialized(context)
+            ensureInitialized()
 
             raf = RandomAccessFile(sourceFile, "r")
             val inStream = RandomAccessFileInStream(raf)

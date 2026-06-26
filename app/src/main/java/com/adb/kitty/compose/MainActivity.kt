@@ -388,7 +388,7 @@ class MainActivity : ComponentActivity() {
 
             lifecycleScope.launch {
                 val success = withContext(Dispatchers.IO) {
-                    OmniCompressUtils.compress(this@MainActivity, realFormat, sourceFile, outputFile) { fileName, status ->
+                    OmniCompressUtils.compress(realFormat, sourceFile, outputFile) { fileName, status ->
                         launch(Dispatchers.Main) {
                             when (status) {
                                 "START"   -> appendLog("[>>] 核心正在压入: $fileName ...")
@@ -449,7 +449,7 @@ class MainActivity : ComponentActivity() {
 
             lifecycleScope.launch {
                 val success = withContext(Dispatchers.IO) {
-                    OmniCompressUtils.decompress(this@MainActivity, sourceFile, outputTarget, password)
+                    OmniCompressUtils.decompress(sourceFile, outputTarget, password)
                 }
                 if (success) {
                     appendLog("[系统] 7-Zip 解包成功！文件已安全释放至: flash/$dirName/")
