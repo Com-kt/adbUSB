@@ -416,9 +416,9 @@ class MainActivity : ComponentActivity() {
                     var fileCounter = 0
                     val success = withContext(Dispatchers.IO) {
                         OmniCompressUtils.compress(
-                            realFormat = realFormat,
-                            sourceFile = sourceFile,
-                            outputFile = outputFile,
+                            format = realFormat,
+                            source = sourceFile,
+                            output = outputFile,
                             password = password,
                             onStatusUpdate = { fileName, status ->
                                 fileCounter++
