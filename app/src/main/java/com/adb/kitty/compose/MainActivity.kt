@@ -385,15 +385,20 @@ class MainActivity : ComponentActivity() {
 
             val outputFile = File(flashFolder, "$sourceName.$realFormat")
             appendLog("[系统] 7-Zip C++ 核心准备就绪，正在高速压缩中...")
-
+            
             lifecycleScope.launch {
                 val success = withContext(Dispatchers.IO) {
+                    var lastLogTime = 0L
                     OmniCompressUtils.compress(realFormat, sourceFile, outputFile) { fileName, status ->
-                        launch(Dispatchers.Main) {
-                            when (status) {
-                                "START"   -> appendLog("[>>] 核心正在压入: $fileName ...")
-                                "SUCCESS" -> appendLog("[OK] 成功压入包体: $fileName")
-                                "FAILED"  -> appendLog("[错误] 文件写入失败: $fileName")
+                        val currentTime = System.currentTimeMillis()
+                        if (status == "FAILED" || currentTime - lastLogTime > 300) {
+                            lastLogTime = currentTime
+                            launch(Dispatchers.Main) {
+                                when (status) {
+                                    "START"   -> appendLog("[>>] 核心正在压入: $fileName")
+                                    "SUCCESS" -> appendLog("[OK] 成功压入包体: $fileName")
+                                    "FAILED"  -> appendLog("[错误] 文件写入失败: $fileName")
+                                }
                             }
                         }
                     }
