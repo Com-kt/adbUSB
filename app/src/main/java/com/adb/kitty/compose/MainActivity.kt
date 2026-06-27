@@ -120,7 +120,7 @@ class MainActivity : ComponentActivity() {
     private var isFastbootMode = false
     private var isWifiEnabled: Boolean = false
 
-    private val responseChannel = Channel<String>(Channel.CONFLATED)
+    private val responseChannel = Channel<String>(Channel.UNLIMITED)
     
     private val flashFolder by lazy { File(getExternalFilesDir(null), "flash") }
     private fun ensureFlashDirExists() {

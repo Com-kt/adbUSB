@@ -109,23 +109,23 @@ class FastbootManager(
         timeout: Long = 10000, 
         onInfoReceived: suspend (String) -> Unit
     ): FastbootResponse {
-        val lines = mutableListOf<String>() // 🌟 建立全量日志收集箱
+        val lines = mutableListOf<String>()
         val startTime = System.currentTimeMillis()
 
         while (System.currentTimeMillis() - startTime < timeout) {
             val resp = withTimeoutOrNull(2000) { responseChannel.receive() } ?: continue
-            lines.add(resp) // 🌟 每一行进来的原始数据都老老实实存进去
+            lines.add(resp)
         
             if (resp.startsWith("OKAY") || resp.startsWith("FAIL")) {
                 val status = resp.substring(0, 4)
                 val payload = if (resp.length > 4) resp.substring(4) else ""
-                return FastbootResponse(status, payload, lines) // 🌟 返回全量集合
+                return FastbootResponse(status, payload, lines)
             } else if (resp.startsWith("DATA")) {
                 val payload = if (resp.length > 4) resp.substring(4) else ""
-                return FastbootResponse("DATA", payload, lines) // 🌟 返回全量集合
+                return FastbootResponse("DATA", payload, lines)
             } else if (resp.startsWith("INFO")) {
                 val infoPayload = if (resp.length > 4) resp.substring(4) else ""
-                onInfoReceived(infoPayload) // 依旧保持实时的实时回调
+                onInfoReceived(infoPayload)
             } else {
                 onInfoReceived(resp)
             }
@@ -144,7 +144,6 @@ class FastbootManager(
         val parts = cleanCmd.split(Regex("\\s+"))
         val action = parts[0].lowercase()
 
-        // 🌟 2. 【分流路由】先处理需要复杂逻辑的“高阶”命令
         when (action) {
             "flash" -> {
                 if (parts.size >= 3) {
@@ -164,8 +163,6 @@ class FastbootManager(
             }
         }
 
-    // 🔌 3. 【原生协议转换】处理标准 Fastboot 指令
-    // 只有走到这里的指令，才会进入 USB 协议发送流程
         val protocolCmd = when (action) {
             "getvar" -> {
                 if (parts.size >= 2) "${parts[0]}:${parts.drop(1).joinToString(" ")}" else parts[0]
@@ -194,14 +191,12 @@ class FastbootManager(
             log("🚀 [USB直连] 发送: $protocolCmd")
         }
 
-        // 4. 发送指令并等待响应
         sendFastbootCommandDirect(protocolCmd)
 
         val result = waitForTerminalResponse(10000) { infoText ->
-            log("FB << (bootloader) $infoText")
+            log("FB << [系统] $infoText")
         }
 
-        // 5. 状态结算
         withContext(Dispatchers.Main) {
             when (result.status) {
                 "OKAY" -> log("FB << OKAY [执行成功] ${result.payload}")
@@ -227,10 +222,8 @@ class FastbootManager(
                               partition.endsWith("_b", ignoreCase = true) || 
                               partition.endsWith("_ab", ignoreCase = true)
         val targetPartition = if (hasManualSuffix) {
-            // 用户指定了具体插槽，直接使用用户的输入
             partition 
         } else {
-            // 用户没指定，使用你的自动映射逻辑
             getTargetPartition(partition, activeSlot)
         }
         
@@ -239,33 +232,26 @@ class FastbootManager(
             log("📱 计算目标: $partition -> $targetPartition (Active Slot: ${activeSlot.ifEmpty { "N/A" }})")
         }
         
-        // 1. 预处理：判断是否需要特殊处理 (Sparse Image)
-        // 如果是 Sparse Image 且设备不支持直接刷写，此处可插入转换逻辑
         val isSparse = isSparseImage(file)
         withContext(Dispatchers.Main) { log("ℹ️ 格式识别: ${if (isSparse) "Sparse Image" else "Raw Image"}") }
 
-        // 2. 握手阶段: download:<size>
-        // 协议要求：size 必须是 8 位十六进制
         val sizeHex = String.format("%08x", file.length())
         withContext(Dispatchers.Main) { log("🚀 开始下载: $partition (大小: ${file.length()} bytes)") }
     
         sendFastbootCommandDirect("download:$sizeHex")
     
-        // 等待设备响应 DATA (只有收到 DATA 才能开始传数据)
         val handshake = waitForTerminalResponse(10000) { }
         if (handshake.status != "DATA") {
-            withContext(Dispatchers.Main) { log("❌ 拒绝下载: ${handshake.payload}") }
+            withContext(Dispatchers.Main) { log("❌ 拒绝下载: ${handshake.payload}, 状态: ${handshake.status}") }
             return@withContext
         }
 
-        // 3. 数据传输阶段 (流式循环)
         withContext(Dispatchers.Main) { log("⏳ 正在传输数据，请勿断开连接...") }
-        val buffer = ByteArray(65536) // 64KB 缓冲区
+        val buffer = ByteArray(65536)
         try {
             FileInputStream(file).use { fis ->
                 var bytesRead: Int
                 while (fis.read(buffer).also { bytesRead = it } != -1) {
-                    // 使用 bulkTransfer 循环发送
                     val written = usbConn.bulkTransfer(epOut, buffer, bytesRead, 5000)
                     if (written != bytesRead) {
                         throw Exception("USB 传输中断 (发送字节数不匹配)")
@@ -277,26 +263,22 @@ class FastbootManager(
             return@withContext
         }
 
-        // 4. 等待下载确认 (OKAY)
         val downloadConfirm = waitForTerminalResponse(30000) { }
         if (downloadConfirm.status != "OKAY") {
-            withContext(Dispatchers.Main) { log("❌ 下载被拒绝: ${downloadConfirm.payload}") }
+            withContext(Dispatchers.Main) { log("❌ 下载被拒绝: ${downloadConfirm.payload}, 状态: ${downloadConfirm.status}") }
             return@withContext
         }
 
-        // 5. 触发刷写阶段: flash:<partition>
         withContext(Dispatchers.Main) { log("⚡ 触发刷写: flash:$targetPartition") }
         sendFastbootCommandDirect("flash:$targetPartition")
     
-        // 6. 最终结算 (长超时)
-        // 刷写过程设备会频繁返回 INFO，我们通过回调实时打印
         val flashResult = waitForTerminalResponse(120000) { info ->
             withContext(Dispatchers.Main) { log("FB << (bootloader) $info") }
         }
         
         val endTime = System.currentTimeMillis()
         val durationSeconds = (endTime - startTime) / 1000.0
-        val thresholdBytes = 512 * 1024 // 512KB
+        val thresholdBytes = 512 * 1024
 
         withContext(Dispatchers.Main) {
             if (flashResult.status == "OKAY") {
@@ -348,13 +330,15 @@ class FastbootManager(
         }
 
         try {
-            // 3. 下载到内存
             val sizeHex = String.format("%08x", file.length())
+            withContext(Dispatchers.Main) { log("🚀 开始下载 (大小: ${file.length()} bytes)") }
             sendFastbootCommandDirect("download:$sizeHex")
         
             val handshake = waitForTerminalResponse(10000) { }
             if (handshake.status != "DATA") {
-                withContext(Dispatchers.Main) { log("❌ 拒绝下载: ${handshake.payload}") }
+                withContext(Dispatchers.Main) {
+                    log("❌ 拒绝下载: ${handshake.payload}, 状态: ${handshake.status}")
+                }
                 return@withContext
             }
 
@@ -369,11 +353,10 @@ class FastbootManager(
 
             val downloadConfirm = waitForTerminalResponse(30000) { }
             if (downloadConfirm.status != "OKAY") {
-                withContext(Dispatchers.Main) { log("❌ 下载被拒绝: ${downloadConfirm.payload}") }
+                withContext(Dispatchers.Main) { log("❌ 下载被拒绝: ${downloadConfirm.payload}, 状态: ${downloadConfirm.status}") }
                 return@withContext
             }
 
-            // 4. 触发 Boot
             withContext(Dispatchers.Main) { log("⚡ 发送 boot 指令…") }
             sendFastbootCommandDirect("boot")
 
@@ -393,38 +376,29 @@ class FastbootManager(
     }
     
     private suspend fun getActiveSlot(): String {
-        // 1. 发送查询命令
         sendFastbootCommandDirect("getvar:current-slot")
         val response = waitForTerminalResponse(5000) { /* 可以在这里打印日志调试 */ }
     
-        // 将整个接收到的 payload 转为小写，统一处理，避免大小写导致的识别错误
         val fullResponse = response.payload.lowercase()
     
-        // 3. 直接通过特征字符串进行判断
         return when {
-            // 优先匹配“粘包”情况
             fullResponse.contains("okayb") -> "b"
             fullResponse.contains("okaya") -> "a"
         
-            // 兼容处理：如果设备响应正常，没有粘包，而是标准格式
             fullResponse.contains("current-slot: b") -> "b"
             fullResponse.contains("current-slot: a") -> "a"
         
-            // 兼容处理：有些设备直接返回单独的 a 或 b
             fullResponse.contains("slot: b") || fullResponse.endsWith(" b") -> "b"
             fullResponse.contains("slot: a") || fullResponse.endsWith(" a") -> "a"
         
-            // 如果都匹配不到，说明无法识别，返回空
             else -> ""
         }
     }
     
     private fun getTargetPartition(partition: String, activeSlot: String): String {
-    // 只有在白名单内的分区，且我们确实获取到了活跃插槽时，才拼接后缀
         return if (config.abPartitions.contains(partition) && activeSlot.isNotEmpty()) {
             "${partition}_$activeSlot"
         } else {
-            // 对于 misc, metadata, userdata, super 等，保持原样
             partition
         }
     }
