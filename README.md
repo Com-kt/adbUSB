@@ -64,6 +64,12 @@
 > 
 > MTK UNSUPPORTED
 
+# AndroidManifest
+```
+android:persistent="true"
+android:largeHeap="true"
+```
+
 # KBA
 ```
 +-------------------------------------------------------------+
@@ -108,3 +114,4 @@
 - [libsu](https://github.com/topjohnwu/libsu)
 - [bkerler-edl](https://github.com/bkerler/edl)
 - [AndroidHiddenApiBypass](https://github.com/LSPosed/AndroidHiddenApiBypass)
+- [7-Zip-JBinding-4Android](https://github.com/omicronapps/7-Zip-JBinding-4Android)

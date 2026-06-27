@@ -377,6 +377,8 @@
     <application
         android:process=":task"
         android:name="BypassApi"
+        android:persistent="true"
+        android:largeHeap="true"
         android:allowBackup="true"
         android:directBootAware="true"
         android:usesNonSdkApi="true"
