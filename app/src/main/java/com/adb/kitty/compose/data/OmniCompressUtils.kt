@@ -38,7 +38,6 @@ object OmniCompressUtils {
         onErrorOccurred: ((String) -> Unit)? = null 
     ): Boolean {
         if (!source.exists()) return false
-        ensureInitialized()
 
         val fileList = mutableListOf<File>()
         if (source.isDirectory) {
@@ -48,9 +47,20 @@ object OmniCompressUtils {
         }
 
         val normFormat = format.lowercase().trim()
+
+        if (normFormat == "gzip" || normFormat == "gz" || normFormat == "bzip2" || normFormat == "bz2") {
+            if (fileList.size > 1 || source.isDirectory) {
+                onErrorOccurred?.invoke("Fail: $normFormat 格式不支持直接压缩多个文件或文件夹，请先使用 TAR 打包后再压缩。")
+                return false
+            }
+        }
+        
+        if (normFormat != "kba") {
+            ensureInitialized()
+        }
         
         return when (normFormat) {
-            "7z" -> compress7z(source, fileList, output, password, onStatusUpdate, onErrorOccurred)
+            "7z" -> compress7z(source, fileList, output, password, compressionLevel, onStatusUpdate, onErrorOccurred)
             "kba" -> compressZip(
                         baseDir = source, 
                         fileList = fileList, 
@@ -61,7 +71,7 @@ object OmniCompressUtils {
                         onErrorOccurred = onErrorOccurred
                     )
             "tar" -> compressTar(source, fileList, output, onStatusUpdate)
-            else -> compressGeneric(normFormat, source, fileList, output, onStatusUpdate)
+            else -> compressGeneric(normFormat, source, fileList, output, compressionLevel, onStatusUpdate)
         }
     }
 
@@ -70,11 +80,13 @@ object OmniCompressUtils {
         fileList: List<File>,
         output: File,
         password: String?, 
+        compressionLevel: Int,
         onStatusUpdate: ((String, String) -> Unit)?,
         onErrorOccurred: ((String) -> Unit)? = null
     ): Boolean {
         var raf: RandomAccessFile? = null
         var outArchive: IOutCreateArchive7z? = null 
+        var currentStream: SafeSequentialInStream? = null
         return try {
             if (output.exists()) output.delete()
             
@@ -84,10 +96,22 @@ object OmniCompressUtils {
             
             outArchive = SevenZip.openOutArchive7z()
             applyMultiThreading(outArchive)
+
+            if (outArchive is IOutFeatureSetLevel) {
+                outArchive.setLevel(compressionLevel.coerceIn(1, 5))
+            }
+            
+            if (fileList.size > 500) {
+                outArchive.setSolid(false)
+            } else {
+                outArchive.setSolid(true)
+            }
             
             if (!password.isNullOrEmpty()) {
                 outArchive.setHeaderEncryption(true)
             }
+            
+            var fileCounter = 0
             
             open class Base7zCallback : IOutCreateCallback<IOutItem7z> {
                 var currentFileIndex: Int = -1
@@ -106,16 +130,32 @@ object OmniCompressUtils {
                 override fun getStream(index: Int): ISequentialInStream? {
                     currentFileIndex = index
                     val file = fileList[index]
-                    onStatusUpdate?.invoke(file.name, "START")
+                    
+                    fileCounter++
+                    if (fileCounter % 100 == 0 || file.length() > 5 * 1024 * 1024) {
+                        onStatusUpdate?.invoke(file.name, "PROCESSING")
+                    } else if (fileCounter == 1) {
+                        onStatusUpdate?.invoke(file.name, "START")
+                    }
+
                     if (file.isDirectory) {
-                        onStatusUpdate?.invoke(file.name, "SUCCESS")
+                        if (fileCounter % 100 == 0 || currentFileIndex == fileList.lastIndex) {
+                            onStatusUpdate?.invoke(file.name, "SUCCESS")
+                        }
                         return null
                     }
-                    return SafeSequentialInStream(file) 
+                    
+                    currentStream?.close()
+                    currentStream = SafeSequentialInStream(file)
+                    return currentStream
                 }
 
                 override fun setOperationResult(result: Boolean) {
-                    notifyResult(currentFileIndex, fileList, result, onStatusUpdate)
+                    currentStream?.close()
+                    currentStream = null
+                    if (fileCounter % 100 == 0 || currentFileIndex == fileList.lastIndex) {
+                        notifyResult(currentFileIndex, fileList, result, onStatusUpdate)
+                    }
                 }
             }
 
@@ -136,6 +176,7 @@ object OmniCompressUtils {
             onErrorOccurred?.invoke(fullStackTrace)
             false
         } finally {
+            currentStream?.close()
             outArchive?.close()
             raf?.close()
         }
@@ -188,6 +229,7 @@ object OmniCompressUtils {
     ): Boolean {
         var raf: RandomAccessFile? = null
         var outArchive: IOutArchive<IOutItemTar>? = null
+        var currentStream: SafeSequentialInStream? = null
         return try {
             if (output.exists()) output.delete()
             raf = RandomAccessFile(output, "rw")
@@ -198,6 +240,7 @@ object OmniCompressUtils {
             
             applyMultiThreading(outArchive)
             
+            var fileCounter = 0
             val callback = object : IOutCreateCallback<IOutItemTar> {
                 private var currentFileIndex: Int = -1
                 override fun setTotal(total: Long) {}
@@ -215,16 +258,27 @@ object OmniCompressUtils {
                 override fun getStream(index: Int): ISequentialInStream? {
                     currentFileIndex = index
                     val file = fileList[index]
-                    onStatusUpdate?.invoke(file.name, "START")
+                    fileCounter++
+                    if (fileCounter % 100 == 0 || file.length() > 5 * 1024 * 1024) {
+                        onStatusUpdate?.invoke(file.name, "PROCESSING")
+                    }
                     if (file.isDirectory) {
-                        onStatusUpdate?.invoke(file.name, "SUCCESS")
+                        if (fileCounter % 100 == 0 || currentFileIndex == fileList.lastIndex) {
+                            onStatusUpdate?.invoke(file.name, "SUCCESS")
+                        }
                         return null
                     }
-                    return SafeSequentialInStream(file)
+                    currentStream?.close()
+                    currentStream = SafeSequentialInStream(file)
+                    return currentStream
                 }
 
                 override fun setOperationResult(result: Boolean) {
-                    notifyResult(currentFileIndex, fileList, result, onStatusUpdate)
+                    currentStream?.close()
+                    currentStream = null
+                    if (fileCounter % 100 == 0 || currentFileIndex == fileList.lastIndex) {
+                        notifyResult(currentFileIndex, fileList, result, onStatusUpdate)
+                    }
                 }
             }
 
@@ -234,6 +288,7 @@ object OmniCompressUtils {
             e.printStackTrace()
             false
         } finally {
+            currentStream?.close()
             outArchive?.close()
             raf?.close()
         }
@@ -241,10 +296,11 @@ object OmniCompressUtils {
 
     @Suppress("UNCHECKED_CAST")
     private fun compressGeneric(
-        format: String, baseDir: File, fileList: List<File>, output: File, onStatusUpdate: ((String, String) -> Unit)?
+        format: String, baseDir: File, fileList: List<File>, output: File, compressionLevel: Int, onStatusUpdate: ((String, String) -> Unit)?
     ): Boolean {
         var raf: RandomAccessFile? = null
         var outArchive: IOutArchive<IOutItemAllFormats>? = null
+        var currentStream: SafeSequentialInStream? = null
         return try {
             val archiveFormat = when (format) {
                 "gzip", "gz" -> ArchiveFormat.GZIP
@@ -257,6 +313,10 @@ object OmniCompressUtils {
             outArchive = SevenZip.openOutArchive(archiveFormat) as IOutArchive<IOutItemAllFormats>
             
             applyMultiThreading(outArchive)
+
+            if (outArchive is IOutFeatureSetLevel) {
+                outArchive.setLevel(compressionLevel.coerceIn(1, 9))
+            }
             
             val callback = object : IOutCreateCallback<IOutItemAllFormats> {
                 private var currentFileIndex: Int = -1
@@ -275,18 +335,23 @@ object OmniCompressUtils {
                     val file = fileList[index]
                     onStatusUpdate?.invoke(file.name, "START")
                     if (file.isDirectory) return null
-                    return SafeSequentialInStream(file)
+                    currentStream?.close()
+                    currentStream = SafeSequentialInStream(file)
+                    return currentStream
                 }
                 override fun setOperationResult(result: Boolean) {
+                    currentStream?.close()
+                    currentStream = null
                     notifyResult(currentFileIndex, fileList, result, onStatusUpdate)
                 }
             }
-            outArchive.updateItems(outStream, fileList.size, callback)
+            outArchive.updateItems(outStream, 1, callback)
             true
         } catch (e: Exception) {
             e.printStackTrace()
             false
         } finally {
+            currentStream?.close()
             outArchive?.close()
             raf?.close()
         }
@@ -320,13 +385,15 @@ object OmniCompressUtils {
         var inArchive: IInArchive? = null
         
         return try {
-            val inStream = if (sourceFile.name.endsWith(".001")) {
+            val isSevenZipMultipart = sourceFile.name.endsWith(".001", ignoreCase = true)
+            val inStream = if (isSevenZipMultipart) {
                 VolumedArchiveInStream(sourceFile.absolutePath, volumeCallback)
             } else {
-                volumeCallback.getStream(sourceFile.name) ?: throw FileNotFoundException("无法加载初始卷")
+                volumeCallback.getStream(sourceFile.absolutePath) ?: volumeCallback.getStream(sourceFile.name) ?: throw FileNotFoundException("无法加载初始卷")
             }
 
-            val archive = SevenZip.openInArchive(null, inStream, volumeCallback)
+            val format = if (isSevenZipMultipart) ArchiveFormat.SEVEN_ZIP else null
+            val archive = SevenZip.openInArchive(format, inStream, volumeCallback)
             inArchive = archive
 
             if (archive != null) {
@@ -350,7 +417,7 @@ object OmniCompressUtils {
     private fun applyMultiThreading(outArchive: Any) {
         if (outArchive is IOutFeatureSetMultithreading) {
             val cores = Runtime.getRuntime().availableProcessors()
-            outArchive.setThreadCount(if (cores > 2) cores - 1 else 1)
+            outArchive.setThreadCount(if (cores > 4) 2 else 1)
         }
     }
 
@@ -405,7 +472,7 @@ object OmniCompressUtils {
         IArchiveOpenCallback, IArchiveOpenVolumeCallback, Closeable {
         
         private val openedFiles = mutableMapOf<String, RandomAccessFile>()
-        private var lastName: String = firstVolume.name
+        private var lastName: String = firstVolume.absolutePath
 
         override fun setTotal(files: Long?, bytes: Long?) {}
         override fun setCompleted(files: Long?, bytes: Long?) {}
@@ -415,17 +482,27 @@ object OmniCompressUtils {
         }
 
         override fun getStream(filename: String): IInStream? {
-            val fileToOpen = if (filename == firstVolume.name) {
-                firstVolume
-            } else {
-                File(firstVolume.parentFile, filename)
-            }
-            if (!fileToOpen.exists()) return null
-
             return try {
-                val raf = openedFiles.getOrPut(filename) { RandomAccessFile(fileToOpen, "r") }
-                raf.seek(0)
-                lastName = filename
+                val cachedRaf = openedFiles[filename]
+                if (cachedRaf != null) {
+                    cachedRaf.seek(0)
+                    lastName = filename
+                    return RandomAccessFileInStream(cachedRaf)
+                }
+
+                val target = File(filename)
+                val fileToOpen = if (target.exists()) {
+                    target
+                } else if (filename == firstVolume.name) {
+                    firstVolume
+                } else {
+                    File(firstVolume.parentFile, target.name)
+                }
+                if (!fileToOpen.exists()) return null
+
+                val raf = RandomAccessFile(fileToOpen, "r")
+                openedFiles[filename] = raf
+                lastName = fileToOpen.absolutePath
                 RandomAccessFileInStream(raf)
             } catch (e: Exception) {
                 null

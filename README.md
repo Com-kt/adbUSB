@@ -64,6 +64,22 @@
 > 
 > MTK UNSUPPORTED
 
+# KBA
+```
++-------------------------------------------------------------+
+| Header (8 字节) : Magic 'KBA1' (4B) + Index Offset (4B)     |
++-------------------------------------------------------------+
+| Block 0 : [Compressed Size (4B)] + [Raw Deflate Data]       |
+| Block 1 : [Compressed Size (4B)] + [Raw Deflate Data]       |
+| ...                                                         |
++-------------------------------------------------------------+
+| Central Index (末尾) :                                       |
+|   - Total Files (4B)                                        |
+|   - 重复条目: [NameLen (2B)] + [Name] + [StreamOffset (8B)]  |
+|               + [FileSize (8B)]                             |
++-------------------------------------------------------------+
+```
+
 # 其他 ADB 工具
 - 如果您不想使用此GitHub仓库实现的ADB工具，那么您也可以使用其他GitHub仓库实现的ADB工具
 - 以下列出一些包含了 ADB 工具以及实现：
