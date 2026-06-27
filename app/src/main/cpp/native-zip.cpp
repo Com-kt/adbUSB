@@ -3,8 +3,6 @@
 #include <string>
 #include <string_view>
 #include <thread>
-#include <future>
-#include <map>
 #include <mutex>
 #include <condition_variable>
 #include <fstream>
@@ -12,8 +10,59 @@
 #include <cstdint>
 #include <zlib.h>
 #include <filesystem>
+#include <queue>
+#include <functional>
+#include <algorithm>
+#include <map>
 
 namespace fs = std::filesystem;
+
+class FixedThreadPool {
+public:
+    explicit FixedThreadPool(size_t threads) : stop(false) {
+        for (size_t i = 0; i < threads; ++i) {
+            workers.emplace_back([this] {
+                while (true) {
+                    std::function<void()> task;
+                    {
+                        std::unique_lock<std::mutex> lock(this->queue_mutex);
+                        this->cv.wait(lock, [this] { return this->stop || !this->tasks.empty(); });
+                        if (this->stop && this->tasks.empty()) return;
+                        task = std::move(this->tasks.front());
+                        this->tasks.pop();
+                    }
+                    task();
+                }
+            });
+        }
+    }
+
+    void enqueue(std::function<void()> task) {
+        {
+            std::unique_lock<std::mutex> lock(queue_mutex);
+            tasks.push(std::move(task));
+        }
+        cv.notify_one();
+    }
+
+    ~FixedThreadPool() {
+        {
+            std::unique_lock<std::mutex> lock(queue_mutex);
+            stop = true;
+        }
+        cv.notify_all();
+        for (std::thread &worker : workers) {
+            if (worker.joinable()) worker.join();
+        }
+    }
+
+private:
+    std::vector<std::thread> workers;
+    std::queue<std::function<void()>> tasks;
+    std::mutex queue_mutex;
+    std::condition_variable cv;
+    bool stop;
+};
 
 void XteaEncryptBlock(uint32_t v[2], const uint32_t k[4]) {
     uint32_t v0 = v[0], v1 = v[1], sum = 0, delta = 0x9E3779B9;
@@ -120,7 +169,9 @@ Java_com_adb_kitty_compose_data_NativeLibs_compressToKBA(
         std::vector<VirtualFileEntry> registry;
         uint64_t currentGlobalStreamOffset = 0;
         
-        std::vector<std::future<void>> compressFutures;
+        unsigned int hw_threads = std::thread::hardware_concurrency();
+        if (hw_threads == 0) hw_threads = 4;
+        FixedThreadPool pool(hw_threads);
 
         const size_t CHUNK_SIZE = 4 * 1024 * 1024;
         std::vector<uint8_t> chunkBuffer;
@@ -182,21 +233,23 @@ Java_com_adb_kitty_compose_data_NativeLibs_compressToKBA(
                         if (chunkBuffer.size() == CHUNK_SIZE) {
                             int bId = blockIdCounter++;
                             
-                            if (bId - nextBlockToWrite > std::thread::hardware_concurrency() * 2) {
+                            if (bId - nextBlockToWrite > hw_threads * 2) {
                                 std::unique_lock<std::mutex> lock(queueMutex);
-                                queueCv.wait(lock, [&] { return bId - nextBlockToWrite <= std::thread::hardware_concurrency() * 2; });
+                                queueCv.wait(lock, [&] { return bId - nextBlockToWrite <= hw_threads * 2; });
                             }
 
-                            compressFutures.push_back(std::async(std::launch::async, [bId, chunkBuffer, level, useEncryption, cryptoKey, &writeQueue, &queueMutex, &queueCv]() {
-                                auto cb = CompressAndEncryptWorker(bId, chunkBuffer.data(), chunkBuffer.size(), level, useEncryption, cryptoKey);
+                            std::vector<uint8_t> workerBuffer;
+                            workerBuffer.swap(chunkBuffer);
+                            chunkBuffer.reserve(CHUNK_SIZE); 
+
+                            pool.enqueue([bId, buf = std::move(workerBuffer), level, useEncryption, cryptoKey, &writeQueue, &queueMutex, &queueCv]() {
+                                auto cb = CompressAndEncryptWorker(bId, buf.data(), buf.size(), level, useEncryption, cryptoKey);
                                 {
                                     std::scoped_lock lock(queueMutex);
                                     writeQueue[cb.blockId] = std::move(cb.data);
                                 }
                                 queueCv.notify_all();
-                            }));
-
-                            chunkBuffer.clear();
+                            });
                         }
                     }
                     inFile.close();
@@ -208,14 +261,17 @@ Java_com_adb_kitty_compose_data_NativeLibs_compressToKBA(
 
         if (!chunkBuffer.empty()) {
             int bId = blockIdCounter++;
-            compressFutures.push_back(std::async(std::launch::async, [bId, chunkBuffer, level, useEncryption, cryptoKey, &writeQueue, &queueMutex, &queueCv]() {
-                auto cb = CompressAndEncryptWorker(bId, chunkBuffer.data(), chunkBuffer.size(), level, useEncryption, cryptoKey);
+            std::vector<uint8_t> workerBuffer;
+            workerBuffer.swap(chunkBuffer);
+
+            pool.enqueue([bId, buf = std::move(workerBuffer), level, useEncryption, cryptoKey, &writeQueue, &queueMutex, &queueCv]() {
+                auto cb = CompressAndEncryptWorker(bId, buf.data(), buf.size(), level, useEncryption, cryptoKey);
                 {
                     std::scoped_lock lock(queueMutex);
                     writeQueue[cb.blockId] = std::move(cb.data);
                 }
                 queueCv.notify_all();
-            }));
+            });
         }
 
         {
@@ -223,10 +279,6 @@ Java_com_adb_kitty_compose_data_NativeLibs_compressToKBA(
             processingDone = true;
         }
         queueCv.notify_all();
-
-        for (auto& f : compressFutures) {
-            if (f.valid()) f.get();
-        }
 
         if (diskWriter.joinable()) diskWriter.join();
 

@@ -3,8 +3,6 @@
 #include <string>
 #include <string_view>
 #include <thread>
-#include <future>
-#include <map>
 #include <mutex>
 #include <condition_variable>
 #include <fstream>
@@ -12,11 +10,91 @@
 #include <cstdint>
 #include <zlib.h>
 #include <filesystem>
+#include <queue>
+#include <functional>
+#include <algorithm>
+#include <map>
 
 namespace fs = std::filesystem;
 
-void CryptoXteaCtr(uint8_t* data, size_t size, const uint32_t key[4], uint64_t blockId);
-void DeriveKey(std::string_view password, uint32_t key[4]);
+class FixedThreadPool {
+public:
+    explicit FixedThreadPool(size_t threads) : stop(false) {
+        for (size_t i = 0; i < threads; ++i) {
+            workers.emplace_back([this] {
+                while (true) {
+                    std::function<void()> task;
+                    {
+                        std::unique_lock<std::mutex> lock(this->queue_mutex);
+                        this->cv.wait(lock, [this] { return this->stop || !this->tasks.empty(); });
+                        if (this->stop && this->tasks.empty()) return;
+                        task = std::move(this->tasks.front());
+                        this->tasks.pop();
+                    }
+                    task();
+                }
+            });
+        }
+    }
+
+    void enqueue(std::function<void()> task) {
+        {
+            std::unique_lock<std::mutex> lock(queue_mutex);
+            tasks.push(std::move(task));
+        }
+        cv.notify_one();
+    }
+
+    ~FixedThreadPool() {
+        {
+            std::unique_lock<std::mutex> lock(queue_mutex);
+            stop = true;
+        }
+        cv.notify_all();
+        for (std::thread &worker : workers) {
+            if (worker.joinable()) worker.join();
+        }
+    }
+
+private:
+    std::vector<std::thread> workers;
+    std::queue<std::function<void()>> tasks;
+    std::mutex queue_mutex;
+    std::condition_variable cv;
+    bool stop;
+};
+
+void XteaEncryptBlock(uint32_t v[2], const uint32_t k[4]) {
+    uint32_t v0 = v[0], v1 = v[1], sum = 0, delta = 0x9E3779B9;
+    for (int i = 0; i < 32; i++) {
+        v0 += (((v1 << 4) ^ (v1 >> 5)) + v1) ^ (sum + k[sum & 3]);
+        sum += delta;
+        v1 += (((v0 << 4) ^ (v0 >> 5)) + v0) ^ (sum + k[(sum >> 11) & 3]);
+    }
+    v[0] = v0; v[1] = v1;
+}
+
+void CryptoXteaCtr(uint8_t* data, size_t size, const uint32_t key[4], uint64_t blockId) {
+    uint32_t counter[2]{ static_cast<uint32_t>(blockId), 0 };
+
+    for (size_t i = 0; i < size; i += 8) {
+        uint32_t cryptoKey[2]{ counter[0], counter[1]++ };
+        XteaEncryptBlock(cryptoKey, key);
+
+        size_t remain = std::min(static_cast<size_t>(8), size - i);
+        uint8_t* keyStreamBytes = reinterpret_cast<uint8_t*>(cryptoKey);
+        for (size_t j = 0; j < remain; ++j) {
+            data[i + j] ^= keyStreamBytes[j];
+        }
+    }
+}
+
+void DeriveKey(std::string_view password, uint32_t key[4]) {
+    key[0] = 0x12345678; key[1] = 0x9ABCDEF0; key[2] = 0xFEDCBA98; key[3] = 0x76543210;
+    for (size_t i = 0; i < password.size(); ++i) {
+        reinterpret_cast<uint8_t*>(key)[i % 16] ^= password[i];
+    }
+}
 
 struct DecompressFileEntry {
     std::string name;
@@ -73,7 +151,11 @@ Java_com_adb_kitty_compose_data_NativeLibs_decompressKBA(
         inFile.read(reinterpret_cast<char*>(&flags), 4);
         inFile.read(reinterpret_cast<char*>(&indexOffset), 8);
 
-        if (magic != 0x3241424B) return JNI_FALSE;
+        if (magic != 0x3241424B) {
+            env->ReleaseStringUTFChars(kba_path, c_kba_path);
+            env->ReleaseStringUTFChars(output_dir, c_out_dir);
+            return JNI_FALSE;
+        }
 
         bool isEncrypted = (flags == 1);
         uint32_t cryptoKey[4] = {0};
@@ -94,6 +176,7 @@ Java_com_adb_kitty_compose_data_NativeLibs_decompressKBA(
         indexPtr += 4;
 
         std::vector<DecompressFileEntry> registry;
+        registry.reserve(totalFiles);
         for (uint32_t i = 0; i < totalFiles; ++i) {
             uint16_t nameLen = *reinterpret_cast<uint16_t*>(&indexBytes[indexPtr]); indexPtr += 2;
             std::string name(reinterpret_cast<char*>(&indexBytes[indexPtr]), nameLen); indexPtr += nameLen;
@@ -110,7 +193,9 @@ Java_com_adb_kitty_compose_data_NativeLibs_decompressKBA(
         std::condition_variable queueCv;
         bool readAllBlocks = false;
         
-        std::vector<std::future<void>> decompFutures;
+        unsigned int hw_threads = std::thread::hardware_concurrency();
+        if (hw_threads == 0) hw_threads = 4;
+        FixedThreadPool pool(hw_threads);
 
         auto fileWriter = std::thread([&]() {
             size_t currentFileIdx = 0;
@@ -187,19 +272,19 @@ Java_com_adb_kitty_compose_data_NativeLibs_decompressKBA(
             int bId = submittedBlockCount++;
 
             std::unique_lock<std::mutex> lock(queueMutex);
-            if (bId - nextBlockToUnwrap > std::thread::hardware_concurrency() * 2) {
-                queueCv.wait(lock, [&] { return bId - nextBlockToUnwrap <= std::thread::hardware_concurrency() * 2; });
+            if (bId - nextBlockToUnwrap > hw_threads * 2) {
+                queueCv.wait(lock, [&] { return bId - nextBlockToUnwrap <= hw_threads * 2; });
             }
             lock.unlock();
 
-            decompFutures.push_back(std::async(std::launch::async, [bId, compBuffer = std::move(compBuffer), isEncrypted, cryptoKey, &unwrapQueue, &queueMutex, &queueCv]() {
-                auto [id, data, success] = DecompressBlockWorker(bId, std::move(compBuffer), isEncrypted, cryptoKey);
+            pool.enqueue([bId, buf = std::move(compBuffer), isEncrypted, cryptoKey, &unwrapQueue, &queueMutex, &queueCv]() {
+                auto [id, data, success] = DecompressBlockWorker(bId, std::move(buf), isEncrypted, cryptoKey);
                 if (success) {
                     std::scoped_lock lock(queueMutex);
                     unwrapQueue[id] = std::move(data);
                 }
                 queueCv.notify_all();
-            }));
+            });
         }
 
         {
@@ -207,6 +292,7 @@ Java_com_adb_kitty_compose_data_NativeLibs_decompressKBA(
             readAllBlocks = true;
         }
         queueCv.notify_all();
+        
         if (fileWriter.joinable()) fileWriter.join();
 
         inFile.close();

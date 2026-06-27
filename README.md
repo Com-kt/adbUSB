@@ -27,7 +27,7 @@
     - [x] boot (Android 9+)
     - [x] format (Android 9+)
     - [x] set active (Android 9+)
-    - [x] interface
+    - [x] usb-Host
         - [x] 255/66/3
         - [ ] 255/68/3
 - [x] ADB
@@ -38,7 +38,7 @@
     - [x] uninstall (Android 9+)
     - [x] pair (Android 11+)
     - [x] connect (Android 11+)
-    - [x] interface
+    - [x] usb-Host
         - [x] 255/66/1
         - [ ] 6/1/1
 - [x] Application
