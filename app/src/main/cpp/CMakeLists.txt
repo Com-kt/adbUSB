@@ -8,8 +8,14 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
 set(SOURCE_DIR src/main/cpp)
-  
-add_library(native-lib SHARED native-lib.cpp native-sig.cpp native-zip.cpp native-unzip.cpp)
+
+add_library(native-lib SHARED
+        native-lib.cpp
+        native-sig.cpp
+        native-zip.cpp
+        native-unzip.cpp
+        crypto_utils.cpp
+)
 
 find_library(log-lib log)
 find_library(android-lib android)
