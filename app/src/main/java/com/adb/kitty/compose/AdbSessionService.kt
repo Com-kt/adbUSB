@@ -247,20 +247,34 @@ class AdbSessionService : Service() {
     }
     
     @SuppressLint("MissingPermission")
-    fun discoverP2pDevices(onLog: (String) -> Unit) {
+    fun requestP2pPeers(onLog: (String) -> Unit) {
         initWifiP2p(onLog)
         try {
-            wifiP2pManager.discoverPeers(p2pChannel, object : WifiP2pManager.ActionListener {
-                override fun onSuccess() { onLog("[P2P] 正在搜寻附近的物理设备...") }
-                override fun onFailure(reason: Int) { onLog("[错误] 搜寻失败，错误码: $reason") }
-            })
+            wifiP2pManager.requestPeers(p2pChannel) { peerList ->
+                val devices = peerList.deviceList
+                if (devices.isEmpty()) {
+                    onLog("[P2P] 附近未发现任何可连接的无线设备，请确认对方也开启了 P2P 搜寻")
+                } else {
+                    onLog("[P2P] --- 附近物理设备列表 (${devices.size}台) ---")
+                    devices.forEach { device ->
+                        val statusStr = when(device.status) {
+                            0 -> "已连接"
+                            1 -> "邀请中"
+                            3 -> "可连接"
+                            else -> "未知(${device.status})"
+                        }
+                        onLog("📱 设备名: ${device.deviceName}\n   └─ MAC地址: ${device.deviceAddress} [${statusStr}]")
+                    }
+                }
+            }
         } catch (e: SecurityException) {
-            onLog("[错误] 缺少附近设备或定位权限，无法搜寻设备")
+            onLog("[错误] 缺少附近设备或定位权限，无法读取设备列表")
         }
     }
 
     @SuppressLint("MissingPermission")
     fun connectToP2pDevice(deviceAddress: String, onLog: (String) -> Unit) {
+        initWifiP2p(onLog)
         val config = WifiP2pConfig().apply { 
             this.deviceAddress = deviceAddress 
         }
@@ -271,6 +285,41 @@ class AdbSessionService : Service() {
             })
         } catch (e: SecurityException) {
             onLog("[错误] 缺少附近设备或定位权限，无法发起连接")
+        }
+    }
+
+    fun checkP2pConnectionState(onLog: (String) -> Unit) {
+        initWifiP2p(onLog)
+        try {
+            wifiP2pManager.requestConnectionInfo(p2pChannel) { info ->
+                if (info.groupFormed) {
+                    val hostAddress = info.groupOwnerAddress?.hostAddress ?: "192.168.49.1"
+                    currentP2pTargetIp = hostAddress
+                    
+                    if (info.isGroupOwner) {
+                        onLog("[P2P] 连接成功！本地身份: 群主(GO) | 正在等待组员发送数据...")
+                    } else {
+                        onLog("[P2P] 连接成功！本地身份: 组员(GC) | 目标群主IP: $hostAddress")
+                    }
+                } else {
+                    onLog("[P2P] 当前未建立任何 P2P 无线直连")
+                }
+            }
+        } catch (e: Exception) {
+            onLog("[错误] 检查连接状态失败: ${e.localizedMessage}")
+        }
+    }
+    
+    @SuppressLint("MissingPermission")
+    fun discoverP2pDevices(onLog: (String) -> Unit) {
+        initWifiP2p(onLog)
+        try {
+            wifiP2pManager.discoverPeers(p2pChannel, object : WifiP2pManager.ActionListener {
+                override fun onSuccess() { onLog("[P2P] 正在搜寻附近的物理设备...") }
+                override fun onFailure(reason: Int) { onLog("[错误] 搜寻失败，错误码: $reason") }
+            })
+        } catch (e: SecurityException) {
+            onLog("[错误] 缺少附近设备或定位权限，无法搜寻设备")
         }
     }
 
