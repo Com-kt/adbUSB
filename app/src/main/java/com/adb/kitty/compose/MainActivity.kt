@@ -22,6 +22,7 @@ import android.text.method.*
 
 import androidx.core.view.*
 import androidx.core.content.*
+import androidx.core.net.*
 import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationManagerCompat
 /*******************************
@@ -842,7 +843,7 @@ class MainActivity : ComponentActivity() {
     }
     
     private fun executeDownload(urlStr: String) {
-        val uri = Uri.parse(urlStr)
+        val uri = urlStr.toUri()
         val scheme = uri.scheme?.lowercase()
         if (scheme != "http" && scheme != "https") {
             appendLog("[错误] 下载失败！该指令仅支持 http:// 或 https:// 的网络地址")
