@@ -331,12 +331,20 @@ class AdbSessionService : Service() {
     }
 
     @SuppressLint("MissingPermission")
-    fun connectToP2pDevice(deviceAddress: String, onLog: (String) -> Unit) {
+    fun connectToP2pDevice(deviceAddress: String, intentValue: Int, onLog: (String) -> Unit) {
         initWifiP2p(onLog)
         val config = WifiP2pConfig().apply { 
             this.deviceAddress = deviceAddress 
+            this.groupOwnerIntent = intentValue // 0 为 GC，15 为 GO，7 为系统默认
         }
         try {
+            val roleStr = when(intentValue) {
+                15 -> "【强制群主 GO】"
+                0 -> "【强制组员 GC】"
+                else -> "【自动协商】"
+            }
+            onLog("[P2P] 正在以 $roleStr 模式尝试连接设备: $deviceAddress ...")
+        
             wifiP2pManager.connect(p2pChannel, config, object : WifiP2pManager.ActionListener {
                 override fun onSuccess() { onLog("[P2P] 已发出连接邀请，等待对方同意...") }
                 override fun onFailure(reason: Int) { onLog("[错误] 发起连接失败: $reason") }

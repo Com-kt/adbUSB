@@ -398,12 +398,30 @@ class MainActivity : ComponentActivity() {
                 appendLog("[错误] 核心前台服务未并网，拒绝执行 P2P 指令")
                 return
             }
-            val macArg = cmd.removePrefix("p2p-connect").trim()
-            if (macArg.isEmpty() || macArg == "p2p-connect") {
-                appendLog("[提示] 用法错误！用法: p2p-connect <对方的MAC地址>")
+
+            var argsStr = cmd.removePrefix("p2p-connect").trim()
+            if (argsStr.isEmpty()) {
+                appendLog("[提示] 用法错误！用法: p2p-connect <对方的MAC地址> [--GO|--GC]")
                 return
             }
-            service.connectToP2pDevice(macArg) { appendLog(it) }
+
+            var intentValue = 7 
+
+            if (argsStr.contains("--GO", ignoreCase = true)) {
+                intentValue = 15
+                argsStr = argsStr.replace("--GO", "", ignoreCase = true).trim()
+            } else if (argsStr.contains("--GC", ignoreCase = true)) {
+                intentValue = 0
+                argsStr = argsStr.replace("--GC", "", ignoreCase = true).trim()
+            }
+
+            val macArg = argsStr
+            if (macArg.isEmpty()) {
+                appendLog("[提示] 错误：未检测到有效的 MAC 地址！")
+                return
+            }
+
+            service.connectToP2pDevice(macArg, intentValue) { appendLog(it) }
             return
         }
 
