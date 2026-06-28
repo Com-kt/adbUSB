@@ -45,6 +45,7 @@
     - [x] aab-Bundle
     - [x] Android TV
     - [x] Android Tablet
+    - [x] Wi-Fi P2P
     - [x] There may be surprises
     - [x] ipv4 Test
     - [x] ipv6 Test

@@ -360,6 +360,90 @@ class MainActivity : ComponentActivity() {
         val cmd = cmdInput.trim()
         if (cmd.isEmpty()) return
         
+        if (cmd.startsWith("p2p-search")) {
+            appendLog("[系统] 扩展指令 >> $cmd")
+            val service = adbService
+            if (service == null || !isServiceBound) {
+                appendLog("[错误] 核心前台服务未并网，拒绝执行 P2P 指令")
+                return
+            }
+            service.discoverP2pDevices { appendLog(it) }
+            return
+        }
+
+        if (cmd.startsWith("p2p-list")) {
+            appendLog("[系统] 扩展指令 >> $cmd")
+            val service = adbService
+            if (service == null || !isServiceBound) {
+                appendLog("[错误] 核心前台服务未并网，拒绝执行 P2P 指令")
+                return
+            }
+            service.requestP2pPeers { appendLog(it) }
+            return
+        }
+
+        if (cmd.startsWith("p2p-connect")) {
+            appendLog("[系统] 扩展指令 >> $cmd")
+            val service = adbService
+            if (service == null || !isServiceBound) {
+                appendLog("[错误] 核心前台服务未并网，拒绝执行 P2P 指令")
+                return
+            }
+            val macArg = cmd.removePrefix("p2p-connect").trim()
+            if (macArg.isEmpty() || macArg == "p2p-connect") {
+                appendLog("[提示] 用法错误！用法: p2p-connect <对方的MAC地址>")
+                return
+            }
+            service.connectToP2pDevice(macArg) { appendLog(it) }
+            return
+        }
+
+        if (cmd.startsWith("p2p-status")) {
+            appendLog("[系统] 扩展指令 >> $cmd")
+            val service = adbService
+            if (service == null || !isServiceBound) {
+                appendLog("[错误] 核心前台服务未并网，拒绝执行 P2P 指令")
+                return
+            }
+            service.checkP2pConnectionState { appendLog(it) }
+            return
+        }
+
+        if (cmd.startsWith("p2p-receive")) {
+            appendLog("[系统] 扩展指令 >> $cmd")
+            val service = adbService
+            if (service == null || !isServiceBound) {
+                appendLog("[错误] 核心前台服务未并网，拒绝执行 P2P 指令")
+                return
+            }
+            service.p2pStartReceiveServer(flashFolder) { appendLog(it) }
+            return
+        }
+
+        if (cmd.startsWith("p2p-send")) {
+            appendLog("[系统] 扩展指令 >> $cmd")
+            val service = adbService
+            if (service == null || !isServiceBound) {
+                appendLog("[错误] 核心前台服务未并网，拒绝执行 P2P 指令")
+                return
+            }
+            val fileArg = cmd.removePrefix("p2p-send").trim()
+            if (fileArg.isEmpty() || fileArg == "p2p-send") {
+                appendLog("[提示] 用法错误！用法: p2p-send <flash目录下的文件名>")
+                return
+            }
+            
+            val file = File(flashFolder, fileArg)
+            if (!file.exists()) {
+                appendLog("[错误] 未在 flash 目录下找到该文件: $fileArg")
+                return
+            }
+            
+            val targetIp = service.currentP2pTargetIp ?: "192.168.49.1"
+            service.p2pSendFile(targetIp, file) { appendLog(it) }
+            return
+        }
+
         if (cmd.startsWith("download")) {
             appendLog("[系统] 扩展指令 >> $cmd")
             val urlArg = cmd.removePrefix("download ").trim()

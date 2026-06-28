@@ -7,6 +7,7 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
+import android.net.wifi.p2p.*
 import android.os.Binder
 import android.os.Build
 import android.os.IBinder
@@ -24,8 +25,12 @@ import com.adb.kitty.compose.ui.it.*
 import com.adb.kitty.compose.data.*
 
 import java.io.File
+import java.io.FileInputStream
 import java.net.HttpURLConnection
 import java.net.URL
+import java.net.InetSocketAddress
+import java.net.ServerSocket
+import java.net.Socket
 
 @Keep
 class AdbSessionService : Service() {
@@ -222,6 +227,120 @@ class AdbSessionService : Service() {
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
                     onLog("[错误] 网络连接异常: ${e.localizedMessage}")
+                }
+            }
+        }
+    }
+    
+    private val wifiP2pManager by lazy { getSystemService(Context.WIFI_P2P_SERVICE) as WifiP2pManager }
+    private var p2pChannel: WifiP2pManager.Channel? = null
+    private val P2P_PORT = 8888
+    
+    fun initWifiP2p(onLog: (String) -> Unit) {
+        if (p2pChannel == null) {
+            p2pChannel = wifiP2pManager.initialize(this, mainLooper, null)
+            onLog("[P2P] 原生无线直连引擎初始化成功")
+        }
+    }
+    
+    fun discoverP2pDevices(onLog: (String) -> Unit) {
+        initWifiP2p(onLog)
+        wifiP2pManager.discoverPeers(p2pChannel, object : WifiP2pManager.ActionListener {
+            override fun onSuccess() { onLog("[P2P] 正在搜寻附近的物理设备...") }
+            override fun onFailure(reason: Int) { onLog("[错误] 搜寻失败，错误码: $reason") }
+        })
+    }
+    
+    fun connectToP2pDevice(deviceAddress: String, onLog: (String) -> Unit) {
+        val config = WifiP2pConfig().apply { 
+            this.deviceAddress = deviceAddress 
+        }
+        wifiP2pManager.connect(p2pChannel, config, object : WifiP2pManager.ActionListener {
+            override fun onSuccess() { onLog("[P2P] 已发出连接邀请，等待对方同意...") }
+            override fun onFailure(reason: Int) { onLog("[错误] 发起连接失败: $reason") }
+        })
+    }
+    
+    fun p2pSendFile(targetIp: String, file: File, onLog: (String) -> Unit) {
+        onLog("[P2P] 启动发送通道，正在冲锋...")
+    
+        serviceScope.launch(Dispatchers.IO) {
+            val socket = Socket()
+            try {
+                socket.bind(null)
+                socket.connect(InetSocketAddress(targetIp, P2P_PORT), 10000)
+            
+                socket.getOutputStream().use { outputStream ->
+                    FileInputStream(file).use { inputStream ->
+                        inputStream.copyTo(outputStream)
+                    }
+                }
+                withContext(Dispatchers.Main) { onLog("[系统] P2P 文件发送成功！") }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) { onLog("[错误] 发送中断: ${e.localizedMessage}") }
+            } finally {
+                runCatching { socket.close() }
+            }
+        }
+    }
+    
+    fun p2pStartReceiveServer(saveFolder: File, onLog: (String) -> Unit) {
+        onLog("[P2P] 接收服务端已挂载，等待数据进港...")
+    
+        serviceScope.launch(Dispatchers.IO) {
+            var serverSocket: ServerSocket? = null
+            try {
+                serverSocket = ServerSocket(P2P_PORT)
+                val clientSocket = serverSocket.accept() 
+            
+                val targetFile = File(saveFolder, "p2p_receive_${System.currentTimeMillis()}.bin")
+            
+                clientSocket.getInputStream().use { inputStream ->
+                    targetFile.outputStream().use { outputStream ->
+                        inputStream.copyTo(outputStream)
+                    }
+                }
+                withContext(Dispatchers.Main) { onLog("[系统] P2P 文件接收完毕！已保存至: ${targetFile.name}") }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) { onLog("[错误] 接收中断: ${e.localizedMessage}") }
+            } finally {
+                runCatching { serverSocket?.close() }
+            }
+        }
+    }
+    
+    var currentP2pTargetIp: String? = null
+    
+    fun requestP2pPeers(onLog: (String) -> Unit) {
+        wifiP2pManager.requestPeers(p2pChannel) { peerList ->
+            val devices = peerList.deviceList
+            if (devices.isEmpty()) {
+                onLog("[P2P] 附近未发现任何可连接的无线设备，请确认对方也开启了 P2P 搜寻")
+            } else {
+                onLog("[P2P] --- 附近物理设备列表 (${devices.size}台) ---")
+                devices.forEach { device ->
+                    val statusStr = when(device.status) {
+                        0 -> "已连接"
+                        1 -> "邀请中"
+                        3 -> "可连接"
+                        else -> "未知(${device.status})"
+                    }
+                    onLog("📱 设备名: ${device.deviceName}\n   └─ MAC地址: ${device.deviceAddress} [${statusStr}]")
+                }
+            }
+        }
+    }
+    
+    fun checkP2pConnectionState(onLog: (String) -> Unit) {
+        wifiP2pManager.requestConnectionInfo(p2pChannel) { info ->
+            if (info.groupFormed) {
+                val hostAddress = info.groupOwnerAddress?.hostAddress ?: "192.168.49.1"
+                currentP2pTargetIp = hostAddress
+                
+                if (info.isGroupOwner) {
+                    onLog("[P2P] 连接成功！本地身份: 群主(GO) | 正在等待组员发送数据...")
+                } else {
+                    onLog("[P2P] 连接成功！本地身份: 组员(GC) | 目标群主IP: $hostAddress")
                 }
             }
         }

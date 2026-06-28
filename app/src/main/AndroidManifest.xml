@@ -373,6 +373,13 @@
                 android:name="android.intent.category.BROWSABLE" />
             <data android:scheme="ftp" />
         </intent>
+        <intent>
+            <action
+                android:name="android.intent.action.VIEW" />
+            <category
+                android:name="android.intent.category.BROWSABLE" />
+            <data android:scheme="sftp" />
+        </intent>
     </queries>
     <application
         android:process=":task"
