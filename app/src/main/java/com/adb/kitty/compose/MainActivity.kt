@@ -443,7 +443,8 @@ class MainActivity : ComponentActivity() {
                 appendLog("[错误] 核心前台服务未并网，拒绝执行 P2P 指令")
                 return
             }
-            service.p2pStartReceiveFolderServer(flashFolder) { appendLog(it) }
+
+            service.autoP2pReceive(flashFolder) { appendLog(it) }
             return
         }
 
@@ -459,15 +460,14 @@ class MainActivity : ComponentActivity() {
                 appendLog("[提示] 用法错误！用法: p2p-send <flash目录下的文件名 或 文件夹名>")
                 return
             }
-            
+    
             val file = File(flashFolder, fileArg)
             if (!file.exists()) {
                 appendLog("[错误] 未在 flash 目录下找到该文件或文件夹: $fileArg")
                 return
             }
-            
-            val targetIp = service.currentP2pTargetIp ?: "192.168.49.1"
-            service.p2pSendFolderOrFile(targetIp, file) { appendLog(it) }
+    
+            service.autoP2pSend(file) { appendLog(it) }
             return
         }
 

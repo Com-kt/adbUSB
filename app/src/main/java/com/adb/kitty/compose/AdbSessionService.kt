@@ -7,10 +7,12 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
+import android.net.wifi.WifiManager
 import android.net.wifi.p2p.*
 import android.os.Binder
 import android.os.Build
 import android.os.IBinder
+import android.os.PowerManager
 import androidx.core.net.toUri
 import androidx.core.app.NotificationCompat
 import android.webkit.MimeTypeMap
@@ -270,6 +272,9 @@ class AdbSessionService : Service() {
     private val P2P_PORT = 8888
     var currentP2pTargetIp: String? = null
     
+    private var wakeLock: PowerManager.WakeLock? = null
+    private var wifiLock: WifiManager.WifiLock? = null
+    
     fun initWifiP2p(onLog: (String) -> Unit) {
         if (p2pChannel == null) {
             p2pChannel = wifiP2pManager.initialize(this, mainLooper, null)
@@ -389,167 +394,256 @@ class AdbSessionService : Service() {
         }
     }
 
-    fun p2pSendFolderOrFile(targetIp: String, sourceFile: File, onLog: (String) -> Unit) {
-        serviceScope.launch(Dispatchers.IO) {
-            var socket: Socket? = null
-            var dos: DataOutputStream? = null
+    @SuppressLint("MissingPermission")
+    fun autoP2pSend(sourceFile: File, onLog: (String) -> Unit) {
+        initWifiP2p(onLog)
+        wifiP2pManager.requestConnectionInfo(p2pChannel) { info ->
+            if (!info.groupFormed) {
+                onLog("[错误] 无法发送！当前未建立任何 P2P 无线直连通道，请先执行连接。")
+                return@requestConnectionInfo
+            }
 
-            try {
-                if (!sourceFile.exists()) {
-                    onLog("[错误] 路径不存在: ${sourceFile.absolutePath}")
-                    return@launch
-                }
-
-                onLog("[P2P] 正在分析目录结构...")
-                val allItems = if (sourceFile.isDirectory) sourceFile.walkTopDown().toList() else listOf(sourceFile)
-                val totalBytes = allItems.filter { it.isFile }.sumOf { it.length() }
-            
-                onLog("[P2P] 正在建立高速硬件通道 ($targetIp:8888) ...")
-                socket = Socket()
-                socket.connect(InetSocketAddress(targetIp, 8888), 10000)
-                dos = DataOutputStream(BufferedOutputStream(socket.getOutputStream()))
-                onLog("[P2P] 🚀 通道并网成功！开始流式投递目录树...")
-
-                var bytesSent = 0L
-                val startTime = System.currentTimeMillis()
-                var lastLogTime = startTime
-                val buffer = ByteArray(64 * 1024)
-
-                val baseParent = sourceFile.parentFile
-
-                for (item in allItems) {
-                    dos.writeBoolean(false)
-
-                    val relativePath = baseParent?.let { item.relativeTo(it).path } ?: item.name
-                    dos.writeUTF(relativePath)
-
-                    val isDir = item.isDirectory
-                    dos.writeBoolean(isDir)
-
-                    if (!isDir) {
-                        val fileSize = item.length()
-                        dos.writeLong(fileSize)
-
-                        var fis: FileInputStream? = null
-                        try {
-                            fis = FileInputStream(item)
-                            var bytesRead: Int
-                            while (fis.read(buffer).also { bytesRead = it } != -1) {
-                                dos.write(buffer, 0, bytesRead)
-                                bytesSent += bytesRead
-
-                                val now = System.currentTimeMillis()
-                                if (now - lastLogTime >= 500) {
-                                    val elapsedSec = (now - startTime) / 1000.0
-                                    val speedMbPerSec = if (elapsedSec > 0) (bytesSent / (1024.0 * 1024.0)) / elapsedSec else 0.0
-                                    val progress = if (totalBytes > 0) (bytesSent.toDouble() / totalBytes * 100).toInt() else 100
-                                    onLog(String.format(Locale.US, "[P2P] ⚡ 总进度: %d%% | 速度: %.2f MB/s | 已用时: %.1f 秒", progress, speedMbPerSec, elapsedSec))
-                                    lastLogTime = now
-                                }
-                            }
-                        } finally {
-                            fis?.close()
-                        }
+            if (info.isGroupOwner) {
+                serviceScope.launch(Dispatchers.IO) {
+                    var serverSocket: ServerSocket? = null
+                    try {
+                        onLog("[P2P-群主发] 正在 8888 端口架设发射台，等待组员管道并网...")
+                        serverSocket = ServerSocket(8888)
+                        val clientSocket = serverSocket.accept() 
+                        onLog("[P2P-群主发] 捕获到组员握手信号！开始向其推流...")
+                        executeStreamTransfer(clientSocket, sourceFile, onLog)
+                    } catch (e: Exception) {
+                        onLog("[错误] 群主发射台崩溃: ${e.localizedMessage}")
+                    } finally {
+                        try { serverSocket?.close() } catch (_: Exception) {}
                     }
-                    dos.flush()
                 }
-
-                dos.writeBoolean(true)
-                dos.flush()
-
-                val totalTimeSec = (System.currentTimeMillis() - startTime) / 1000.0
-                val avgSpeed = if (totalTimeSec > 0) (totalBytes / (1024.0 * 1024.0)) / totalTimeSec else 0.0
-
-                onLog("[P2P] ========================================")
-                onLog(String.format(Locale.US, "[P2P] 🎉 文件夹/文件斩断成功: %s", sourceFile.name))
-                onLog(String.format(Locale.US, "[P2P] 🎉 总传输数据: %.2f MB", totalBytes / (1024.0 * 1024.0)))
-                onLog(String.format(Locale.US, "[P2P] 🎉 总用时: %.2f 秒 | 平均速度: %.2f MB/s", totalTimeSec, avgSpeed))
-                onLog("[P2P] ========================================")
-
-            } catch (e: Exception) {
-                onLog("[错误] 发送中断: ${e.localizedMessage}")
-            } finally {
-                try { dos?.close() } catch (_: Exception) {}
-                try { socket?.close() } catch (_: Exception) {}
+            } else {
+                serviceScope.launch(Dispatchers.IO) {
+                    try {
+                        val targetIp = info.groupOwnerAddress?.hostAddress ?: "192.168.49.1"
+                        onLog("[P2P-组员发] 正在主动接入群主服务器 ($targetIp:8888) ...")
+                        val socket = Socket()
+                        socket.connect(InetSocketAddress(targetIp, 8888), 10000)
+                        executeStreamTransfer(socket, sourceFile, onLog)
+                    } catch (e: Exception) {
+                        onLog("[错误] 组员管道接入失败: ${e.localizedMessage}")
+                    }
+                }
             }
         }
     }
 
-    fun p2pStartReceiveFolderServer(outputFolder: File, onLog: (String) -> Unit) {
-        serviceScope.launch(Dispatchers.IO) {
-            var serverSocket: ServerSocket? = null
-            var dis: DataInputStream? = null
+    @SuppressLint("MissingPermission")
+    fun autoP2pReceive(outputFolder: File, onLog: (String) -> Unit) {
+        initWifiP2p(onLog)
+        wifiP2pManager.requestConnectionInfo(p2pChannel) { info ->
+            if (!info.groupFormed) {
+                onLog("[错误] 无法接收！当前未建立任何 P2P 无线直连通道，请先执行连接。")
+                return@requestConnectionInfo
+            }
 
-            try {
-                onLog("[P2P] 接收端协议监听已挂载（端口: 8888），盲等数据树进港...")
-                serverSocket = ServerSocket(8888)
-                val clientSocket = serverSocket.accept()
-                onLog("[P2P] 📡 侦测到数据链连接！来自: ${clientSocket.inetAddress.hostAddress}")
+            if (info.isGroupOwner) {
+                serviceScope.launch(Dispatchers.IO) {
+                    var serverSocket: ServerSocket? = null
+                    try {
+                        onLog("[P2P-群主收] 接收端协议监听已挂载（端口: 8888），盲等组员送货...")
+                        serverSocket = ServerSocket(8888)
+                        val clientSocket = serverSocket.accept()
+                        onLog("[P2P-群主收] 📡 侦测到组员数据链进港！来自: ${clientSocket.inetAddress.hostAddress}")
+                        executeStreamReceive(clientSocket, outputFolder, onLog)
+                    } catch (e: Exception) {
+                        onLog("[错误] 群主接收中断: ${e.localizedMessage}")
+                    } finally {
+                        try { serverSocket?.close() } catch (_: Exception) {}
+                    }
+                }
+            } else {
+                serviceScope.launch(Dispatchers.IO) {
+                    try {
+                        val targetIp = info.groupOwnerAddress?.hostAddress ?: "192.168.49.1"
+                        onLog("[P2P-组员收] 正在主动刺入群主数据库 ($targetIp:8888) 准备吸纳下载流...")
+                        val socket = Socket()
+                        socket.connect(InetSocketAddress(targetIp, 8888), 10000)
+                        executeStreamReceive(socket, outputFolder, onLog)
+                    } catch (e: Exception) {
+                        onLog("[错误] 组员吸纳数据失败: ${e.localizedMessage}")
+                    }
+                }
+            }
+        }
+    }
+    
+    @SuppressLint("WakelockTimeout")
+    private fun acquireHighPerformanceLocks() {
+        try {
+            val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
+            if (wakeLock == null) {
+                wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "AdbSessionService:P2pTransferLock")
+            }
+            if (wakeLock?.isHeld == false) {
+                wakeLock?.acquire()
+            }
 
-                dis = DataInputStream(BufferedInputStream(clientSocket.getInputStream()))
-            
-                val startTime = System.currentTimeMillis()
-                var lastLogTime = startTime
-                var totalBytesReceived = 0L
-                val buffer = ByteArray(64 * 1024)
+            val wifiManager = applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
+            if (wifiLock == null) {
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                    wifiLock = wifiManager.createWifiLock(WifiManager.WIFI_MODE_FULL_LOW_LATENCY, "AdbSessionService:P2pWifiLock")
+                } else {
+                    @Suppress("DEPRECATION")
+                    wifiLock = wifiManager.createWifiLock(WifiManager.WIFI_MODE_FULL, "AdbSessionService:P2pWifiLock")
+                }
+            }
+            if (wifiLock?.isHeld == false) {
+                wifiLock?.acquire()
+            }
+        } catch (e: Exception) {
+            // 兜底逻辑：防止部分深度定制设备直接抛出未记录的安全异常
+        }
+    }
+    
+    private fun releasePerformanceLocks() {
+        try {
+            if (wakeLock?.isHeld == true) {
+                wakeLock?.release()
+            }
+            if (wifiLock?.isHeld == true) {
+                wifiLock?.release()
+            }
+        } catch (_: Exception) {}
+    }
+    
+    private fun executeStreamTransfer(socket: Socket, sourceFile: File, onLog: (String) -> Unit) {
+        var dos: DataOutputStream? = null
+        try {
+            acquireHighPerformanceLocks()
 
-                while (!dis.readBoolean()) {
-                    val relativePath = dis.readUTF()
-                    val isDir = dis.readBoolean()
+            onLog("[P2P] 正在分析目录结构...")
+            val allItems = if (sourceFile.isDirectory) sourceFile.walkTopDown().toList() else listOf(sourceFile)
+            val totalBytes = allItems.filter { it.isFile }.sumOf { it.length() }
+    
+            dos = DataOutputStream(BufferedOutputStream(socket.getOutputStream()))
+            onLog("[P2P] 🚀 硬件通道并网成功！开始流式投递目录树...")
 
-                    val targetFile = File(outputFolder, relativePath)
+            var bytesSent = 0L
+            val startTime = System.currentTimeMillis()
+            var lastLogTime = startTime
+            val buffer = ByteArray(64 * 1024)
+            val baseParent = sourceFile.parentFile
 
-                    if (isDir) {
-                        targetFile.mkdirs()
-                    } else {
-                        targetFile.parentFile?.mkdirs()
+            for (item in allItems) {
+                dos.writeBoolean(false)
+                val relativePath = baseParent?.let { item.relativeTo(it).path } ?: item.name
+                dos.writeUTF(relativePath)
+                val isDir = item.isDirectory
+                dos.writeBoolean(isDir)
 
-                        val fileSize = dis.readLong()
-                        var fileOutputStream: FileOutputStream? = null
-                    
-                        try {
-                            fileOutputStream = FileOutputStream(targetFile)
-                            var remaining = fileSize
-                        
-                            while (remaining > 0) {
-                                val readAmt = minOf(buffer.size.toLong(), remaining).toInt()
-                                val bytesRead = dis.read(buffer, 0, readAmt)
-                                if (bytesRead == -1) throw java.io.EOFException("网络断开，流异常终止")
-                            
-                                fileOutputStream.write(buffer, 0, bytesRead)
-                                remaining -= bytesRead
-                                totalBytesReceived += bytesRead
+                if (!isDir) {
+                    val fileSize = item.length()
+                    dos.writeLong(fileSize)
 
-                                val now = System.currentTimeMillis()
-                                if (now - lastLogTime >= 500) {
-                                    val elapsedSec = (now - startTime) / 1000.0
-                                    val speedMbPerSec = if (elapsedSec > 0) (totalBytesReceived / (1024.0 * 1024.0)) / elapsedSec else 0.0
-                                    onLog(String.format(Locale.US, "[P2P] 📥 已接收: %.2f MB | 瞬时接收速度: %.2f MB/s", totalBytesReceived / (1024.0 * 1024.0), speedMbPerSec))
-                                    lastLogTime = now
-                                }
+                    FileInputStream(item).use { fis ->
+                        var bytesRead: Int
+                        while (fis.read(buffer).also { bytesRead = it } != -1) {
+                            dos.write(buffer, 0, bytesRead)
+                            bytesSent += bytesRead
+
+                            val now = System.currentTimeMillis()
+                            if (now - lastLogTime >= 500) {
+                                val elapsedSec = (now - startTime) / 1000.0
+                                val speedMbPerSec = if (elapsedSec > 0) (bytesSent / (1024.0 * 1024.0)) / elapsedSec else 0.0
+                                val progress = if (totalBytes > 0) (bytesSent.toDouble() / totalBytes * 100).toInt() else 100
+                                onLog(String.format(Locale.US, "[P2P] ⚡ 总进度: %d%% | 速度: %.2f MB/s | 已用时: %.1f 秒", progress, speedMbPerSec, elapsedSec))
+                                lastLogTime = now
                             }
-                        } finally {
-                            fileOutputStream?.flush()
-                            fileOutputStream?.close()
                         }
                     }
                 }
-
-                val totalTimeSec = (System.currentTimeMillis() - startTime) / 1000.0
-                val avgSpeed = if (totalTimeSec > 0) (totalBytesReceived / (1024.0 * 1024.0)) / totalTimeSec else 0.0
-
-                onLog("[P2P] ========================================")
-                onLog("[P2P] 💾 整个文件夹结构已完美落盘重建！")
-                onLog(String.format(Locale.US, "[P2P] 💾 存储根目录: %s", outputFolder.absolutePath))
-                onLog(String.format(Locale.US, "[P2P] 💾 总收盘用时: %.2f 秒 | 平均写入速度: %.2f MB/s", totalTimeSec, avgSpeed))
-                onLog("[P2P] ========================================")
-
-            } catch (e: Exception) {
-                onLog("[错误] 接收中断: ${e.localizedMessage}")
-            } finally {
-                try { dis?.close() } catch (_: Exception) {}
-                try { serverSocket?.close() } catch (_: Exception) {}
+                dos.flush()
             }
+
+            dos.writeBoolean(true)
+            dos.flush()
+
+            val totalTimeSec = (System.currentTimeMillis() - startTime) / 1000.0
+            val avgSpeed = if (totalTimeSec > 0) (totalBytes / (1024.0 * 1024.0)) / totalTimeSec else 0.0
+
+            onLog("[P2P] ========================================")
+            onLog(String.format(Locale.US, "[P2P] 🎉 文件夹/文件斩断成功: %s", sourceFile.name))
+            onLog(String.format(Locale.US, "[P2P] 🎉 总传输数据: %.2f MB", totalBytes / (1024.0 * 1024.0)))
+            onLog(String.format(Locale.US, "[P2P] 🎉 总用时: %.2f 秒 | 平均速度: %.2f MB/s", totalTimeSec, avgSpeed))
+            onLog("[P2P] ========================================")
+
+        } catch (e: Exception) {
+            onLog("[错误] 发送中断: ${e.localizedMessage}")
+        } finally {
+            releasePerformanceLocks()
+            try { dos?.close() } catch (_: Exception) {}
+            try { socket.close() } catch (_: Exception) {}
+        }
+    }
+
+    private fun executeStreamReceive(socket: Socket, outputFolder: File, onLog: (String) -> Unit) {
+        var dis: DataInputStream? = null
+        try {
+            acquireHighPerformanceLocks()
+
+            dis = DataInputStream(BufferedInputStream(socket.getInputStream()))
+            val startTime = System.currentTimeMillis()
+            var lastLogTime = startTime
+            var totalBytesReceived = 0L
+            val buffer = ByteArray(64 * 1024)
+
+            while (!dis.readBoolean()) {
+                val relativePath = dis.readUTF()
+                val isDir = dis.readBoolean()
+                val targetFile = File(outputFolder, relativePath)
+
+                if (isDir) {
+                    targetFile.mkdirs()
+                } else {
+                    targetFile.parentFile?.mkdirs()
+                    val fileSize = dis.readLong()
+                
+                    FileOutputStream(targetFile).use { fileOutputStream ->
+                        var remaining = fileSize
+                        while (remaining > 0) {
+                            val readAmt = minOf(buffer.size.toLong(), remaining).toInt()
+                            val bytesRead = dis.read(buffer, 0, readAmt)
+                            if (bytesRead == -1) throw java.io.EOFException("网络断开，流异常终止")
+                    
+                            fileOutputStream.write(buffer, 0, bytesRead)
+                            remaining -= bytesRead
+                            totalBytesReceived += bytesRead
+
+                            val now = System.currentTimeMillis()
+                            if (now - lastLogTime >= 500) {
+                                val elapsedSec = (now - startTime) / 1000.0
+                                val speedMbPerSec = if (elapsedSec > 0) (totalBytesReceived / (1024.0 * 1024.0)) / elapsedSec else 0.0
+                                onLog(String.format(Locale.US, "[P2P] 📥 已接收: %.2f MB | 瞬时速度: %.2f MB/s", totalBytesReceived / (1024.0 * 1024.0), speedMbPerSec))
+                                lastLogTime = now
+                            }
+                        }
+                        fileOutputStream.flush()
+                    }
+                }
+            }
+
+            val totalTimeSec = (System.currentTimeMillis() - startTime) / 1000.0
+            val avgSpeed = if (totalTimeSec > 0) (totalBytesReceived / (1024.0 * 1024.0)) / totalTimeSec else 0.0
+
+            onLog("[P2P] ========================================")
+            onLog("[P2P] 💾 整个文件夹结构已完美落盘重建！")
+            onLog(String.format(Locale.US, "[P2P] 💾 存储根目录: %s", outputFolder.absolutePath))
+            onLog(String.format(Locale.US, "[P2P] 💾 总收盘用时: %.2f 秒 | 平均速度: %.2f MB/s", totalTimeSec, avgSpeed))
+            onLog("[P2P] ========================================")
+
+        } catch (e: Exception) {
+            onLog("[错误] 接收中断: ${e.localizedMessage}")
+        } finally {
+            releasePerformanceLocks()
+            try { dis?.close() } catch (_: Exception) {}
+            try { socket.close() } catch (_: Exception) {}
         }
     }
     
