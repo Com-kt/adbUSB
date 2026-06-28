@@ -1057,7 +1057,7 @@ class MainActivity : ComponentActivity() {
         }
         usbConn = conn
     
-        val serialNumber = runCatching { device.serialNumber }.getOrNull() ?: "Device_${device.deviceId}"
+        val serialNumber = runCatching { device.serialNumber }.getOrNull() ?: "unknown"
         val deviceKey = "USB_$serialNumber"
     
         if (isFastbootMode) {

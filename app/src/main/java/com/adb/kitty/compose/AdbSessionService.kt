@@ -277,9 +277,13 @@ class AdbSessionService : Service() {
         }
     }
     
+    @SuppressLint("MissingPermission")
     fun resetP2pGroup(onLog: (String) -> Unit) {
         initWifiP2p(onLog)
         
+        wifiP2pManager.stopPeerDiscovery(p2pChannel, null)
+        wifiP2pManager.cancelConnect(p2pChannel, null)
+
         wifiP2pManager.removeGroup(p2pChannel, object : WifiP2pManager.ActionListener {
             override fun onSuccess() {
                 currentP2pTargetIp = null
@@ -287,11 +291,14 @@ class AdbSessionService : Service() {
             }
 
             override fun onFailure(reason: Int) {
+                // 🌟 补丁：即使移除失败（比如已经断开了），本地内存也必须强制洗白，防止状态卡死
+                currentP2pTargetIp = null
+                
                 // 常见错误码 2 表示 BUSY（当前本来就没连上，或者正在断开中）
                 if (reason == 2) {
-                    onLog("[P2P] 本地当前并无活跃的群组连接，无需重置。")
+                    onLog("[P2P] 本地当前并无活跃的群组连接，本地状态已强制归零。")
                 } else {
-                    onLog("[提示] 重置群组状态返回: $reason (可能当前已是干净状态)")
+                    onLog("[提示] 重置群组状态返回: $reason (本地内存已强制释放)")
                 }
             }
         })
