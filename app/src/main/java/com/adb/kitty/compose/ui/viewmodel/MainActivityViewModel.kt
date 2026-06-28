@@ -177,10 +177,12 @@ class MainActivityViewModel : ViewModel() {
         AppCommand("查询高级保护模式状态, 该扩展指令由app提供", "query-apm"),
         AppCommand("文本内容生成二维码, 该扩展指令由app提供", "qr-gen "),
         AppCommand("二维码解码, 该扩展指令由app提供", "qr-decode "),
+        AppCommand("调用系统图片选择器来进行二维码解码, 该扩展指令由app提供", "qr-decode --system"),
         AppCommand("文件加密, 该扩展指令由app提供", "encrypt "),
         AppCommand("文件解密, 该扩展指令由app提供", "decrypt "),
         AppCommand("压缩文件夹/文件, 该扩展指令由app提供", "7zip "),
-        AppCommand("解压压缩包, 该扩展指令由app提供", "un7zip ")
+        AppCommand("解压压缩包, 该扩展指令由app提供", "un7zip "),
+        AppCommand("尝试从互联网下载文件, 该扩展指令由app提供", "download ")
     )
     
     private val _adbCommands = listOf(

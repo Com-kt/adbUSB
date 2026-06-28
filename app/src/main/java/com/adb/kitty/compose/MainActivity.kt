@@ -11,6 +11,7 @@ import android.app.PendingIntent
 import android.os.*
 import android.view.*
 import android.widget.*
+import android.webkit.*
 import android.content.*
 import android.hardware.usb.*
 
@@ -357,6 +358,17 @@ class MainActivity : ComponentActivity() {
     private fun dispatchCommandRoute(cmdInput: String) {
         val cmd = cmdInput.trim()
         if (cmd.isEmpty()) return
+        
+        if (cmd.startsWith("download")) {
+            appendLog("[系统] 扩展指令 >> $cmd")
+            val urlArg = cmd.removePrefix("download ").trim()
+            if (urlArg.isEmpty() || urlArg == "download") {
+                appendLog("[错误] download 指令缺少参数！用法: download <文件的URL地址>")
+                return
+            }
+            executeDownload(urlArg)
+            return
+        }
         
         if (cmd.startsWith("7zip")) {
             appendLog("[系统] 扩展指令 >> $cmd")
@@ -827,6 +839,58 @@ class MainActivity : ComponentActivity() {
         val intent = Intent(this, AdbSessionService::class.java)
         startService(intent)
         bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE)
+    }
+    
+    private fun executeDownload(urlStr: String) {
+        val uri = Uri.parse(urlStr)
+        val scheme = uri.scheme?.lowercase()
+        if (scheme != "http" && scheme != "https") {
+            appendLog("[错误] 下载失败！该指令仅支持 http:// 或 https:// 的网络地址")
+            return
+        }
+
+        appendLog("[系统] 正在建立网络连接...")
+
+        lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                val url = URL(urlStr)
+                val connection = url.openConnection() as HttpURLConnection
+                connection.connectTimeout = 15000
+                connection.readTimeout = 15000
+                connection.connect()
+
+                if (connection.responseCode == HttpURLConnection.HTTP_OK) {
+                
+                    var fileName = urlStr.substringAfterLast("/").substringBefore("?")
+                    if (fileName.isEmpty() || !fileName.contains(".")) {
+                        val contentType = connection.contentType
+                        val extension = MimeTypeMap.getSingleton().getExtensionFromMimeType(contentType) ?: "bin"
+                        fileName = "download_${System.currentTimeMillis()}.$extension"
+                    }
+                
+                    val targetFile = File(flashFolder, fileName)
+
+                    connection.inputStream.use { inputStream ->
+                        targetFile.outputStream().use { outputStream ->
+                            inputStream.copyTo(outputStream)
+                        }
+                    }
+
+                    withContext(Dispatchers.Main) {
+                        appendLog("[系统] 文件下载成功！")
+                        appendLog("[系统] 已保存至 flash 目录: ${targetFile.name}")
+                    }
+                } else {
+                    withContext(Dispatchers.Main) {
+                        appendLog("[错误] 下载失败，服务器拒绝响应，状态码: ${connection.responseCode}")
+                    }
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    appendLog("[错误] 网络连接异常: ${e.localizedMessage}")
+                }
+            }
+        }
     }
 
     fun FbSeLinuxCmd() {
