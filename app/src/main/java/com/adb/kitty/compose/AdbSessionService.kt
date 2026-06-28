@@ -10,7 +10,9 @@ import android.content.pm.ServiceInfo
 import android.os.Binder
 import android.os.Build
 import android.os.IBinder
+import androidx.core.net.toUri
 import androidx.core.app.NotificationCompat
+import android.webkit.MimeTypeMap
 import com.flyfishxu.kadb.Kadb
 import kotlinx.coroutines.*
 import java.util.Locale
@@ -20,6 +22,10 @@ import com.adb.kitty.compose.ui.theme.*
 import com.adb.kitty.compose.ui.viewmodel.*
 import com.adb.kitty.compose.ui.it.*
 import com.adb.kitty.compose.data.*
+
+import java.io.File
+import java.net.HttpURLConnection
+import java.net.URL
 
 @Keep
 class AdbSessionService : Service() {
@@ -87,7 +93,8 @@ class AdbSessionService : Service() {
             startForeground(
                 NOTIFICATION_ID, 
                 buildNotification(initialText),
-                ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE
+              //  ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE or ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
             )
         } else {
             // Android 9.0 ~ Android 13，直接启动即可
@@ -163,6 +170,61 @@ class AdbSessionService : Service() {
         }
         
         manager.createNotificationChannel(channel)
+    }
+    /**
+     * 🌟 追加功能：由前台服务托管的智能网络下载
+     */
+    fun executeDownloadFromService(urlStr: String, flashFolder: File, onLog: (String) -> Unit) {
+        val uri = urlStr.toUri()
+        val scheme = uri.scheme?.lowercase()
+        if (scheme != "http" && scheme != "https") {
+            onLog("[错误] 下载失败！该指令仅支持 http:// 或 https:// 的网络地址")
+            return
+        }
+
+        onLog("[系统] 正在建立网络连接...")
+
+        // 🌟 核心：使用属于 Service 自己的 serviceScope 启动 IO 协程
+        refreshJob = serviceScope.launch(Dispatchers.IO) {
+            try {
+                val url = URL(urlStr)
+                val connection = url.openConnection() as HttpURLConnection
+                connection.connectTimeout = 15000
+                connection.readTimeout = 15000
+                connection.connect()
+
+                if (connection.responseCode == HttpURLConnection.HTTP_OK) {
+                
+                    var fileName = urlStr.substringAfterLast("/").substringBefore("?")
+                    if (fileName.isEmpty() || !fileName.contains(".")) {
+                        val contentType = connection.contentType
+                        val extension = MimeTypeMap.getSingleton().getExtensionFromMimeType(contentType) ?: "bin"
+                        fileName = "download_${System.currentTimeMillis()}.$extension"
+                    }
+                
+                    val targetFile = File(flashFolder, fileName)
+
+                    connection.inputStream.use { inputStream ->
+                        targetFile.outputStream().use { outputStream ->
+                            inputStream.copyTo(outputStream)
+                        }
+                    }
+
+                    withContext(Dispatchers.Main) {
+                        onLog("[系统] 文件下载成功！")
+                        onLog("[系统] 已保存至 flash 目录: ${targetFile.name}")
+                    }
+                } else {
+                    withContext(Dispatchers.Main) {
+                        onLog("[错误] 下载失败，服务器拒绝响应，状态码: ${connection.responseCode}")
+                    }
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    onLog("[错误] 网络连接异常: ${e.localizedMessage}")
+                }
+            }
+        }
     }
 
     override fun onDestroy() {

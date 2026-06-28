@@ -450,7 +450,7 @@
         </activity>
         <service 
             android:name="AdbSessionService"
-            android:foregroundServiceType="connectedDevice"
+            android:foregroundServiceType="connectedDevice|dataSync"
             android:process=":task"
             android:exported="true"
             android:directBootAware="true"
