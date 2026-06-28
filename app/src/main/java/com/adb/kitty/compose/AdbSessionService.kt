@@ -323,31 +323,6 @@ class AdbSessionService : Service() {
         }
     }
 
-    @SuppressLint("MissingPermission")
-    fun requestP2pPeers(onLog: (String) -> Unit) {
-        try {
-            wifiP2pManager.requestPeers(p2pChannel) { peerList ->
-                val devices = peerList.deviceList
-                if (devices.isEmpty()) {
-                    onLog("[P2P] 附近未发现任何可连接的无线设备，请确认对方也开启了 P2P 搜寻")
-                } else {
-                    onLog("[P2P] --- 附近物理设备列表 (${devices.size}台) ---")
-                    devices.forEach { device ->
-                        val statusStr = when(device.status) {
-                            0 -> "已连接"
-                            1 -> "邀请中"
-                            3 -> "可连接"
-                            else -> "未知(${device.status})"
-                        }
-                        onLog("📱 设备名: ${device.deviceName}\n   └─ MAC地址: ${device.deviceAddress} [${statusStr}]")
-                    }
-                }
-            }
-        } catch (e: SecurityException) {
-            onLog("[错误] 缺少附近设备或定位权限，无法读取设备列表")
-        }
-    }
-
     fun p2pSendFile(targetIp: String, file: File, onLog: (String) -> Unit) {
         onLog("[P2P] 启动发送通道，正在冲锋...")
     
@@ -396,21 +371,6 @@ class AdbSessionService : Service() {
         }
     }
     
-    fun checkP2pConnectionState(onLog: (String) -> Unit) {
-        wifiP2pManager.requestConnectionInfo(p2pChannel) { info ->
-            if (info.groupFormed) {
-                val hostAddress = info.groupOwnerAddress?.hostAddress ?: "192.168.49.1"
-                currentP2pTargetIp = hostAddress
-                
-                if (info.isGroupOwner) {
-                    onLog("[P2P] 连接成功！本地身份: 群主(GO) | 正在等待组员发送数据...")
-                } else {
-                    onLog("[P2P] 连接成功！本地身份: 组员(GC) | 目标群主IP: $hostAddress")
-                }
-            }
-        }
-    }
-
     override fun onDestroy() {
         serviceScope.cancel()
         kadbInstancePool.forEach { (_, instance) -> runCatching { instance.close() } }
