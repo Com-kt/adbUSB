@@ -249,7 +249,7 @@ class AdbSessionService : Service() {
                         onLog("[系统] ========================================")
                         onLog("[系统] 🎉 文件下载成功！")
                         onLog("[系统] 已保存至 flash 目录: ${targetFile.name}")
-                  ，    onLog(String.format(Locale.US, "[系统] 总用时: %.2f 秒 | 平均速度: %.2f MB/s", totalTimeSec, avgSpeed))
+                        onLog(String.format(Locale.US, "[系统] 总用时: %.2f 秒 | 平均速度: %.2f MB/s", totalTimeSec, avgSpeed))
                         onLog("[系统] ========================================")
                     }
                 } else {
@@ -257,7 +257,7 @@ class AdbSessionService : Service() {
                         onLog("[错误] 下载失败，服务器拒绝响应，状态码: ${connection.responseCode}")
                     }
                 }
-    ，      } catch (e: Exception) {
+            } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
                     onLog("[错误] 网络连接异常: ${e.localizedMessage}")
                 }
