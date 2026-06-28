@@ -26,17 +26,12 @@ import com.adb.kitty.compose.ui.viewmodel.*
 import com.adb.kitty.compose.ui.it.*
 import com.adb.kitty.compose.data.*
 
-import java.io.File
-import java.io.FileInputStream
-import java.io.BufferedOutputStream
-import java.io.DataOutputStream
+import java.io.*
 import java.net.HttpURLConnection
 import java.net.URL
 import java.net.InetSocketAddress
 import java.net.ServerSocket
 import java.net.Socket
-import java.util.Locale
-
 
 @Keep
 class AdbSessionService : Service() {

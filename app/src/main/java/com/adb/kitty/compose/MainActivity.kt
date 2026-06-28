@@ -193,8 +193,7 @@ class MainActivity : ComponentActivity() {
             true
         }
         if (isWifiScanGranted && isLocalNetworkGranted) {
-            appendLog("[系统] Wi-Fi 所需权限已授予，正在激活无线链路...")
-            initWifiState()
+            appendLog("[系统] Wi-Fi 所需权限已授予，已具备激活无线链路条件")
         } else {
             appendLog("[系统] 🔴 权限被拒绝，无法自动扫描 Wi-Fi SSID")
         }
