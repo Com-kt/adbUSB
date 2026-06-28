@@ -653,9 +653,14 @@ class MainActivity : ComponentActivity() {
         if (cmd.startsWith("qr-decode")) {
             appendLog("[系统] 扩展指令 >> $cmd")
             val arg = cmd.removePrefix("qr-decode ").trim()
-        
             if (arg.isEmpty()) {
-                appendLog("[错误] qr-decode 指令缺少参数！用法: qr-decode <flash目录下的图片名>")
+                appendLog("[错误] qr-decode 指令缺少参数！用法: qr-decode <图片名> 或 qr-decode --system")
+                return
+            }
+
+            if (arg == "--system") {
+                appendLog("[系统] 正在启动系统图片选择器...")
+                openSystemImagePicker()
                 return
             }
 
@@ -668,9 +673,9 @@ class MainActivity : ComponentActivity() {
 
             if (targetFile != null) {
                 appendLog("[系统] 开始解码图片: ${targetFile.name}...")
-            
-                val result = QrCodeUtils.decodeQrCodeFromFile(targetFile)
-            
+    
+                val result = QrCodeUtils.decodeQrCode(targetFile)
+    
                 if (result != null) {
                     appendLog("[系统] 二维码解码成功！")
                     qrDecodeResult = result
@@ -762,6 +767,31 @@ class MainActivity : ComponentActivity() {
                     else -> sendAdbShell(cmd)
                 }
             }
+        }
+    }
+    
+    private val pickImageLauncher = registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
+        if (uri != null) {
+            appendLog("[系统] 已选择图片，开始解码...")
+        
+            val result = QrCodeUtils.decodeQrCodes(this, uri) 
+        
+            if (result != null) {
+                appendLog("[系统] 二维码解码成功！")
+                qrDecodeResult = result
+            } else {
+                appendLog("[错误] 二维码解析失败，请确保图片清晰且确实包含二维码")
+            }
+        } else {
+            appendLog("[提示] 取消了系统图片选择。")
+        }
+    }
+
+    private fun openSystemImagePicker() {
+        try {
+            pickImageLauncher.launch("image/*")
+        } catch (e: Exception) {
+            appendLog("[错误] 无法打开系统图片选择器: ${e.localizedMessage}")
         }
     }
     

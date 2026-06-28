@@ -1,5 +1,7 @@
 package com.adb.kitty.compose.data
 
+import android.net.Uri
+import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Color
@@ -40,12 +42,32 @@ object QrCodeUtils {
             return null
         }
     }
-    fun decodeQrCodeFromFile(file: File): String? {
+    
+    fun decodeQrCode(file: File): String? {
         if (!file.exists() || !file.isFile) return null
-        
         return try {
             val bitmap = BitmapFactory.decodeFile(file.absolutePath) ?: return null
-            
+            decodeQrCodeFromBitmap(bitmap)
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
+    }
+
+    fun decodeQrCodes(context: Context, uri: Uri): String? {
+        return try {
+            context.contentResolver.openInputStream(uri).use { inputStream ->
+                val bitmap = BitmapFactory.decodeStream(inputStream) ?: return null
+                decodeQrCodeFromBitmap(bitmap)
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
+    }
+
+    private fun decodeQrCodeFromBitmap(bitmap: Bitmap): String? {
+        return try {
             val width = bitmap.width
             val height = bitmap.height
             val pixels = IntArray(width * height)
@@ -61,13 +83,12 @@ object QrCodeUtils {
             )
             
             val result = MultiFormatReader().decode(binaryBitmap, hints)
-            
-            bitmap.recycle()
-            
             result.text
         } catch (e: Exception) {
             e.printStackTrace()
             null
+        } finally {
+            bitmap.recycle()
         }
     }
 }

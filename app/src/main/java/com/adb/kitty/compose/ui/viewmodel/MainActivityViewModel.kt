@@ -296,6 +296,7 @@ class MainActivityViewModel : ViewModel() {
         FbCommand("fastboot boot <文件名>", "boot "),
         FbCommand("fastboot flash <分区> <路径>", "flash "),
         FbCommand("查看当前安全补丁级别", "getvar security-patch-level"),
+        FbCommand("查看当前最大下载限制", "getvar max-download-size"),
         FbCommand("查看当前活跃的分区槽位（a 或 b)", "getvar current-slot"),
         FbCommand("查看 Bootloader 解锁状态", "getvar unlocked"),
         FbCommand("oem info", "oem device-info"),
