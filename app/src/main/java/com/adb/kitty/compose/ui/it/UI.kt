@@ -248,7 +248,7 @@ fun CenterAlignedTopAppBarExample(
                                 leadingIcon = { Icon(Icons.Outlined.Refresh, null) },
                                 onClick = {
                                     showMenu = false
-                                    activity.initWifiState()
+                                    activity.handleWifiConnectionFlow()
                                 }
                             )
                             HorizontalDivider()

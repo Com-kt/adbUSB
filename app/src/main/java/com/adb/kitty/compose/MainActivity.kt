@@ -155,7 +155,6 @@ class MainActivity : ComponentActivity() {
             isServiceBound = true
             appendLog("[系统] 前台物理守护进程并网成功。")
             syncDeviceList()
-            initWifiState()
         }
 
         override fun onServiceDisconnected(name: ComponentName?) {
@@ -1764,14 +1763,10 @@ class MainActivity : ComponentActivity() {
         return "DEFAULT_WIFI"
     }
 
-    fun initWifiState() {
+    fun handleWifiConnectionFlow() {
         val wifiManager = applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
         isWifiEnabled = wifiManager.isWifiEnabled
         appendLog("[系统] 🚀 初始 WLAN 状态: isWifiEnabled = $isWifiEnabled")
-        handleWifiConnectionFlow()
-    }
-
-    private fun handleWifiConnectionFlow() {
         if (checkAndRequestWifiPermission()) {
             if (isWifiEnabled) executeAutoWifiConnect()
             else appendLog("[系统] 📡 自动回连已跳过：手机 WLAN 开关当前未开启。")
