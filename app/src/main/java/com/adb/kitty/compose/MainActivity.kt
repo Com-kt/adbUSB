@@ -360,6 +360,17 @@ class MainActivity : ComponentActivity() {
         val cmd = cmdInput.trim()
         if (cmd.isEmpty()) return
         
+        if (cmd.startsWith("p2p-reset")) {
+            appendLog("[系统] 扩展指令 >> $cmd")
+            val service = adbService
+            if (service == null || !isServiceBound) {
+                appendLog("[错误] 核心前台服务未并网，拒绝执行 P2P 指令")
+                return
+            }
+            service.resetP2pGroup { appendLog(it) }
+            return
+        }
+
         if (cmd.startsWith("p2p-search")) {
             appendLog("[系统] 扩展指令 >> $cmd")
             val service = adbService
@@ -416,7 +427,7 @@ class MainActivity : ComponentActivity() {
                 appendLog("[错误] 核心前台服务未并网，拒绝执行 P2P 指令")
                 return
             }
-            service.p2pStartReceiveServer(flashFolder) { appendLog(it) }
+            service.p2pStartReceiveFolderServer(flashFolder) { appendLog(it) }
             return
         }
 
@@ -429,18 +440,18 @@ class MainActivity : ComponentActivity() {
             }
             val fileArg = cmd.removePrefix("p2p-send").trim()
             if (fileArg.isEmpty() || fileArg == "p2p-send") {
-                appendLog("[提示] 用法错误！用法: p2p-send <flash目录下的文件名>")
+                appendLog("[提示] 用法错误！用法: p2p-send <flash目录下的文件名 或 文件夹名>")
                 return
             }
             
             val file = File(flashFolder, fileArg)
             if (!file.exists()) {
-                appendLog("[错误] 未在 flash 目录下找到该文件: $fileArg")
+                appendLog("[错误] 未在 flash 目录下找到该文件或文件夹: $fileArg")
                 return
             }
             
             val targetIp = service.currentP2pTargetIp ?: "192.168.49.1"
-            service.p2pSendFile(targetIp, file) { appendLog(it) }
+            service.p2pSendFolderOrFile(targetIp, file) { appendLog(it) }
             return
         }
 

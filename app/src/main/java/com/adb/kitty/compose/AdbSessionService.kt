@@ -28,11 +28,15 @@ import com.adb.kitty.compose.data.*
 
 import java.io.File
 import java.io.FileInputStream
+import java.io.BufferedOutputStream
+import java.io.DataOutputStream
 import java.net.HttpURLConnection
 import java.net.URL
 import java.net.InetSocketAddress
 import java.net.ServerSocket
 import java.net.Socket
+import java.util.Locale
+
 
 @Keep
 class AdbSessionService : Service() {
@@ -178,9 +182,7 @@ class AdbSessionService : Service() {
         
         manager.createNotificationChannel(channel)
     }
-    /**
-     * 🌟 追加功能：由前台服务托管的智能网络下载
-     */
+    
     fun executeDownloadFromService(urlStr: String, flashFolder: File, onLog: (String) -> Unit) {
         val uri = urlStr.toUri()
         val scheme = uri.scheme?.lowercase()
@@ -191,7 +193,6 @@ class AdbSessionService : Service() {
 
         onLog("[系统] 正在建立网络连接...")
 
-        // 🌟 核心：使用属于 Service 自己的 serviceScope 启动 IO 协程
         refreshJob = serviceScope.launch(Dispatchers.IO) {
             try {
                 val url = URL(urlStr)
@@ -201,32 +202,67 @@ class AdbSessionService : Service() {
                 connection.connect()
 
                 if (connection.responseCode == HttpURLConnection.HTTP_OK) {
-                
+                    val contentLength = connection.contentLengthLong
+
                     var fileName = urlStr.substringAfterLast("/").substringBefore("?")
                     if (fileName.isEmpty() || !fileName.contains(".")) {
                         val contentType = connection.contentType
                         val extension = MimeTypeMap.getSingleton().getExtensionFromMimeType(contentType) ?: "bin"
                         fileName = "download_${System.currentTimeMillis()}.$extension"
                     }
-                
+            
                     val targetFile = File(flashFolder, fileName)
+
+                    val buffer = ByteArray(8 * 1024)
+                    var bytesRead: Int
+                    var totalBytesRead = 0L
+                
+                    val startTime = System.currentTimeMillis()
+                    var lastLogTime = startTime
 
                     connection.inputStream.use { inputStream ->
                         targetFile.outputStream().use { outputStream ->
-                            inputStream.copyTo(outputStream)
+                            while (inputStream.read(buffer).also { bytesRead = it } != -1) {
+                                outputStream.write(buffer, 0, bytesRead)
+                                totalBytesRead += bytesRead
+
+                                val now = System.currentTimeMillis()
+                                if (now - lastLogTime >= 500) {
+                                    val elapsedSec = (now - startTime) / 1000.0
+                                    val speedMbPerSec = if (elapsedSec > 0) (totalBytesRead / (1024.0 * 1024.0)) / elapsedSec else 0.0
+                                
+                                    withContext(Dispatchers.Main) {
+                                        if (contentLength > 0) {
+                                            val progress = (totalBytesRead.toDouble() / contentLength * 100).toInt()
+                                            onLog(String.format(Locale.US, "[网络] ⚡ 下载中: %d%% | 速度: %.2f MB/s | 已用时: %.1f 秒", progress, speedMbPerSec, elapsedSec))
+                                        } else {
+                                            val downloadedMb = totalBytesRead / (1024.0 * 1024.0)
+                                            onLog(String.format(Locale.US, "[网络] ⚡ 已下载: %.2f MB | 速度: %.2f MB/s | 已用时: %.1f 秒", downloadedMb, speedMbPerSec, elapsedSec))
+                                        }
+                                    }
+                                    lastLogTime = now
+                                }
+                            }
+                            outputStream.flush()
                         }
                     }
 
+                    val totalTimeSec = (System.currentTimeMillis() - startTime) / 1000.0
+                    val avgSpeed = if (totalTimeSec > 0) (totalBytesRead / (1024.0 * 1024.0)) / totalTimeSec else 0.0
+
                     withContext(Dispatchers.Main) {
-                        onLog("[系统] 文件下载成功！")
+                        onLog("[系统] ========================================")
+                        onLog("[系统] 🎉 文件下载成功！")
                         onLog("[系统] 已保存至 flash 目录: ${targetFile.name}")
+                  ，    onLog(String.format(Locale.US, "[系统] 总用时: %.2f 秒 | 平均速度: %.2f MB/s", totalTimeSec, avgSpeed))
+                        onLog("[系统] ========================================")
                     }
                 } else {
                     withContext(Dispatchers.Main) {
                         onLog("[错误] 下载失败，服务器拒绝响应，状态码: ${connection.responseCode}")
                     }
                 }
-            } catch (e: Exception) {
+    ，      } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
                     onLog("[错误] 网络连接异常: ${e.localizedMessage}")
                 }
@@ -246,6 +282,26 @@ class AdbSessionService : Service() {
         }
     }
     
+    fun resetP2pGroup(onLog: (String) -> Unit) {
+        initWifiP2p(onLog)
+        
+        wifiP2pManager.removeGroup(p2pChannel, object : WifiP2pManager.ActionListener {
+            override fun onSuccess() {
+                currentP2pTargetIp = null
+                onLog("[P2P] 成功强制解散当前无线群组！本地身份已彻底重置归零。")
+            }
+
+            override fun onFailure(reason: Int) {
+                // 常见错误码 2 表示 BUSY（当前本来就没连上，或者正在断开中）
+                if (reason == 2) {
+                    onLog("[P2P] 本地当前并无活跃的群组连接，无需重置。")
+                } else {
+                    onLog("[提示] 重置群组状态返回: $reason (可能当前已是干净状态)")
+                }
+            }
+        })
+    }
+
     @SuppressLint("MissingPermission")
     fun requestP2pPeers(onLog: (String) -> Unit) {
         initWifiP2p(onLog)
@@ -323,50 +379,166 @@ class AdbSessionService : Service() {
         }
     }
 
-    fun p2pSendFile(targetIp: String, file: File, onLog: (String) -> Unit) {
-        onLog("[P2P] 启动发送通道，正在冲锋...")
-    
+    fun p2pSendFolderOrFile(targetIp: String, sourceFile: File, onLog: (String) -> Unit) {
         serviceScope.launch(Dispatchers.IO) {
-            val socket = Socket()
+            var socket: Socket? = null
+            var dos: DataOutputStream? = null
+
             try {
-                socket.bind(null)
-                socket.connect(InetSocketAddress(targetIp, P2P_PORT), 10000)
-            
-                socket.getOutputStream().use { outputStream ->
-                    FileInputStream(file).use { inputStream ->
-                        inputStream.copyTo(outputStream)
-                    }
+                if (!sourceFile.exists()) {
+                    onLog("[错误] 路径不存在: ${sourceFile.absolutePath}")
+                    return@launch
                 }
-                withContext(Dispatchers.Main) { onLog("[系统] P2P 文件发送成功！") }
+
+                onLog("[P2P] 正在分析目录结构...")
+                val allItems = if (sourceFile.isDirectory) sourceFile.walkTopDown().toList() else listOf(sourceFile)
+                val totalBytes = allItems.filter { it.isFile }.sumOf { it.length() }
+            
+                onLog("[P2P] 正在建立高速硬件通道 ($targetIp:8888) ...")
+                socket = Socket()
+                socket.connect(InetSocketAddress(targetIp, 8888), 10000)
+                dos = DataOutputStream(BufferedOutputStream(socket.getOutputStream()))
+                onLog("[P2P] 🚀 通道并网成功！开始流式投递目录树...")
+
+                var bytesSent = 0L
+                val startTime = System.currentTimeMillis()
+                var lastLogTime = startTime
+                val buffer = ByteArray(64 * 1024)
+
+                val baseParent = sourceFile.parentFile
+
+                for (item in allItems) {
+                    dos.writeBoolean(false)
+
+                    val relativePath = baseParent?.let { item.relativeTo(it).path } ?: item.name
+                    dos.writeUTF(relativePath)
+
+                    val isDir = item.isDirectory
+                    dos.writeBoolean(isDir)
+
+                    if (!isDir) {
+                        val fileSize = item.length()
+                        dos.writeLong(fileSize)
+
+                        var fis: FileInputStream? = null
+                        try {
+                            fis = FileInputStream(item)
+                            var bytesRead: Int
+                            while (fis.read(buffer).also { bytesRead = it } != -1) {
+                                dos.write(buffer, 0, bytesRead)
+                                bytesSent += bytesRead
+
+                                val now = System.currentTimeMillis()
+                                if (now - lastLogTime >= 500) {
+                                    val elapsedSec = (now - startTime) / 1000.0
+                                    val speedMbPerSec = if (elapsedSec > 0) (bytesSent / (1024.0 * 1024.0)) / elapsedSec else 0.0
+                                    val progress = if (totalBytes > 0) (bytesSent.toDouble() / totalBytes * 100).toInt() else 100
+                                    onLog(String.format(Locale.US, "[P2P] ⚡ 总进度: %d%% | 速度: %.2f MB/s | 已用时: %.1f 秒", progress, speedMbPerSec, elapsedSec))
+                                    lastLogTime = now
+                                }
+                            }
+                        } finally {
+                            fis?.close()
+                        }
+                    }
+                    dos.flush()
+                }
+
+                dos.writeBoolean(true)
+                dos.flush()
+
+                val totalTimeSec = (System.currentTimeMillis() - startTime) / 1000.0
+                val avgSpeed = if (totalTimeSec > 0) (totalBytes / (1024.0 * 1024.0)) / totalTimeSec else 0.0
+
+                onLog("[P2P] ========================================")
+                onLog(String.format(Locale.US, "[P2P] 🎉 文件夹/文件斩断成功: %s", sourceFile.name))
+                onLog(String.format(Locale.US, "[P2P] 🎉 总传输数据: %.2f MB", totalBytes / (1024.0 * 1024.0)))
+                onLog(String.format(Locale.US, "[P2P] 🎉 总用时: %.2f 秒 | 平均速度: %.2f MB/s", totalTimeSec, avgSpeed))
+                onLog("[P2P] ========================================")
+
             } catch (e: Exception) {
-                withContext(Dispatchers.Main) { onLog("[错误] 发送中断: ${e.localizedMessage}") }
+                onLog("[错误] 发送中断: ${e.localizedMessage}")
             } finally {
-                runCatching { socket.close() }
+                try { dos?.close() } catch (_: Exception) {}
+                try { socket?.close() } catch (_: Exception) {}
             }
         }
     }
-    
-    fun p2pStartReceiveServer(saveFolder: File, onLog: (String) -> Unit) {
-        onLog("[P2P] 接收服务端已挂载，等待数据进港...")
-    
+
+    fun p2pStartReceiveFolderServer(outputFolder: File, onLog: (String) -> Unit) {
         serviceScope.launch(Dispatchers.IO) {
             var serverSocket: ServerSocket? = null
+            var dis: DataInputStream? = null
+
             try {
-                serverSocket = ServerSocket(P2P_PORT)
-                val clientSocket = serverSocket.accept() 
+                onLog("[P2P] 接收端协议监听已挂载（端口: 8888），盲等数据树进港...")
+                serverSocket = ServerSocket(8888)
+                val clientSocket = serverSocket.accept()
+                onLog("[P2P] 📡 侦测到数据链连接！来自: ${clientSocket.inetAddress.hostAddress}")
+
+                dis = DataInputStream(BufferedInputStream(clientSocket.getInputStream()))
             
-                val targetFile = File(saveFolder, "p2p_receive_${System.currentTimeMillis()}.bin")
-            
-                clientSocket.getInputStream().use { inputStream ->
-                    targetFile.outputStream().use { outputStream ->
-                        inputStream.copyTo(outputStream)
+                val startTime = System.currentTimeMillis()
+                var lastLogTime = startTime
+                var totalBytesReceived = 0L
+                val buffer = ByteArray(64 * 1024)
+
+                while (!dis.readBoolean()) {
+                    val relativePath = dis.readUTF()
+                    val isDir = dis.readBoolean()
+
+                    val targetFile = File(outputFolder, relativePath)
+
+                    if (isDir) {
+                        targetFile.mkdirs()
+                    } else {
+                        targetFile.parentFile?.mkdirs()
+
+                        val fileSize = dis.readLong()
+                        var fileOutputStream: FileOutputStream? = null
+                    
+                        try {
+                            fileOutputStream = FileOutputStream(targetFile)
+                            var remaining = fileSize
+                        
+                            while (remaining > 0) {
+                                val readAmt = minOf(buffer.size.toLong(), remaining).toInt()
+                                val bytesRead = dis.read(buffer, 0, readAmt)
+                                if (bytesRead == -1) throw java.io.EOFException("网络断开，流异常终止")
+                            
+                                fileOutputStream.write(buffer, 0, bytesRead)
+                                remaining -= bytesRead
+                                totalBytesReceived += bytesRead
+
+                                val now = System.currentTimeMillis()
+                                if (now - lastLogTime >= 500) {
+                                    val elapsedSec = (now - startTime) / 1000.0
+                                    val speedMbPerSec = if (elapsedSec > 0) (totalBytesReceived / (1024.0 * 1024.0)) / elapsedSec else 0.0
+                                    onLog(String.format(Locale.US, "[P2P] 📥 已接收: %.2f MB | 瞬时接收速度: %.2f MB/s", totalBytesReceived / (1024.0 * 1024.0), speedMbPerSec))
+                                    lastLogTime = now
+                                }
+                            }
+                        } finally {
+                            fileOutputStream?.flush()
+                            fileOutputStream?.close()
+                        }
                     }
                 }
-                withContext(Dispatchers.Main) { onLog("[系统] P2P 文件接收完毕！已保存至: ${targetFile.name}") }
+
+                val totalTimeSec = (System.currentTimeMillis() - startTime) / 1000.0
+                val avgSpeed = if (totalTimeSec > 0) (totalBytesReceived / (1024.0 * 1024.0)) / totalTimeSec else 0.0
+
+                onLog("[P2P] ========================================")
+                onLog("[P2P] 💾 整个文件夹结构已完美落盘重建！")
+                onLog(String.format(Locale.US, "[P2P] 💾 存储根目录: %s", outputFolder.absolutePath))
+                onLog(String.format(Locale.US, "[P2P] 💾 总收盘用时: %.2f 秒 | 平均写入速度: %.2f MB/s", totalTimeSec, avgSpeed))
+                onLog("[P2P] ========================================")
+
             } catch (e: Exception) {
-                withContext(Dispatchers.Main) { onLog("[错误] 接收中断: ${e.localizedMessage}") }
+                onLog("[错误] 接收中断: ${e.localizedMessage}")
             } finally {
-                runCatching { serverSocket?.close() }
+                try { dis?.close() } catch (_: Exception) {}
+                try { serverSocket?.close() } catch (_: Exception) {}
             }
         }
     }

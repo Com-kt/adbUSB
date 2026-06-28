@@ -188,7 +188,8 @@ class MainActivityViewModel : ViewModel() {
         AppCommand("Wi-Fi P2P 发起配对连接, 该扩展指令由app提供", "p2p-connect "),
         AppCommand("Wi-Fi P2P 查看当前连接状态与身份, 该扩展指令由app提供", "p2p-status "),
         AppCommand("Wi-Fi P2P 挂载接收端服务端, 该扩展指令由app提供", "p2p-receive "),
-        AppCommand("Wi-Fi P2P 发送端高速传文件, 该扩展指令由app提供", "p2p-send ")
+        AppCommand("Wi-Fi P2P 发送端高速传文件, 该扩展指令由app提供", "p2p-send "),
+        AppCommand("Wi-Fi P2P 一键重置/断开当前的 P2P 状态, 该扩展指令由app提供", "p2p-reset ")
     )
     
     private val _adbCommands = listOf(
