@@ -17,8 +17,10 @@ import androidx.core.net.toUri
 import androidx.core.app.NotificationCompat
 import android.webkit.MimeTypeMap
 import android.annotation.*
+import androidx.annotation.RequiresApi
 
 import com.flyfishxu.kadb.Kadb
+import kotlin.concurrent.thread
 import kotlinx.coroutines.*
 import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
@@ -32,6 +34,7 @@ import com.adb.kitty.compose.data.*
 import java.io.*
 import java.net.HttpURLConnection
 import java.net.URL
+import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.net.ServerSocket
 import java.net.Socket
@@ -371,20 +374,36 @@ class AdbSessionService : Service() {
     @SuppressLint("MissingPermission")
     fun startP2pGroup(customSsid: String? = null, customPass: String? = null, onLog: (String) -> Unit) {
         initWifiP2p(onLog)
-    
+
+        val manager = wifiP2pManager
+        val channel = p2pChannel
+        if (manager == null || channel == null) {
+            onLog("[错误] P2P 基础设施未就绪（Manager 或 Channel 为 null）")
+            return
+        }
+
         // 1. 条件判断：只有 API >= 29 且参数完整，才玩高级自定义
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && !customSsid.isNullOrEmpty() && !customPass.isNullOrEmpty()) {
             onLog("[P2P] 检测到当前系统为 Android 10+，启用自定义 SSID/密码 模式...")
-        
-            // 2. 调用隔离层，防止在 API 28 设备上发生类加载崩溃
-            P2pApi29Helper.createCustomGroup(wifiP2pManager, p2pChannel, customSsid, customPass, onLog)
+    
+            // 2. 调用隔离层，此时传入的 manager 和 channel 已经是绝对非空的了
+            P2pApi29Helper.createCustomGroup(manager, channel, customSsid, customPass, onLog)
         } else {
             // 3. 针对 API 28 或未传参的设备，优雅降级为传统随机群组模式
             onLog("[P2P] 启用标准模式创建群组（系统随机分配凭证）...")
-            wifiP2pManager.createGroup(p2pChannel, object : WifiP2pManager.ActionListener {
+            manager.createGroup(channel, object : WifiP2pManager.ActionListener {
                 override fun onSuccess() {
-                    onLog("[P2P] 随机群组创建成功！")
-                    requestGroupDetails(onLog) // 获取系统分配的随机 SSID 和密码
+                    onLog("[P2P] 随机群组创建成功！正在向系统索要网络凭证...")
+                
+                    manager.requestGroupInfo(channel) { group ->
+                        if (group != null) {
+                            onLog("[P2P] 成功获取随机群组凭证：")
+                            onLog("      SSID -> ${group.networkName}")
+                            onLog("      密码 -> ${group.passphrase}")
+                        } else {
+                            onLog("[错误] 获取到的群组信息为空 (Group is null)")
+                        }
+                    }
                 }
                 override fun onFailure(reason: Int) {
                     onLog("[错误] 随机群组创建失败: $reason")
