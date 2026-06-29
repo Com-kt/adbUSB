@@ -16,7 +16,7 @@ import android.os.PowerManager
 import androidx.core.net.toUri
 import androidx.core.app.NotificationCompat
 import android.webkit.MimeTypeMap
-import android.annotation.SuppressLint
+import android.annotation.*
 
 import com.flyfishxu.kadb.Kadb
 import kotlinx.coroutines.*
@@ -281,6 +281,9 @@ class AdbSessionService : Service() {
     private var wakeLock: PowerManager.WakeLock? = null
     private var wifiLock: WifiManager.WifiLock? = null
     
+    private var proxyServerSocket: ServerSocket? = null
+    @Volatile private var isProxyRunning = false
+    
     fun initWifiP2p(onLog: (String) -> Unit) {
         if (p2pChannel == null) {
             p2pChannel = wifiP2pManager.initialize(this, mainLooper, null)
@@ -362,6 +365,68 @@ class AdbSessionService : Service() {
             })
         } catch (e: SecurityException) {
             onLog("[错误] 缺少附近设备或定位权限，无法发起连接")
+        }
+    }
+    
+    @SuppressLint("MissingPermission")
+    fun startP2pGroup(customSsid: String? = null, customPass: String? = null, onLog: (String) -> Unit) {
+        initWifiP2p(onLog)
+    
+        // 1. 条件判断：只有 API >= 29 且参数完整，才玩高级自定义
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && !customSsid.isNullOrEmpty() && !customPass.isNullOrEmpty()) {
+            onLog("[P2P] 检测到当前系统为 Android 10+，启用自定义 SSID/密码 模式...")
+        
+            // 2. 调用隔离层，防止在 API 28 设备上发生类加载崩溃
+            P2pApi29Helper.createCustomGroup(wifiP2pManager, p2pChannel, customSsid, customPass, onLog)
+        } else {
+            // 3. 针对 API 28 或未传参的设备，优雅降级为传统随机群组模式
+            onLog("[P2P] 启用标准模式创建群组（系统随机分配凭证）...")
+            wifiP2pManager.createGroup(p2pChannel, object : WifiP2pManager.ActionListener {
+                override fun onSuccess() {
+                    onLog("[P2P] 随机群组创建成功！")
+                    requestGroupDetails(onLog) // 获取系统分配的随机 SSID 和密码
+                }
+                override fun onFailure(reason: Int) {
+                    onLog("[错误] 随机群组创建失败: $reason")
+                }
+            })
+        }
+    }
+    
+    @RequiresApi(Build.VERSION_CODES.Q)
+    private object P2pApi29Helper {
+        @SuppressLint("MissingPermission")
+        fun createCustomGroup(
+            manager: WifiP2pManager,
+            channel: WifiP2pManager.Channel,
+            ssid: String,
+            pass: String,
+            onLog: (String) -> Unit
+        ) {
+            // 避坑点：P2P 的 SSID 必须以 "DIRECT-" 开头
+            val formattedSsid = if (ssid.startsWith("DIRECT-")) ssid else "DIRECT-$ssid"
+        
+            // 避坑点：密码长度必须在 8 ~ 63 位之间
+            if (pass.length < 8 || pass.length > 63) {
+                onLog("[错误] 自定义密码长度必须在 8-63 位之间！")
+                return
+            }
+
+            val config = WifiP2pConfig.Builder()
+                .setNetworkName(formattedSsid)
+                .setPassphrase(pass)
+                .build()
+
+            manager.createGroup(channel, config, object : WifiP2pManager.ActionListener {
+                override fun onSuccess() {
+                    onLog("[P2P] 自定义群组锁定成功！")
+                    onLog("[P2P] 本地网络信息 -> SSID: $formattedSsid | 密码: $pass")
+                }
+
+                override fun onFailure(reason: Int) {
+                    onLog("[错误] 自定义群组创建失败，原因代码: $reason")
+                }
+            })
         }
     }
 
@@ -738,6 +803,129 @@ class AdbSessionService : Service() {
             releasePerformanceLocks()
             try { dis?.close() } catch (_: Exception) {}
             try { socket.close() } catch (_: Exception) {}
+        }
+    }
+    
+    private fun handleSocks5Client(client: Socket) {
+        try {
+            val clientIn = client.getInputStream()
+            val clientOut = client.getOutputStream()
+
+            val version = clientIn.read()
+            if (version != 5) { client.close(); return }
+            val nMethods = clientIn.read()
+            val methods = ByteArray(nMethods)
+            clientIn.read(methods)
+            clientOut.write(byteArrayOf(0x05, 0x00)) // 回应：无需认证
+            clientOut.flush()
+
+            val reqBuf = ByteArray(4)
+            clientIn.read(reqBuf)
+            if (reqBuf[1].toInt() != 1) { client.close(); return } // 仅支持 CONNECT
+
+            val atyp = clientIn.read()
+            val targetHost: String
+
+            when (atyp) {
+                1 -> { // IPv4
+                    val ipBuf = ByteArray(4)
+                    clientIn.read(ipBuf)
+                    targetHost = InetAddress.getByAddress(ipBuf).hostAddress ?: ""
+                }
+                3 -> { // 域名 (第一个字节是长度，后面是字符串)
+                    val len = clientIn.read()
+                    val hostBuf = ByteArray(len)
+                    clientIn.read(hostBuf)
+                    targetHost = String(hostBuf)
+                }
+                4 -> { // IPv6 (新增完美支持)
+                    val ipBuf = ByteArray(16)
+                    clientIn.read(ipBuf)
+                    // 转换为 [2001:xxxx:... ] 形式或标准字符串
+                    val addr = InetAddress.getByAddress(ipBuf)
+                    targetHost = addr.hostAddress ?: ""
+                }
+                else -> {
+                    client.close()
+                    return
+                }
+            }
+
+            val portBuf = ByteArray(2)
+            clientIn.read(portBuf)
+            val targetPort = ((portBuf[0].toInt() and 0xFF) shl 8) or (portBuf[1].toInt() and 0xFF)
+
+            val remoteSocket = Socket(targetHost, targetPort)
+            val remoteIn = remoteSocket.getInputStream()
+            val remoteOut = remoteSocket.getOutputStream()
+
+            clientOut.write(byteArrayOf(0x05, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00))
+            clientOut.flush()
+
+            val t1 = thread { forwardStream(clientIn, remoteOut) }
+            val t2 = thread { forwardStream(remoteIn, clientOut) }
+            t1.join()
+            t2.join()
+
+        } catch (e: Exception) {
+            // 忽略连接断开导致的异常
+        } finally {
+            try { client.close() } catch (_: Exception) {}
+        }
+    }
+    
+    private fun forwardStream(input: InputStream, output: OutputStream) {
+        val buffer = ByteArray(8192) // 8KB 缓冲区兼顾速度与内存
+        var len: Int
+        try {
+            while (input.read(buffer).also { len = it } != -1) {
+                output.write(buffer, 0, len)
+                output.flush()
+            }
+        } catch (_: Exception) {}
+    }
+    
+    fun startSocks5Proxy(port: Int, onLog: (String) -> Unit) {
+        if (isProxyRunning) {
+            onLog("[提示] SOCKS5 代理已经在运行中，请勿重复开启。")
+            return
+        }
+
+        isProxyRunning = true
+        thread(name = "Socks5-Main") {
+            try {
+                proxyServerSocket = ServerSocket(port, 50, InetAddress.getByName("192.168.49.1"))
+                
+                onLog("[成功] 🚀 SOCKS5 代理已在 192.168.49.1:$port 成功顶起！")
+                onLog("[提示] 电脑端可配置 SOCKS5 代理上网。支持 IPv4/IPv6 双栈转发。")
+
+                while (isProxyRunning) {
+                    val clientSocket = proxyServerSocket?.accept() ?: break
+                    thread(name = "Socks5-Client-${clientSocket.port}") {
+                        handleSocks5Client(clientSocket)
+                    }
+                }
+            } catch (e: Exception) {
+                if (isProxyRunning) {
+                    onLog("[异常] SOCKS5 代理主服务崩溃: ${e.message}")
+                    isProxyRunning = false
+                }
+            }
+        }
+    }
+    
+    fun stopSocks5Proxy(onLog: (String) -> Unit) {
+        if (!isProxyRunning) {
+            onLog("[提示] 代理服务本就处于关闭状态。")
+            return
+        }
+        isProxyRunning = false
+        try {
+            proxyServerSocket?.close()
+            proxyServerSocket = null
+            onLog("[安全] SOCKS5 代理服务已完全关闭。")
+        } catch (e: Exception) {
+            onLog("[错误] 关闭代理服务异常: ${e.message}")
         }
     }
     

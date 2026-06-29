@@ -191,7 +191,11 @@ class MainActivityViewModel : ViewModel() {
         AppCommand("Wi-Fi P2P 发送端高速传文件, 该扩展指令由app提供", "p2p-send "),
         AppCommand("Wi-Fi P2P 一键重置/断开当前的 P2P 状态, 该扩展指令由app提供", "p2p-reset "),
         AppCommand("Wi-Fi P2P 自定义端口挂载接收端服务端, 该扩展指令由app提供", "p2p-receive --port="),
-        AppCommand("Wi-Fi P2P 自定义端口发送端高速传文件, 该扩展指令由app提供", "p2p-send --port=")
+        AppCommand("Wi-Fi P2P 自定义端口发送端高速传文件, 该扩展指令由app提供", "p2p-send --port="),
+        AppCommand("Wi-Fi P2P 自定义群组，跨平台兼容, 该扩展指令由app提供", "p2p-create-group"),
+        AppCommand("Wi-Fi P2P 自定义群组指令补全, 该扩展指令由app提供", "p2p-create-group --ssid= --pass="),
+        AppCommand("Wi-Fi P2P 开启Socks5代理，跨平台兼容, 该扩展指令由app提供", "p2p-start-proxy"),
+        AppCommand("Wi-Fi P2P 停止Socks5代理，跨平台兼容, 该扩展指令由app提供", "p2p-stop-proxy")
     )
     
     private val _adbCommands = listOf(

@@ -358,6 +358,69 @@ class MainActivity : ComponentActivity() {
         val cmd = cmdInput.trim()
         if (cmd.isEmpty()) return
         
+        if (cmd.startsWith("p2p-start-proxy")) {
+            appendLog("[系统] 扩展指令 >> $cmd")
+            val service = adbService
+            if (service == null || !isServiceBound) {
+                appendLog("[错误] 核心前台服务未并网，拒绝执行 P2P 指令")
+                return
+            }
+    
+            val portRegex = "--port=(\\d+)".toRegex()
+            val port = portRegex.find(cmd)?.groupValues?.get(1)?.toIntOrNull() ?: 1080
+    
+            service.startSocks5Proxy(port) { appendLog(it) }
+            return
+        }
+
+        if (cmd == "p2p-stop-proxy") {
+            appendLog("[系统] 扩展指令 >> $cmd")
+            val service = adbService
+            if (service == null || !isServiceBound) {
+                appendLog("[错误] 核心前台服务未并网，拒绝执行 P2P 指令")
+                return
+            }
+    
+            service.stopSocks5Proxy { appendLog(it) }
+            return
+        }
+
+        if (cmd.startsWith("p2p-create-group")) {
+            appendLog("[系统] 扩展指令 >> $cmd")
+            val service = adbService
+            if (service == null || !isServiceBound) {
+                appendLog("[错误] 核心前台服务未并网，拒绝执行 P2P 指令")
+                return
+            }
+            
+            var argsStr = cmd.removePrefix("p2p-create-group").trim()
+            if (argsStr.isEmpty()) {
+                appendLog("[提示] 用法错误！用法: p2p-create-group --ssid=<名字> --pass=<密码>")
+                return
+            }
+
+            var ssid: String? = null
+            var pass: String? = null
+    
+            val regexSsid = "--ssid=(\\S+)".toRegex()
+            val regexPass = "--pass=(\\S+)".toRegex()
+    
+            regexSsid.find(cmd)?.let { ssid = it.groupValues[1] }
+            regexPass.find(cmd)?.let { pass = it.groupValues[1] }
+            
+            if ((ssid != null && pass == null) || (pass != null && ssid == null)) {
+                appendLog("[提示] ❌ 错误：--ssid 和 --pass 必须成对出现！")
+                return
+            }
+            if (pass != null && pass!!.length < 8) {
+                appendLog("[提示] ❌ 错误：Wi-Fi 密码长度不能少于 8 位！")
+                return
+            }
+
+            service.startP2pGroup(ssid, pass) { appendLog(it) }
+            return
+        }
+
         if (cmd.startsWith("p2p-reset")) {
             appendLog("[系统] 扩展指令 >> $cmd")
             val service = adbService
