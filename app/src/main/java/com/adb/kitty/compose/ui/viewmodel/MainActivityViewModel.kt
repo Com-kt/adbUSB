@@ -195,7 +195,8 @@ class MainActivityViewModel : ViewModel() {
         AppCommand("Wi-Fi P2P 自定义群组，跨平台兼容, 该扩展指令由app提供", "p2p-create-group"),
         AppCommand("Wi-Fi P2P 自定义群组指令补全, 该扩展指令由app提供", "p2p-create-group --ssid= --pass="),
         AppCommand("Wi-Fi P2P 开启Socks5代理，跨平台兼容, 该扩展指令由app提供", "p2p-start-proxy"),
-        AppCommand("Wi-Fi P2P 停止Socks5代理，跨平台兼容, 该扩展指令由app提供", "p2p-stop-proxy")
+        AppCommand("Wi-Fi P2P 停止Socks5代理，跨平台兼容, 该扩展指令由app提供", "p2p-stop-proxy"),
+        AppCommand("Wi-Fi P2P 开启自定义端口的Socks5代理，跨平台兼容, 该扩展指令由app提供", "p2p-start-proxy --port="),
     )
     
     private val _adbCommands = listOf(

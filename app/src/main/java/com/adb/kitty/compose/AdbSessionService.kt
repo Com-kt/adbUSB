@@ -1064,6 +1064,9 @@ class AdbSessionService : Service() {
         isProxyRunning = true
         thread(name = "Socks5-Main") {
             try {
+                acquireHighPerformanceLocks()
+                onLog("[锁控] 高性能 CPU 唤醒锁与低延迟 Wi-Fi 锁已成功加锁 🔐")
+
                 proxyServerSocket = ServerSocket(port, 50, InetAddress.getByName("192.168.49.1"))
             
                 onLog("[成功] 🚀 SOCKS5 代理已在 192.168.49.1:$port 成功顶起！")
@@ -1080,6 +1083,9 @@ class AdbSessionService : Service() {
                     onLog("[异常] SOCKS5 代理主服务崩溃: ${e.message}")
                     isProxyRunning = false
                 }
+            } finally {
+                releasePerformanceLocks()
+                onLog("[锁控] 高性能锁已安全释放，系统重回省电模式 🔓")
             }
         }
     }

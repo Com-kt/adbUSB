@@ -148,7 +148,11 @@ Socks5 代理，p2p直连通道
     p2p-start-proxy >> 开启
     p2p-stop-proxy >> 停止
     
-仅支持 CONNECT，UDP不支持
+支持 CONNECT，UDP
+
+───────────────────────────────
+一键解散p2p群组
+p2p-reset
 ```
 
 # 其他 ADB 工具
