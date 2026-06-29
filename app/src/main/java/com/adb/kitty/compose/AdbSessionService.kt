@@ -23,6 +23,7 @@ import kotlinx.coroutines.*
 import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
 import androidx.annotation.Keep
+import org.lsposed.hiddenapibypass.HiddenApiBypass
 import com.adb.kitty.compose.ui.theme.*
 import com.adb.kitty.compose.ui.viewmodel.*
 import com.adb.kitty.compose.ui.it.*
@@ -477,42 +478,86 @@ class AdbSessionService : Service() {
     @SuppressLint("WakelockTimeout")
     private fun acquireHighPerformanceLocks() {
         try {
-            val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
             if (wakeLock == null) {
-                wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "AdbSessionService:P2pTransferLock")
+                val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
+            
+                // 🌟 Hidden Matrix: PARTIAL_WAKE_LOCK (0x00000001) | ON_AFTER_RELEASE (0x20000000)
+                val combinedCpuFlags = PowerManager.PARTIAL_WAKE_LOCK or 0x20000000
+            
+                wakeLock = powerManager.newWakeLock(combinedCpuFlags, "AdbSessionService:P2pTransferLock")
+            
+                HiddenApiBypass.setFieldValue(wakeLock!!, "mTag", "AdbSessionService:PrivilegedCpuMatrix")
             }
             if (wakeLock?.isHeld == false) {
                 wakeLock?.acquire()
             }
+        } catch (e: Exception) {
+            try {
+                if (wakeLock == null) {
+                    val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
+                    wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "AdbSessionService:FallbackLock")
+                }
+                if (wakeLock?.isHeld == false) wakeLock?.acquire()
+            } catch (_: Exception) {}
+        }
 
-            val wifiManager = applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
+        try {
             if (wifiLock == null) {
-                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
-                    wifiLock = wifiManager.createWifiLock(WifiManager.WIFI_MODE_FULL_LOW_LATENCY, "AdbSessionService:P2pWifiLock")
-                } else {
-                    @Suppress("DEPRECATION")
-                    wifiLock = wifiManager.createWifiLock(WifiManager.WIFI_MODE_FULL, "AdbSessionService:P2pWifiLock")
+                val wifiManager = applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
+            
+                val activeHighPerfMode = 4 
+
+                val hiddenLockObj = HiddenApiBypass.invoke(
+                    WifiManager::class.java,
+                    wifiManager,
+                    "createWifiLock",
+                    activeHighPerfMode,
+                    "AdbSessionService:P2pWifiLock"
+                )
+
+                if (hiddenLockObj is WifiManager.WifiLock) {
+                    wifiLock = hiddenLockObj
                 }
             }
+        } catch (e: Exception) {
+            try {
+                if (wifiLock == null) {
+                    val wm = applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
+                    wifiLock = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                        wm.createWifiLock(WifiManager.WIFI_MODE_FULL_LOW_LATENCY, "AdbSessionService:FallbackWifiLock")
+                    } else {
+                        @Suppress("DEPRECATION")
+                        wm.createWifiLock(WifiManager.WIFI_MODE_FULL, "AdbSessionService:FallbackWifiLock")
+                    }
+                }
+            } catch (_: Exception) {}
+        }
+
+        try {
             if (wifiLock?.isHeld == false) {
                 wifiLock?.acquire()
             }
-        } catch (e: Exception) {
-            // 兜底逻辑：防止部分深度定制设备直接抛出未记录的安全异常
-        }
+        } catch (_: Exception) {}
     }
-    
+
     private fun releasePerformanceLocks() {
         try {
             if (wakeLock?.isHeld == true) {
                 wakeLock?.release()
             }
+        } catch (_: Exception) {} finally {
+            wakeLock = null 
+        }
+    
+        try {
             if (wifiLock?.isHeld == true) {
                 wifiLock?.release()
             }
-        } catch (_: Exception) {}
+        } catch (_: Exception) {} finally {
+            wifiLock = null 
+        }
     }
-    
+
     private fun executeStreamTransfer(socket: Socket, sourceFile: File, onLog: (String) -> Unit) {
         var dos: DataOutputStream? = null
         try {
