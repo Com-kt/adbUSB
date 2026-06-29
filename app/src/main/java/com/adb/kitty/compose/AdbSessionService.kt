@@ -16,7 +16,7 @@ import android.os.PowerManager
 import androidx.core.net.toUri
 import androidx.core.app.NotificationCompat
 import android.webkit.MimeTypeMap
-import android.annotation.*
+import android.annotation.SuppressLint
 import androidx.annotation.RequiresApi
 
 import com.flyfishxu.kadb.Kadb
@@ -36,6 +36,8 @@ import java.net.HttpURLConnection
 import java.net.URL
 import java.net.InetAddress
 import java.net.InetSocketAddress
+import java.net.DatagramPacket
+import java.net.DatagramSocket
 import java.net.ServerSocket
 import java.net.Socket
 import java.lang.reflect.Method
@@ -838,54 +840,70 @@ class AdbSessionService : Service() {
             clientOut.write(byteArrayOf(0x05, 0x00)) // 回应：无需认证
             clientOut.flush()
 
-            val reqBuf = ByteArray(4)
-            clientIn.read(reqBuf)
-            if (reqBuf[1].toInt() != 1) { client.close(); return } // 仅支持 CONNECT
+            // 解析请求头（严格读取 4 字节：VER, CMD, RSV, ATYP）
+            val reqHeader = ByteArray(4)
+            if (clientIn.read(reqHeader) != 4) { client.close(); return }
+        
+            val cmd = reqHeader[1].toInt()
+            val atyp = reqHeader[3].toInt()
 
-            val atyp = clientIn.read()
-            val targetHost: String
+            if (cmd == 1) {
+                val targetHost: String
+                when (atyp) {
+                    1 -> { // IPv4
+                        val ipBuf = ByteArray(4)
+                        clientIn.read(ipBuf)
+                        targetHost = InetAddress.getByAddress(ipBuf).hostAddress ?: ""
+                    }
+                    3 -> { // 域名
+                        val len = clientIn.read()
+                        val hostBuf = ByteArray(len)
+                        clientIn.read(hostBuf)
+                        targetHost = String(hostBuf)
+                    }
+                    4 -> { // IPv6
+                        val ipBuf = ByteArray(16)
+                        clientIn.read(ipBuf)
+                        targetHost = InetAddress.getByAddress(ipBuf).hostAddress ?: ""
+                    }
+                    else -> { client.close(); return }
+                }
 
-            when (atyp) {
-                1 -> { // IPv4
-                    val ipBuf = ByteArray(4)
-                    clientIn.read(ipBuf)
-                    targetHost = InetAddress.getByAddress(ipBuf).hostAddress ?: ""
+                val portBuf = ByteArray(2)
+                clientIn.read(portBuf)
+                val targetPort = ((portBuf[0].toInt() and 0xFF) shl 8) or (portBuf[1].toInt() and 0xFF)
+
+                // 建立远端直连并双向对轰流量
+                val remoteSocket = Socket(targetHost, targetPort)
+                val remoteIn = remoteSocket.getInputStream()
+                val remoteOut = remoteSocket.getOutputStream()
+
+                clientOut.write(byteArrayOf(0x05, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00))
+                clientOut.flush()
+
+                val t1 = thread { forwardStream(clientIn, remoteOut) }
+                val t2 = thread { forwardStream(remoteIn, clientOut) }
+                t1.join()
+                t2.join()
+
+            } else if (cmd == 3) {
+                when (atyp) {
+                    1 -> clientIn.read(ByteArray(4))
+                    3 -> {
+                        val len = clientIn.read()
+                        clientIn.read(ByteArray(len))
+                    }
+                    4 -> clientIn.read(ByteArray(16))
+                    else -> { client.close(); return }
                 }
-                3 -> { // 域名 (第一个字节是长度，后面是字符串)
-                    val len = clientIn.read()
-                    val hostBuf = ByteArray(len)
-                    clientIn.read(hostBuf)
-                    targetHost = String(hostBuf)
-                }
-                4 -> { // IPv6 (新增完美支持)
-                    val ipBuf = ByteArray(16)
-                    clientIn.read(ipBuf)
-                    // 转换为 [2001:xxxx:... ] 形式或标准字符串
-                    val addr = InetAddress.getByAddress(ipBuf)
-                    targetHost = addr.hostAddress ?: ""
-                }
-                else -> {
-                    client.close()
-                    return
-                }
+                clientIn.read(ByteArray(2))
+
+                // 移交 UDP 核心并发中转引擎
+                handleUdpAssociate(client, clientIn, clientOut)
+            } else {
+                client.close()
+                return
             }
-
-            val portBuf = ByteArray(2)
-            clientIn.read(portBuf)
-            val targetPort = ((portBuf[0].toInt() and 0xFF) shl 8) or (portBuf[1].toInt() and 0xFF)
-
-            val remoteSocket = Socket(targetHost, targetPort)
-            val remoteIn = remoteSocket.getInputStream()
-            val remoteOut = remoteSocket.getOutputStream()
-
-            clientOut.write(byteArrayOf(0x05, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00))
-            clientOut.flush()
-
-            val t1 = thread { forwardStream(clientIn, remoteOut) }
-            val t2 = thread { forwardStream(remoteIn, clientOut) }
-            t1.join()
-            t2.join()
-
         } catch (e: Exception) {
             // 忽略连接断开导致的异常
         } finally {
@@ -893,8 +911,141 @@ class AdbSessionService : Service() {
         }
     }
     
+    private fun handleUdpAssociate(clientTcp: Socket, clientIn: InputStream, clientOut: OutputStream) {
+        var udpServerSocket: DatagramSocket? = null
+        try {
+            udpServerSocket = DatagramSocket(0, InetAddress.getByName("192.168.49.1"))
+            val bndPort = udpServerSocket.localPort
+
+            val resp = ByteArray(10)
+            resp[0] = 0x05 // VER
+            resp[1] = 0x00 // SUCCESS
+            resp[2] = 0x00 // RSV
+            resp[3] = 0x01 // ATYP = IPv4
+            // 绑定本地 P2P 网关 IP: 192.168.49.1
+            resp[4] = 192.toByte(); resp[5] = 168.toByte(); resp[6] = 49.toByte(); resp[7] = 1.toByte()
+            resp[8] = ((bndPort ushr 8) and 0xFF).toByte()
+            resp[9] = (bndPort and 0xFF).toByte()
+        
+            clientOut.write(resp)
+            clientOut.flush()
+
+            val finalUdpSocket = udpServerSocket
+            thread(name = "Socks5-UdpPump-$bndPort") {
+                runUdpPumpEngine(finalUdpSocket)
+            }
+
+            val buffer = ByteArray(1024)
+            while (clientIn.read(buffer) != -1) { }
+        } catch (_: Exception) {
+        } finally {
+        // 只要 TCP 控线断开，UDP 瞬间无条件殉葬
+            udpServerSocket?.close()
+            try { clientTcp.close() } catch (_: Exception) {}
+        }
+    }
+    
+    private fun runUdpPumpEngine(udpServer: DatagramSocket) {
+        val receiveBuffer = ByteArray(65507)
+        val packet = DatagramPacket(receiveBuffer, receiveBuffer.size)
+        val outboundSockets = ConcurrentHashMap<String, DatagramSocket>()
+    
+        var pcUdpAddress: InetAddress? = null
+        var pcUdpPort: Int = -1
+
+        try {
+            while (!udpServer.isClosed) {
+                udpServer.receive(packet)
+            
+                if (pcUdpAddress == null) {
+                    pcUdpAddress = packet.address
+                    pcUdpPort = packet.port
+                }
+
+                val dataLen = packet.length
+                if (dataLen < 10 || receiveBuffer[2].toInt() != 0) continue // 过滤过短包或分片包
+
+                val atyp = receiveBuffer[3].toInt()
+                var headerLen = 10
+                val targetHost: String
+                val targetPort: Int
+
+                // 剥离 SOCKS5 UDP 报头，提取外网真实目标
+                when (atyp) {
+                    1 -> { // IPv4
+                        val ipBuf = ByteArray(4)
+                        System.arraycopy(receiveBuffer, 4, ipBuf, 0, 4)
+                        targetHost = InetAddress.getByAddress(ipBuf).hostAddress ?: ""
+                        targetPort = ((receiveBuffer[8].toInt() and 0xFF) shl 8) or (receiveBuffer[9].toInt() and 0xFF)
+                        headerLen = 10
+                    }
+                    3 -> { // 域名
+                        val domainLen = receiveBuffer[4].toInt() and 0xFF
+                        val domainBuf = ByteArray(domainLen)
+                        System.arraycopy(receiveBuffer, 5, domainBuf, 0, domainLen)
+                        targetHost = String(domainBuf)
+                        val pIdx = 5 + domainLen
+                        targetPort = ((receiveBuffer[pIdx].toInt() and 0xFF) shl 8) or (receiveBuffer[pIdx + 1].toInt() and 0xFF)
+                        headerLen = 5 + domainLen + 2
+                    }
+                    4 -> { // IPv6
+                        val ipBuf = ByteArray(16)
+                        System.arraycopy(receiveBuffer, 4, ipBuf, 0, 16)
+                        targetHost = InetAddress.getByAddress(ipBuf).hostAddress ?: ""
+                        targetPort = ((receiveBuffer[20].toInt() and 0xFF) shl 8) or (receiveBuffer[21].toInt() and 0xFF)
+                        headerLen = 22
+                    }
+                    else -> continue
+                }
+
+                val payloadLen = dataLen - headerLen
+                if (payloadLen <= 0) continue
+                val payload = ByteArray(payloadLen)
+                System.arraycopy(receiveBuffer, headerLen, payload, 0, payloadLen)
+
+                val mapKey = "$targetHost:$targetPort"
+                var outboundSocket = outboundSockets[mapKey]
+            
+                if (outboundSocket == null || outboundSocket.isClosed) {
+                    outboundSocket = DatagramSocket()
+                    outboundSockets[mapKey] = outboundSocket
+
+                    val finalPcAddr = pcUdpAddress
+                    val finalPcPort = pcUdpPort
+                    val finalOutbound = outboundSocket
+                    val cachedHeader = ByteArray(headerLen)
+                    System.arraycopy(receiveBuffer, 0, cachedHeader, 0, headerLen)
+
+                    // 异步反向监听线程：外网回包 -> 重新打包 SOCKS5 报头 -> 原路炸回给电脑
+                    thread(name = "Udp-Receiver-$mapKey") {
+                        try {
+                            val netBuffer = ByteArray(65507)
+                            val netPacket = DatagramPacket(netBuffer, netBuffer.size)
+                            while (!finalOutbound.isClosed) {
+                                finalOutbound.receive(netPacket)
+                            
+                                val sendBackBuf = ByteArray(cachedHeader.size + netPacket.length)
+                                System.arraycopy(cachedHeader, 0, sendBackBuf, 0, cachedHeader.size)
+                                System.arraycopy(netBuffer, 0, sendBackBuf, cachedHeader.size, netPacket.length)
+
+                                udpServer.send(DatagramPacket(sendBackBuf, sendBackBuf.size, finalPcAddr, finalPcPort))
+                            }
+                        } catch (_: Exception) {}
+                    }
+                }
+
+                val outPacket = DatagramPacket(payload, payload.size, InetAddress.getByName(targetHost), targetPort)
+                outboundSocket.send(outPacket)
+            }
+        } catch (_: Exception) {
+        } finally {
+            outboundSockets.values.forEach { try { it.close() } catch (_: Exception) {} }
+            outboundSockets.clear()
+        }
+    }
+    
     private fun forwardStream(input: InputStream, output: OutputStream) {
-        val buffer = ByteArray(8192) // 8KB 缓冲区兼顾速度与内存
+        val buffer = ByteArray(8192)
         var len: Int
         try {
             while (input.read(buffer).also { len = it } != -1) {
@@ -914,9 +1065,9 @@ class AdbSessionService : Service() {
         thread(name = "Socks5-Main") {
             try {
                 proxyServerSocket = ServerSocket(port, 50, InetAddress.getByName("192.168.49.1"))
-                
+            
                 onLog("[成功] 🚀 SOCKS5 代理已在 192.168.49.1:$port 成功顶起！")
-                onLog("[提示] 电脑端可配置 SOCKS5 代理上网。支持 IPv4/IPv6 双栈转发。")
+                onLog("[提示] 电脑端可配置 SOCKS5 代理上网。100% 满血支持 TCP/UDP 双轨并发转发。")
 
                 while (isProxyRunning) {
                     val clientSocket = proxyServerSocket?.accept() ?: break
