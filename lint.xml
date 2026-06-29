@@ -5,4 +5,14 @@
         <ignore path="**/caches/**" />
         <ignore path="**/transformed/**" />
     </issue>
+    
+    <!-- Ignore discouraged private API reflections inside your P2P Service file -->
+    <issue id="DiscouragedPrivateApi">
+        <ignore path="**/AdbSessionService.kt" />
+    </issue>
+
+    <!-- Optional: If you use regular Java reflection elsewhere with HiddenApiBypass -->
+    <issue id="SoonBlockedPrivateApi">
+        <ignore path="**/AdbSessionService.kt" />
+    </issue>
 </lint>

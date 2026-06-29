@@ -444,7 +444,9 @@ class MainActivity : ComponentActivity() {
                 return
             }
 
-            service.autoP2pReceive(flashFolder) { appendLog(it) }
+            val (userPort, _) = extractUserPortAndClean(cmd)
+    
+            service.autoP2pReceive(flashFolder, userPort) { appendLog(it) }
             return
         }
 
@@ -452,22 +454,25 @@ class MainActivity : ComponentActivity() {
             appendLog("[系统] 扩展指令 >> $cmd")
             val service = adbService
             if (service == null || !isServiceBound) {
-                appendLog("[错误] 核心前台服务未并网，拒绝执行 P2P 指令")
+                appendLog("[错误] 核心前台服务未并网，拒绝执行 P2P 指len")
                 return
             }
-            val fileArg = cmd.removePrefix("p2p-send").trim()
-            if (fileArg.isEmpty() || fileArg == "p2p-send") {
-                appendLog("[提示] 用法错误！用法: p2p-send <flash目录下的文件名 或 文件夹名>")
-                return
-            }
+
+            val (userPort, cleanedCmd) = extractUserPortAndClean(cmd)
     
+            val fileArg = cleanedCmd.removePrefix("p2p-send").trim()
+            if (fileArg.isEmpty() || fileArg == "p2p-send") {
+                appendLog("[提示] 用法错误！用法: p2p-send <文件/文件夹> [--port=自定义端口]")
+                return
+            }
+
             val file = File(flashFolder, fileArg)
             if (!file.exists()) {
                 appendLog("[错误] 未在 flash 目录下找到该文件或文件夹: $fileArg")
                 return
             }
-    
-            service.autoP2pSend(file) { appendLog(it) }
+
+            service.autoP2pSend(file, userPort) { appendLog(it) }
             return
         }
 
@@ -891,6 +896,18 @@ class MainActivity : ComponentActivity() {
                     else -> sendAdbShell(cmd)
                 }
             }
+        }
+    }
+    
+    fun extractUserPortAndClean(cmdStr: String): Pair<Int?, String> {
+        val portRegex = "--port=(\\d+)".toRegex()
+        val matchResult = portRegex.find(cmdStr)
+        return if (matchResult != null) {
+            val portValue = matchResult.groupValues[1].toIntOrNull()
+            val cleanedText = cmdStr.replace(portRegex, "").replace("\\s+".toRegex(), " ").trim()
+            Pair(portValue, cleanedText)
+        } else {
+            Pair(null, cmdStr.trim())
         }
     }
     

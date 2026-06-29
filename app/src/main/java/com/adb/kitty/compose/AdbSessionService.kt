@@ -271,8 +271,12 @@ class AdbSessionService : Service() {
     
     private val wifiP2pManager by lazy { getSystemService(Context.WIFI_P2P_SERVICE) as WifiP2pManager }
     private var p2pChannel: WifiP2pManager.Channel? = null
-    private val P2P_PORT = 8888
+    private val P2P_PORT = 52020
     var currentP2pTargetIp: String? = null
+    
+    private val DEFAULT_P2P_PORT = 52020
+    private var activeServerSocket: ServerSocket? = null
+    private var activeClientSocket: Socket? = null
     
     private var wakeLock: PowerManager.WakeLock? = null
     private var wifiLock: WifiManager.WifiLock? = null
@@ -396,8 +400,19 @@ class AdbSessionService : Service() {
         }
     }
 
+    fun closeAllActiveSockets() {
+        try { activeClientSocket?.close() } catch (_: Exception) {} finally { activeClientSocket = null }
+        try { activeServerSocket?.close() } catch (_: Exception) {} finally { activeServerSocket = null }
+    }
+
     @SuppressLint("MissingPermission")
-    fun autoP2pSend(sourceFile: File, onLog: (String) -> Unit) {
+    fun autoP2pSend(sourceFile: File, userPort: Int? = null, onLog: (String) -> Unit) {
+        val port = userPort ?: DEFAULT_P2P_PORT
+        if (port !in 1024..65535) {
+            onLog("[错误] 端口超出合法范围 (1024~65535): $port")
+            return
+        }
+
         initWifiP2p(onLog)
         wifiP2pManager.requestConnectionInfo(p2pChannel) { info ->
             if (!info.groupFormed) {
@@ -407,29 +422,45 @@ class AdbSessionService : Service() {
 
             if (info.isGroupOwner) {
                 serviceScope.launch(Dispatchers.IO) {
-                    var serverSocket: ServerSocket? = null
                     try {
-                        onLog("[P2P-群主发] 正在 8888 端口架设发射台，等待组员管道并网...")
-                        serverSocket = ServerSocket(8888)
-                        val clientSocket = serverSocket.accept() 
+                        closeAllActiveSockets()
+                        
+                        onLog("[P2P-群主发] 正在 $port 端口架设发射台，等待组员管道并网...")
+                        
+                        val sSocket = ServerSocket().apply {
+                            reuseAddress = true 
+                            bind(InetSocketAddress(port))
+                        }
+                        activeServerSocket = sSocket
+                        
+                        val clientSocket = sSocket.accept() 
+                        activeClientSocket = clientSocket
+                        
                         onLog("[P2P-群主发] 捕获到组员握手信号！开始向其推流...")
                         executeStreamTransfer(clientSocket, sourceFile, onLog)
                     } catch (e: Exception) {
                         onLog("[错误] 群主发射台崩溃: ${e.localizedMessage}")
                     } finally {
-                        try { serverSocket?.close() } catch (_: Exception) {}
+                        closeAllActiveSockets()
                     }
                 }
             } else {
                 serviceScope.launch(Dispatchers.IO) {
                     try {
+                        closeAllActiveSockets()
                         val targetIp = info.groupOwnerAddress?.hostAddress ?: "192.168.49.1"
-                        onLog("[P2P-组员发] 正在主动接入群主服务器 ($targetIp:8888) ...")
+                        onLog("[P2P-组员发] 正在主动接入群主服务器 ($targetIp:$port) ...")
+                        
                         val socket = Socket()
-                        socket.connect(InetSocketAddress(targetIp, 8888), 10000)
+                        activeClientSocket = socket
+                        socket.connect(InetSocketAddress(targetIp, port), 10000)
+                        
+                        onLog("[P2P-组员发] 并网握手成功！启动大文件流式管道...")
                         executeStreamTransfer(socket, sourceFile, onLog)
                     } catch (e: Exception) {
                         onLog("[错误] 组员管道接入失败: ${e.localizedMessage}")
+                    } finally {
+                        closeAllActiveSockets()
                     }
                 }
             }
@@ -437,7 +468,13 @@ class AdbSessionService : Service() {
     }
 
     @SuppressLint("MissingPermission")
-    fun autoP2pReceive(outputFolder: File, onLog: (String) -> Unit) {
+    fun autoP2pReceive(outputFolder: File, userPort: Int? = null, onLog: (String) -> Unit) {
+        val port = userPort ?: DEFAULT_P2P_PORT
+        if (port !in 1024..65535) {
+            onLog("[错误] 端口超出合法范围 (1024~65535): $port")
+            return
+        }
+
         initWifiP2p(onLog)
         wifiP2pManager.requestConnectionInfo(p2pChannel) { info ->
             if (!info.groupFormed) {
@@ -447,35 +484,49 @@ class AdbSessionService : Service() {
 
             if (info.isGroupOwner) {
                 serviceScope.launch(Dispatchers.IO) {
-                    var serverSocket: ServerSocket? = null
                     try {
-                        onLog("[P2P-群主收] 接收端协议监听已挂载（端口: 8888），盲等组员送货...")
-                        serverSocket = ServerSocket(8888)
-                        val clientSocket = serverSocket.accept()
+                        closeAllActiveSockets()
+                        onLog("[P2P-群主收] 接收端协议监听已挂载（端口: $port），盲等组员送货...")
+                        
+                        val sSocket = ServerSocket().apply {
+                            reuseAddress = true 
+                            bind(InetSocketAddress(port))
+                        }
+                        activeServerSocket = sSocket
+                        
+                        val clientSocket = sSocket.accept()
+                        activeClientSocket = clientSocket
+                        
                         onLog("[P2P-群主收] 📡 侦测到组员数据链进港！来自: ${clientSocket.inetAddress.hostAddress}")
                         executeStreamReceive(clientSocket, outputFolder, onLog)
                     } catch (e: Exception) {
                         onLog("[错误] 群主接收中断: ${e.localizedMessage}")
                     } finally {
-                        try { serverSocket?.close() } catch (_: Exception) {}
+                        closeAllActiveSockets()
                     }
                 }
             } else {
                 serviceScope.launch(Dispatchers.IO) {
                     try {
+                        closeAllActiveSockets()
                         val targetIp = info.groupOwnerAddress?.hostAddress ?: "192.168.49.1"
-                        onLog("[P2P-组员收] 正在主动刺入群主数据库 ($targetIp:8888) 准备吸纳下载流...")
+                        onLog("[P2P-组员收] 正在主动刺入群主数据库 ($targetIp:$port) 准备吸纳下载流...")
+                        
                         val socket = Socket()
-                        socket.connect(InetSocketAddress(targetIp, 8888), 10000)
+                        activeClientSocket = socket
+                        socket.connect(InetSocketAddress(targetIp, port), 10000)
+                        
                         executeStreamReceive(socket, outputFolder, onLog)
                     } catch (e: Exception) {
                         onLog("[错误] 组员吸纳数据失败: ${e.localizedMessage}")
+                    } finally {
+                        closeAllActiveSockets()
                     }
                 }
             }
         }
     }
-    
+
     @SuppressLint("WakelockTimeout")
     private fun acquireHighPerformanceLocks() {
         try {
