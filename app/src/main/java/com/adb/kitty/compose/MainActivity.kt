@@ -367,7 +367,14 @@ class MainActivity : ComponentActivity() {
             }
     
             val portRegex = "--port=(\\d+)".toRegex()
-            val port = portRegex.find(cmd)?.groupValues?.get(1)?.toIntOrNull() ?: 1080
+            val parsedPort = portRegex.find(cmd)?.groupValues?.get(1)?.toIntOrNull() ?: 1080
+
+            val port = if (parsedPort in 1024..65535) {
+                parsedPort
+            } else {
+                appendLog("[警告] 端口 $parsedPort 不在合法范围 (1024~65535)，已自动安全降级至 1080")
+                1080
+            }
     
             service.startSocks5Proxy(port) { appendLog(it) }
             return
