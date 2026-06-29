@@ -899,15 +899,15 @@ class MainActivity : ComponentActivity() {
         }
     }
     
-    fun extractUserPortAndClean(cmdStr: String): Pair<Int?, String> {
+    fun extractUserPortAndClean(cmdStr: String): kotlin.Pair<Int?, String> {
         val portRegex = "--port=(\\d+)".toRegex()
         val matchResult = portRegex.find(cmdStr)
         return if (matchResult != null) {
             val portValue = matchResult.groupValues[1].toIntOrNull()
             val cleanedText = cmdStr.replace(portRegex, "").replace("\\s+".toRegex(), " ").trim()
-            Pair(portValue, cleanedText)
+            kotlin.Pair(portValue, cleanedText)
         } else {
-            Pair(null, cmdStr.trim())
+            kotlin.Pair(null, cmdStr.trim())
         }
     }
     
