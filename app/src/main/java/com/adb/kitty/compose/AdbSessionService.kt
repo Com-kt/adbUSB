@@ -35,6 +35,7 @@ import java.net.URL
 import java.net.InetSocketAddress
 import java.net.ServerSocket
 import java.net.Socket
+import java.lang.reflect.Method
 
 @Keep
 class AdbSessionService : Service() {
@@ -480,32 +481,31 @@ class AdbSessionService : Service() {
         try {
             if (wakeLock == null) {
                 val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
-            
-                // 🌟 Hidden Matrix: PARTIAL_WAKE_LOCK (0x00000001) | ON_AFTER_RELEASE (0x20000000)
+                // PARTIAL_WAKE_LOCK (1) | ON_AFTER_RELEASE (0x20000000)
                 val combinedCpuFlags = PowerManager.PARTIAL_WAKE_LOCK or 0x20000000
-            
                 wakeLock = powerManager.newWakeLock(combinedCpuFlags, "AdbSessionService:P2pTransferLock")
             
-                HiddenApiBypass.setFieldValue(wakeLock!!, "mTag", "AdbSessionService:PrivilegedCpuMatrix")
+                try {
+                    val mTagField = PowerManager.WakeLock::class.java.getDeclaredField("mTag")
+                    mTagField.isAccessible = true
+                    mTagField.set(wakeLock, "AdbSessionService:PrivilegedCpuMatrix")
+                } catch (_: Exception) {}
             }
             if (wakeLock?.isHeld == false) {
                 wakeLock?.acquire()
             }
         } catch (e: Exception) {
-            try {
-                if (wakeLock == null) {
-                    val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
-                    wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "AdbSessionService:FallbackLock")
-                }
-                if (wakeLock?.isHeld == false) wakeLock?.acquire()
-            } catch (_: Exception) {}
+            if (wakeLock == null) {
+                val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
+                wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "AdbSessionService:FallbackLock")
+            }
+            if (wakeLock?.isHeld == false) wakeLock?.acquire()
         }
 
         try {
             if (wifiLock == null) {
                 val wifiManager = applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
-            
-                val activeHighPerfMode = 4 
+                val activeHighPerfMode = 4
 
                 val hiddenLockObj = HiddenApiBypass.invoke(
                     WifiManager::class.java,
@@ -520,17 +520,15 @@ class AdbSessionService : Service() {
                 }
             }
         } catch (e: Exception) {
-            try {
-                if (wifiLock == null) {
-                    val wm = applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
-                    wifiLock = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
-                        wm.createWifiLock(WifiManager.WIFI_MODE_FULL_LOW_LATENCY, "AdbSessionService:FallbackWifiLock")
-                    } else {
-                        @Suppress("DEPRECATION")
-                        wm.createWifiLock(WifiManager.WIFI_MODE_FULL, "AdbSessionService:FallbackWifiLock")
-                    }
+            if (wifiLock == null) {
+                val wm = applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
+                wifiLock = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                    wm.createWifiLock(WifiManager.WIFI_MODE_FULL_LOW_LATENCY, "AdbSessionService:FallbackWifiLock")
+                } else {
+                    @Suppress("DEPRECATION")
+                    wm.createWifiLock(WifiManager.WIFI_MODE_FULL, "AdbSessionService:FallbackWifiLock")
                 }
-            } catch (_: Exception) {}
+            }
         }
 
         try {
@@ -539,7 +537,7 @@ class AdbSessionService : Service() {
             }
         } catch (_: Exception) {}
     }
-
+    
     private fun releasePerformanceLocks() {
         try {
             if (wakeLock?.isHeld == true) {
