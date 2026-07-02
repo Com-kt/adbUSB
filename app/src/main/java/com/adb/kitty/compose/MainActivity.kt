@@ -142,8 +142,6 @@ class MainActivity : ComponentActivity() {
     var adbService: AdbSessionService? = null
     private var isServiceBound = false
     private var isBindingRequested = false
-    val connectedDevices = mutableStateListOf<String>()
-    var activeDeviceId by mutableStateOf<String?>(null)
     private var kadbInstance: Kadb?
         get() = if (isServiceBound) adbService?.globalKadbInstance else null
         set(value) { if (isServiceBound) adbService?.globalKadbInstance = value }
@@ -154,15 +152,14 @@ class MainActivity : ComponentActivity() {
             adbService = binder.getService()
             isServiceBound = true
             appendLog("[系统] 前台物理守护进程并网成功。")
-            syncDeviceList()
+            viewModel.setAdbService(adbService)
         }
 
         override fun onServiceDisconnected(name: ComponentName?) {
             isServiceBound = false
             isBindingRequested = false
             adbService = null
-            connectedDevices.clear()
-            activeDeviceId = null
+            viewModel.setAdbService(null)
         }
     }
 
@@ -344,14 +341,6 @@ class MainActivity : ComponentActivity() {
         
         // 首次冷启动探测有线
         findHostDevice()
-    }
-    
-    fun syncDeviceList() {
-        adbService?.let { service ->
-            connectedDevices.clear()
-            connectedDevices.addAll(service.getConnectedDeviceIds())
-            activeDeviceId = service.currentDeviceId
-        }
     }
     
     private fun dispatchCommandRoute(cmdInput: String) {
@@ -554,185 +543,6 @@ class MainActivity : ComponentActivity() {
                 return
             }
             executeDownload(urlArg)
-            return
-        }
-        
-        if (cmd.startsWith("7zip")) {
-            appendLog("[系统] 扩展指令 >> $cmd")
-            val trimCmd = cmd.removePrefix("7zip ").trim()
-            val words = trimCmd.split("\\s+".toRegex())
-            if (words.size < 2) {
-                appendLog("[错误] 用法: 7zip <目标路径(支持空格)> <格式: kba|zip|7z|tar|gz|bz2> [压缩密码] [压缩级别:0-9]")
-                return
-            }
-
-            val supportedFormats = setOf("zip", "7z", "tar", "gz", "bz2", "gzip", "kba")
-            var sourceName = ""
-            var format = ""
-            var password: String? = null
-            var compressionLevel = 5
-
-            val size = words.size
-            val wLast = words[size - 1]
-            val wSecond = if (size >= 3) words[size - 2] else null
-            val wThird = if (size >= 4) words[size - 3] else null
-
-            val lastIsLevel = wLast.toIntOrNull() in 0..9
-            var formatWordIndex = -1
-
-            when {
-                wThird != null && supportedFormats.contains(wThird.lowercase()) && lastIsLevel -> {
-                    format = wThird.lowercase()
-                    password = wSecond
-                    compressionLevel = wLast.toInt()
-                    formatWordIndex = size - 3
-                }
-                wSecond != null && supportedFormats.contains(wSecond.lowercase()) && lastIsLevel -> {
-                    format = wSecond.lowercase()
-                    compressionLevel = wLast.toInt()
-                    formatWordIndex = size - 2
-                }
-                wSecond != null && supportedFormats.contains(wSecond.lowercase()) -> {
-                    format = wSecond.lowercase()
-                    password = wLast
-                    formatWordIndex = size - 2
-                }
-                supportedFormats.contains(wLast.lowercase()) -> {
-                    format = wLast.lowercase()
-                    formatWordIndex = size - 1
-                }
-                else -> {
-                    appendLog("[错误] 未能识别压缩格式。请检查格式位置是否正确。")
-                    return
-                }
-            }
-
-            sourceName = words.take(formatWordIndex).joinToString(" ")
-
-            val sourceFile = File(flashFolder, sourceName)
-            if (!sourceFile.exists()) {
-                appendLog("[错误] 找不到压缩源: flash/$sourceName")
-                return
-            }
-
-            val realFormat = if (format == "gzip") "gz" else format
-            if ((realFormat == "gz" || realFormat == "gzip") && sourceFile.isDirectory) {
-                appendLog("[错误] GZIP 不支持压缩文件夹，请改用 7z 或 zip！")
-                return
-            }
-
-            val outputFile = File(flashFolder, "$sourceName.$realFormat")
-            if (!password.isNullOrEmpty()) {
-                appendLog("[系统] 密码机制已就绪，正在构建安全归档...")
-            }
-            
-            appendLog("[系统] 固实多线程核心已拉满，正在以 $compressionLevel 级高速压缩中...")
-
-            lifecycleScope.launch {
-                try {
-                    var fileCounter = 0
-                    val success = withContext(Dispatchers.IO) {
-                        OmniCompressUtils.compress(
-                            format = realFormat,
-                            source = sourceFile,
-                            output = outputFile,
-                            password = password,
-                            compressionLevel = compressionLevel,
-                            onStatusUpdate = { fileName, status ->
-                                fileCounter++
-                                if (fileCounter % 50 == 0 || status == "FAILED") {
-                                    lifecycleScope.launch(Dispatchers.Main) {
-                                        when (status) {
-                                            "START"  -> appendLog("[>>] 正在压入: $fileName (已处理 $fileCounter)")
-                                            "FAILED" -> appendLog("[错误] 文件写入失败: $fileName")
-                                        }
-                                    }
-                                }
-                            },
-                            onErrorOccurred = { detailReason ->
-                                lifecycleScope.launch(Dispatchers.Main) {
-                                    appendLog("[内核崩溃诊断]\n$detailReason")
-                                }
-                            }
-                        )
-                    }
-            
-                    if (success) {
-                        appendLog("[系统] KBA/7-Zip 压缩成功！输出至: flash/${outputFile.name}")
-                    } else {
-                        appendLog("[错误] 压缩失败：内核拒绝创建，请检查目标文件是否被占用或源文件是否为空。")
-                    }
-                } catch (e: Throwable) {
-                    appendLog("[崩溃] 内部异常断言: ${e.javaClass.simpleName} -> ${e.localizedMessage}")
-                }
-            }
-            return
-        }
-
-        if (cmd.startsWith("un7zip")) {
-            appendLog("[系统] 扩展指令 >> $cmd")
-            val trimCmd = cmd.removePrefix("un7zip ").trim()
-
-            if (trimCmd.isEmpty()) {
-                appendLog("[错误] 用法: un7zip <压缩文件(支持空格)> [解密密码]")
-                return
-            }
-
-            var fileName = trimCmd
-            var password: String? = null
-
-            if (!File(flashFolder, fileName).exists()) {
-                val lastSpaceIdx = trimCmd.lastIndexOf(' ')
-                if (lastSpaceIdx != -1) {
-                    val potentialFile = trimCmd.substring(0, lastSpaceIdx).trim()
-                    val potentialPassword = trimCmd.substring(lastSpaceIdx + 1).trim()
-            
-                    if (File(flashFolder, potentialFile).exists()) {
-                        fileName = potentialFile
-                        password = potentialPassword.ifEmpty { null }
-                    }
-                }
-            }
-
-            val sourceFile = File(flashFolder, fileName)
-            if (!sourceFile.exists() || !sourceFile.isFile) {
-                appendLog("[错误] 未找到有效的压缩包: flash/$fileName")
-                return
-            }
-
-            val dirName = if (fileName.contains(".")) fileName.substringBeforeLast(".") else "${fileName}_extracted"
-            val outputTarget = File(flashFolder, dirName)
-
-            if (password != null) {
-                appendLog("[系统] 密码载入成功，正在调用 7-Zip 原生引擎执行硬解密...")
-            } else {
-                appendLog("[系统] 正在自适应解析文件头特征...")
-            }
-            appendLog("[系统] 目标解压路径: flash/$dirName/")
-
-            lifecycleScope.launch {
-                try {
-                    var lastPercent = -1
-                    val success = withContext(Dispatchers.IO) {
-                        OmniCompressUtils.decompress(sourceFile, outputTarget, password) { currentFile, percent ->
-                            if (percent != lastPercent && percent % 5 == 0) {
-                                lastPercent = percent
-                                lifecycleScope.launch(Dispatchers.Main) {
-                                    appendLog("[进度] 正在解压: $percent% | 当前释放: $currentFile")
-                                }
-                            }
-                        }
-                    }
-            
-                    if (success) {
-                        appendLog("[系统] 7-Zip 解包成功！文件已安全释放至: flash/$dirName/")
-                    } else {
-                        appendLog("[错误] 7-Zip 异常：解压失败。可能原因：密码不正确或包体损坏。")
-                    }
-                } catch (e: Exception) {
-                    appendLog("[崩溃] 解压引擎运行时异常: ${e.localizedMessage ?: e.message}")
-                }
-            }
             return
         }
 
@@ -1172,12 +982,13 @@ class MainActivity : ComponentActivity() {
             isAdbAuthorized = true
             lifecycleScope.launch(Dispatchers.IO) {
                 try {
-                    val isAlreadyConnected = adbService?.getConnectedDeviceIds()?.contains(deviceKey) == true
-                    if (isAlreadyConnected) {
+                    val currentService = adbService ?: return@launch
+            
+                    if (currentService.getConnectedDeviceIds().contains(deviceKey)) {
                         withContext(Dispatchers.Main) { 
-                            appendLog("[USB] 检测到设备 [$serialNumber] 存在旧通道，正在重置链路...") 
+                            appendLog("[USB] 设备已在通道中，直接复用当前连接，防止无限重连循环。") 
                         }
-                        adbService?.unregisterDevice(deviceKey)
+                        return@launch
                     }
 
                     usbForwarder?.stop()
@@ -1197,16 +1008,11 @@ class MainActivity : ComponentActivity() {
                     }.getOrElse { false }
 
                     withContext(Dispatchers.Main) {
-                        if (isConnected) {
-                            adbService?.registerUsbDevice(serialNumber, instance)
-                            adbService?.currentDeviceId = deviceKey
-                            isAdbAuthorized = true
-                            syncDeviceList()
+                        val activeService = adbService
+                        if (isConnected && activeService != null) {
+                            activeService.registerUsbDevice(serialNumber, instance)
+                            activeService.currentDeviceId = deviceKey
                             appendLog(">>> 👍 ADB 有线授权成功，物理总线全面并网！[$serialNumber] <<<")
-                        } else {
-                            // 握手失败，安全熔断
-                            runCatching { instance.close() }
-                            appendLog("[Error] 有线物理握手校验未通过，请在手机端允许 USB 调试授权。")
                         }
                     }
                 } catch (e: Exception) {
@@ -1589,11 +1395,10 @@ class MainActivity : ComponentActivity() {
         
         val deviceKey = "WIFI_$ip:$port" 
 
-        // 精准清理同 IP 端口的旧物理残余，不误杀其他并网设备
-        val isAlreadyConnected = adbService?.getConnectedDeviceIds()?.contains(deviceKey) == true
-        if (isAlreadyConnected) {
-            withContext(Dispatchers.Main) { appendLog("[无线] 检测到设备 [$target] 已处于并网状态，正在重新建立物理链路...") }
-            adbService?.unregisterDevice(deviceKey) 
+        val currentService = adbService ?: return
+
+        if (currentService.getConnectedDeviceIds().contains(deviceKey)) {
+            currentService.unregisterDevice(deviceKey) 
         }
 
         try {
@@ -1610,15 +1415,14 @@ class MainActivity : ComponentActivity() {
             }
 
             if (response.exitCode == 0 && response.allOutput.trim() == "1") {
-                // 成功建立，登记入库
-                adbService?.registerWifiDevice("$ip:$port", instance)
-                // 瞬间将当前主控路由指针指向这台新无线设备
-                adbService?.currentDeviceId = deviceKey 
-            
                 withContext(Dispatchers.Main) {
                     isAdbAuthorized = true
-                    syncDeviceList() // 刷新界面复选框
-                    appendLog(">>> 👍 无线设备 [$target] 并网成功！已自动切换为主控目标。 <<<")
+                    val activeService = adbService
+                    if (activeService != null) {
+                        activeService.registerWifiDevice("$ip:$port", instance)
+                        activeService.currentDeviceId = deviceKey 
+                        appendLog(">>> 👍 无线设备并网成功！已自动切换为主控目标。 <<<")
+                    }
                     saveConnectedDevice(ip, port)
                 }
             } else {
@@ -2012,6 +1816,7 @@ class MainActivity : ComponentActivity() {
             unbindService(serviceConnection)
             isServiceBound = false
         }
+        viewModel.setAdbService(null)
         super.onDestroy()
         readerJob?.cancel()
         usbConn?.close()

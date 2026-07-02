@@ -64,3 +64,14 @@ data class CommandUiItem(
     val isAdb: Boolean,
     val isApp: Boolean = false
 )
+
+@Keep
+enum class DeviceType { USB, WIFI }
+
+@Keep
+data class DeviceUiState(
+    val id: String,
+    val displayName: String,
+    val type: DeviceType,
+    val isActive: Boolean
+)

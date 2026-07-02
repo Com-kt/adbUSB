@@ -61,6 +61,7 @@ import androidx.activity.*
 import androidx.activity.compose.*
 import androidx.activity.result.contract.*
 import androidx.lifecycle.*
+import androidx.lifecycle.compose.*
 import androidx.lifecycle.viewmodel.*
 import androidx.lifecycle.viewmodel.compose.*
 import androidx.compose.foundation.*
@@ -105,6 +106,8 @@ fun CenterAlignedTopAppBarExample(
 ) {
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior(rememberTopAppBarState())
     var showMenu by remember { mutableStateOf(false) }
+    
+    val devicesState by viewModel.deviceListState.collectAsStateWithLifecycle()
     
     var query by rememberSaveable(stateSaver = TextFieldValue.Saver) { 
         mutableStateOf(TextFieldValue("")) 
@@ -359,54 +362,12 @@ fun CenterAlignedTopAppBarExample(
     ) { innerPadding ->
         Column(modifier = Modifier.padding(innerPadding).padding(16.dp).fillMaxSize()) {
             
-            if (activity.connectedDevices.isEmpty()) {
-                Text(
-                    text = "💡 暂无可用并网通道",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(vertical = 12.dp)
-                )
-            } else {
-                CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides Dp.Unspecified) {
-                    FlowRow(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 4.dp, bottom = 8.dp),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        verticalArrangement = Arrangement.spacedBy(0.dp)
-                    ) {
-                        activity.connectedDevices.forEach { rawDeviceId ->
-                            val isCurrentActive = activity.activeDeviceId == rawDeviceId
-                            
-                            val isUsb = rawDeviceId.startsWith("USB_")
-                            val cleanName = rawDeviceId.substringAfter("_")
-                            val displayName = if (isUsb) "🔌 USB: $cleanName" else "🌐 Wi-Fi: $cleanName"
-
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.padding(vertical = 4.dp)
-                            ) {
-                                Checkbox(
-                                    checked = isCurrentActive,
-                                    onCheckedChange = { checked ->
-                                        if (checked) {
-                                            activity.adbService?.currentDeviceId = rawDeviceId
-                                            activity.syncDeviceList()
-                                            activity.appendLog("[系统] 主控权已动态切流至 -> $displayName")
-                                        }
-                                    }
-                                )
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text(
-                                    text = displayName,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = if (isCurrentActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
-                                )
-                            }
-                        }
-                    }
+            DeviceSelectionSection(
+                devices = devicesState,
+                onDeviceSelected = { selectedDevice ->
+                    viewModel.switchActiveDevice(selectedDevice)
                 }
-            }
+            )
             
             Box(modifier = Modifier.wrapContentHeight()) {
                 ExposedDropdownMenuBox(
@@ -500,6 +461,60 @@ fun CenterAlignedTopAppBarExample(
                     .fillMaxWidth()
                     .padding(top = 16.dp, bottom = 71.dp)
             )
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
+@Composable
+fun DeviceSelectionSection(
+    devices: List<DeviceUiState>,
+    onDeviceSelected: (DeviceUiState) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    if (devices.isEmpty()) {
+        Text(
+            text = "💡 暂无可用并网通道",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = modifier.padding(vertical = 12.dp)
+        )
+    } else {
+        CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides Dp.Unspecified) {
+            FlowRow(
+                modifier = modifier
+                    .fillMaxWidth()
+                    .padding(top = 4.dp, bottom = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                devices.forEach { device ->
+                    FilterChip(
+                        selected = device.isActive,
+                        onClick = { viewModel.switchActiveDevice(device) },
+                        label = {
+                            Text(
+                                text = device.displayName,
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        },
+                        leadingIcon = {
+                            if (device.isActive) {
+                                Icon(
+                                    imageVector = Icons.Filled.Done,
+                                    contentDescription = "Selected",
+                                    modifier = Modifier.size(14.dp)
+                                )
+                            }
+                        },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                            selectedLabelColor = MaterialTheme.colorScheme.primary,
+                            selectedLeadingIconColor = MaterialTheme.colorScheme.primary
+                        )
+                    )
+                }
+            }
         }
     }
 }

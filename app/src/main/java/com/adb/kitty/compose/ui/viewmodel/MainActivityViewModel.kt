@@ -125,6 +125,53 @@ class MainActivityViewModel : ViewModel() {
         appendLog("[系统] 控制台日志已清空。")
     }
     
+    val warnMessage = "请确认设备已获得完整特权授权！"
+    private val _adbService = MutableStateFlow<AdbSessionService?>(null)
+
+    fun setAdbService(service: AdbSessionService?) {
+        _adbService.value = service
+    }
+    
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val deviceListState: StateFlow<List<DeviceUiState>> = _adbService.flatMapLatest { service ->
+        if (service == null) {
+            flowOf(emptyList())
+        } else {
+            combine(service.connectedDevicesState, service.currentDeviceIdState) { devices, activeId ->
+                devices.map { rawId ->
+                    val isUsb = rawId.startsWith("USB_")
+                    val cleanName = rawId.substringAfter("_")
+                    DeviceUiState(
+                        id = rawId,
+                        displayName = if (isUsb) "🔌 USB: $cleanName" else "🌐 Wi-Fi: $cleanName",
+                        type = if (isUsb) DeviceType.USB else DeviceType.WIFI,
+                        isActive = rawId == activeId
+                    )
+                }
+            }
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    fun switchActiveDevice(targetDevice: DeviceUiState) {
+        val service = _adbService.value
+        if (service == null) {
+            appendLog("[错误] 通信守护服务未就绪，切换失败。")
+            return
+        }
+        
+        if (!service.getConnectedDeviceIds().contains(targetDevice.id) || targetDevice.isActive) {
+            appendLog("[系统] 切换熔断：设备 ${targetDevice.displayName} 已离线或已被激活。")
+            return
+        }
+        
+        try {
+            service.currentDeviceId = targetDevice.id
+            appendLog("[系统] 主控权已动态切流至 -> ${targetDevice.displayName}")
+        } catch (e: Exception) {
+            appendLog("[系统] 切流发生异常: ${e.localizedMessage}")
+        }
+    }
+    
     private var _fastbootManager: FastbootManager? = null
     val fastbootManager: FastbootManager? get() = _fastbootManager
     
@@ -180,8 +227,6 @@ class MainActivityViewModel : ViewModel() {
         AppCommand("调用系统图片选择器来进行二维码解码, 该扩展指令由app提供", "qr-decode --system"),
         AppCommand("文件加密, 该扩展指令由app提供", "encrypt "),
         AppCommand("文件解密, 该扩展指令由app提供", "decrypt "),
-        AppCommand("压缩文件夹/文件, 该扩展指令由app提供", "7zip "),
-        AppCommand("解压压缩包, 该扩展指令由app提供", "un7zip "),
         AppCommand("尝试从互联网下载文件, 该扩展指令由app提供", "download "),
         AppCommand("Wi-Fi P2P 搜寻设备, 该扩展指令由app提供", "p2p-search "),
         AppCommand("Wi-Fi P2P 查看搜寻到的设备列表, 该扩展指令由app提供", "p2p-list "),
