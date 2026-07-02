@@ -18,7 +18,6 @@ lifecycle = "2.11.0"
 
 kadb = "2.1.2"
 zxing = "3.5.4"
-zip = "Release-16.02-2.03"
 annotationExperimental = "1.6.0"
 
 compose-bom = "2026.06.00"
@@ -48,7 +47,6 @@ lsposed-hiddenapibypass = { module = "org.lsposed.hiddenapibypass:hiddenapibypas
 
 nayuki-qrcode = { group = "io.nayuki", name = "qrcodegen", version.ref = "nayukiQR" }
 zxing-core = { group = "com.google.zxing", name = "core", version.ref = "zxing" }
-zip-jbinding = { group = "com.github.omicronapps", name = "7-Zip-JBinding-4Android", version.ref = "zip" }
 
 libsu-core = { module = "com.github.topjohnwu.libsu:core", version.ref = "libsuVersion" }
 libsu-service = { module = "com.github.topjohnwu.libsu:service", version.ref = "libsuVersion" }

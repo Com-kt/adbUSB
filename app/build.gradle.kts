@@ -56,7 +56,6 @@ abstract class GenerateKotlinMetadataTask : DefaultTask() {
     @get:Input abstract val lifecycleVersion: Property<String>
     @get:Input abstract val nayukiQRVersion: Property<String>
     @get:Input abstract val zxingCodeVersion: Property<String>
-    @get:Input abstract val zipVersion: Property<String>
     
     @get:Input abstract val sourceCompatibility: Property<String>
     @get:Input abstract val targetCompatibility: Property<String>
@@ -104,8 +103,7 @@ abstract class GenerateKotlinMetadataTask : DefaultTask() {
             "com.github.topjohnwu.libsu:libsuVersion": "${libsuVersion.get()}",
             "MTDataFilesProviderVersion": "${mtDataFilesProviderVersion.get()}",
             "nayukiQRVersion": "${nayukiQRVersion.get()}",
-            "zxingCodeVersion": "${zxingCodeVersion.get()}",
-            "zipVersion": "${zipVersion.get()}"
+            "zxingCodeVersion": "${zxingCodeVersion.get()}"
           },
           "projectTargets": [
             {
@@ -143,7 +141,6 @@ val injectKotlinMetadataToRoot = tasks.register<GenerateKotlinMetadataTask>("inj
     lifecycleVersion.set(providers.provider { libs.versions.lifecycle.get() })
     nayukiQRVersion.set(providers.provider { libs.versions.nayukiQR.get() })
     zxingCodeVersion.set(providers.provider { libs.versions.zxing.get() })
-    zipVersion.set(providers.provider { libs.versions.zip.get() })
 
     sourceCompatibility.set(providers.provider { android.compileOptions.sourceCompatibility.toString() })
     targetCompatibility.set(providers.provider { android.compileOptions.targetCompatibility.toString() })
@@ -280,7 +277,6 @@ android {
                 ignoreFrom("org.lsposed.hiddenapibypass:hiddenapibypass")
                 ignoreFrom("io.nayuki:qrcodegen")
                 ignoreFrom("com.google.zxing:core")
-                ignoreFrom("com.github.omicronapps:7-Zip-JBinding-4Android")
             }
             signingConfig = signingConfigs.getByName("adb")
         }
@@ -326,7 +322,6 @@ dependencies {
     implementation(libs.lsposed.hiddenapibypass)
     implementation(libs.nayuki.qrcode)
     implementation(libs.zxing.core)
-    implementation(libs.zip.jbinding)
     implementation(libs.bundles.libsu)
     implementation(libs.com.flyfishxu.kadb)
     implementation(libs.androidx.annotation.experimental)

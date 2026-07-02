@@ -64,10 +64,33 @@
 > 
 > MTK UNSUPPORTED
 
-# AndroidManifest
-```
+# 注意事项
+- Android 清单文件
+```xml
+<!-- 允许备份数据 -->
+android:allowBackup="true"
+
+<!-- 允许自由调整窗口 -->
+android:resizeableActivity="true"
+
+<!-- 允许硬件加速 -->
+android:hardwareAccelerated="true"
+
+<!-- 安装位置由系统自动选择 -->
+android:installLocation="auto"
+
+<!-- 应用被声明为持久性 -->
 android:persistent="true"
+
+<!-- 允许申请大堆内存 -->
 android:largeHeap="true"
+
+<!-- SDK -->
+<uses-sdk
+    <!-- minSdk = 最低支持的系统 -->
+    android:minSdkVersion="28"
+    <!-- targetSdk = 目标支持的系统 -->
+    android:targetSdkVersion="37" />
 ```
 
 # Wi-Fi P2P
