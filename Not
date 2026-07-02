@@ -5,7 +5,7 @@ usbFalsh
 ├── LICENSE
 ├── Not
 ├── README.md
-├── Terminal
+├── Terminal.bash
 ├── app
 │   ├── build.gradle.kts
 │   ├── proguard-rules.pro
