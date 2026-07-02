@@ -12,3 +12,4 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - name: Update
+        run: echo "Update file"
