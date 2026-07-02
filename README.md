@@ -51,7 +51,6 @@
     - [x] ipv6 Test
     - [x] display Test (RootService)
         - [x] CPU
-            - [x] SM8475
             - [x] SM8650
     - [x] MTFilesProvider
     - [x] Kernel frequency raising (Android 12+)
@@ -71,22 +70,6 @@ android:persistent="true"
 android:largeHeap="true"
 ```
 
-# KBA
-```
-+-------------------------------------------------------------+
-| Header (8 字节) : Magic 'KBA1' (4B) + Index Offset (4B)     |
-+-------------------------------------------------------------+
-| Block 0 : [Compressed Size (4B)] + [Raw Deflate Data]       |
-| Block 1 : [Compressed Size (4B)] + [Raw Deflate Data]       |
-| ...                                                         |
-+-------------------------------------------------------------+
-| Central Index (末尾) :                                       |
-|   - Total Files (4B)                                        |
-|   - 重复条目: [NameLen (2B)] + [Name] + [StreamOffset (8B)]  |
-|               + [FileSize (8B)]                             |
-+-------------------------------------------------------------+
-```
-
 # Wi-Fi P2P
 - 本地身份：GO[群主]，GC[组员]
 - 尝试强制协商Wi-Fi P2P本地身份，只需要在连接时传入 --GO 或者 --GC
@@ -95,8 +78,8 @@ android:largeHeap="true"
     设备A：作为接收端，并且身份为GO[群主]
      └─初始化 >> p2p-search
      └─设备A点击同意连接
-     └─等待设备B执行完发送数据，再执行接收数据
      └─接收数据 >> p2p-receive
+     └─等待设备B执行完发送数据
 
     设备B：作为发送端，并且身份为GC[组员]
      └─初始化 >> p2p-search
@@ -183,4 +166,3 @@ p2p-reset
 - [libsu](https://github.com/topjohnwu/libsu)
 - [bkerler-edl](https://github.com/bkerler/edl)
 - [AndroidHiddenApiBypass](https://github.com/LSPosed/AndroidHiddenApiBypass)
-- [7-Zip-JBinding-4Android](https://github.com/omicronapps/7-Zip-JBinding-4Android)
