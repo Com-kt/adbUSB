@@ -1,0 +1,151 @@
+usbFalsh
+├── CODE_OF_CONDUCT.md
+├── CONTRIBUTING.md
+├── LICENSE
+├── Not
+├── README.md
+├── Terminal
+├── app
+│   ├── build.gradle.kts
+│   ├── proguard-rules.pro
+│   └── src
+│       └── main
+│           ├── AndroidManifest.xml
+│           ├── aidl
+│           │   └── com
+│           │       └── adb
+│           │           └── kitty
+│           │               └── compose
+│           │                   └── data
+│           │                       └── ICpuBinder.aidl
+│           ├── cpp
+│           │   ├── CMakeLists.txt
+│           │   ├── crypto_utils.cpp
+│           │   ├── crypto_utils.h
+│           │   ├── native-lib.cpp
+│           │   ├── native-sig.cpp
+│           │   ├── native-unzip.cpp
+│           │   └── native-zip.cpp
+│           ├── java
+│           │   └── com
+│           │       └── adb
+│           │           └── kitty
+│           │               └── compose
+│           │                   ├── AdbSessionService.kt
+│           │                   ├── BypassApi.kt
+│           │                   ├── MainActivity.kt
+│           │                   ├── data
+│           │                   │   ├── AdbKeyManager.kt
+│           │                   │   ├── CryptoUtils.kt
+│           │                   │   ├── FastbootManager.kt
+│           │                   │   ├── GhzRootService.kt
+│           │                   │   ├── IpManager.kt
+│           │                   │   ├── NativeLibs.kt
+│           │                   │   ├── OmniCompressUtils.kt
+│           │                   │   ├── PerformanceTurbo.kt
+│           │                   │   ├── QrCodeUtils.kt
+│           │                   │   ├── RefreshRateInspector.kt
+│           │                   │   ├── UsbPortForwarder.kt
+│           │                   │   └── VpnIpManager.kt
+│           │                   └── ui
+│           │                       ├── it
+│           │                       │   ├── QrUI.kt
+│           │                       │   └── UI.kt
+│           │                       ├── theme
+│           │                       │   ├── Color.kt
+│           │                       │   ├── Icons.kt
+│           │                       │   ├── Theme.kt
+│           │                       │   └── Type.kt
+│           │                       └── viewmodel
+│           │                           └── MainActivityViewModel.kt
+│           └── res
+│               ├── drawable
+│               │   ├── ic_launcher_background.xml
+│               │   └── ic_launcher_foreground.xml
+│               ├── drawable-nodpi
+│               │   └── tv_banner.webp
+│               ├── mipmap-anydpi
+│               │   └── ic_launcher.xml
+│               ├── resources.properties
+│               ├── values
+│               │   ├── strings.xml
+│               │   └── themes.xml
+│               ├── values-night
+│               │   └── themes.xml
+│               ├── values-zh-rCN
+│               │   └── strings.xml
+│               └── xml
+│                   ├── accessory_filter.xml
+│                   ├── file_paths.xml
+│                   ├── network_security_config.xml
+│                   └── usb_device_filter.xml
+├── build.gradle.kts
+├── gradle
+│   ├── libs.versions.toml
+│   └── wrapper
+│       ├── gradle-wrapper.jar
+│       └── gradle-wrapper.properties
+├── gradle.properties
+├── gradlew
+├── gradlew.bat
+├── image
+│   └── telegram_icon.webp
+├── lint.xml
+├── linux
+│   └── platform-tools
+│       ├── arm64-v8a
+│       │   ├── NOTICE.txt
+│       │   ├── adb
+│       │   ├── etc1tool
+│       │   ├── fastboot
+│       │   ├── hprof-conv
+│       │   ├── make_f2fs
+│       │   ├── make_f2fs_casefold
+│       │   ├── mke2fs
+│       │   ├── mke2fs.conf
+│       │   ├── package.xml
+│       │   ├── source.properties
+│       │   └── sqlite3
+│       ├── armeabi-v7a
+│       │   ├── NOTICE.txt
+│       │   ├── adb
+│       │   ├── etc1tool
+│       │   ├── fastboot
+│       │   ├── hprof-conv
+│       │   ├── make_f2fs
+│       │   ├── make_f2fs_casefold
+│       │   ├── mke2fs
+│       │   ├── mke2fs.conf
+│       │   ├── package.xml
+│       │   ├── source.properties
+│       │   └── sqlite3
+│       ├── x86
+│       │   ├── NOTICE.txt
+│       │   ├── adb
+│       │   ├── etc1tool
+│       │   ├── fastboot
+│       │   ├── hprof-conv
+│       │   ├── make_f2fs
+│       │   ├── make_f2fs_casefold
+│       │   ├── mke2fs
+│       │   ├── mke2fs.conf
+│       │   ├── package.xml
+│       │   ├── source.properties
+│       │   └── sqlite3
+│       └── x86_64
+│           ├── NOTICE.txt
+│           ├── adb
+│           ├── etc1tool
+│           ├── fastboot
+│           ├── hprof-conv
+│           ├── make_f2fs
+│           ├── make_f2fs_casefold
+│           ├── mke2fs
+│           ├── mke2fs.conf
+│           ├── package.xml
+│           ├── source.properties
+│           └── sqlite3
+├── output.txt
+└── settings.gradle.kts
+
+38 directories, 111 files
