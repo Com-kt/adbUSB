@@ -125,7 +125,6 @@ class MainActivityViewModel : ViewModel() {
         appendLog("[系统] 控制台日志已清空。")
     }
     
-    val warnMessage = "请确认设备已获得完整特权授权！"
     private val _adbService = MutableStateFlow<AdbSessionService?>(null)
 
     fun setAdbService(service: AdbSessionService?) {

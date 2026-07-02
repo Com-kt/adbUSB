@@ -465,6 +465,7 @@ fun CenterAlignedTopAppBarExample(
     }
 }
 
+@Keep
 @OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun DeviceSelectionSection(
@@ -491,7 +492,7 @@ fun DeviceSelectionSection(
                 devices.forEach { device ->
                     FilterChip(
                         selected = device.isActive,
-                        onClick = { viewModel.switchActiveDevice(device) },
+                        onClick = { onDeviceSelected(device) }, 
                         label = {
                             Text(
                                 text = device.displayName,
