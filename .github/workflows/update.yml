@@ -6,12 +6,9 @@ on:
   pull_request:
     branches: [ "update" ]
 
-workflow_dispatch:
-
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
       - name: Update
-        run: echo Update, file!
