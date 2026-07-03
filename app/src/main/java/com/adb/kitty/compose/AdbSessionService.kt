@@ -398,7 +398,7 @@ class AdbSessionService : Service() {
         initWifiP2p(onLog)
 
         val manager = wifiP2pManager
-        val channel = p2pChannel
+        val channel = p2pChannel ?: return
 
         // 1. 条件判断：只有 API >= 29 且参数完整，才玩高级自定义
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && !customSsid.isNullOrEmpty() && !customPass.isNullOrEmpty()) {
