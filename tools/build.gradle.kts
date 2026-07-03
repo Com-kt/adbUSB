@@ -87,7 +87,7 @@ android {
 }
 
 dependencies {
-    runtimeOnly(libs.bundles.coroutines.runtime)
+    implementation(libs.bundles.coroutines.runtime)
     implementation(libs.androidx.annotation)
     implementation(libs.androidx.annotation.experimental)
 }
