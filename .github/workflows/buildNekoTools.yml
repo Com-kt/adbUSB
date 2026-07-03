@@ -1,0 +1,61 @@
+name: Android Neko CI
+
+on:
+  push:
+    branches: [ "neko" ]
+  pull_request:
+    branches: [ "neko" ]
+
+permissions:
+  contents: write
+  
+jobs:
+  builds:
+    concurrency: ci-${{ github.ref }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v5
+        with:
+          java-version: '25'
+          distribution: 'temurin'
+          cache: 'gradle'
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Decode Both Keystores
+        run: |
+          echo "${{ secrets.SIGNING_KEY_BASE64 }}" | base64 --decode > tools/new_full_ec_key.jks
+
+      - name: Build Debug, Release and Bundle
+        run: ./gradlew :tools:assembleDebug :tools:assembleRelease -i -w --stacktrace --warning-mode all 2>&1 | tee build.log
+        env:
+          RELEASE_STORE_PASSWORD: ${{ secrets.KEY_STORE_PASSWORD }}
+          RELEASE_KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          RELEASE_KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+      
+      - name: Upload Build Log
+        uses: actions/upload-artifact@v7
+        with:
+          name: build-log
+          path: build.log
+          archive: false
+          
+      - name: Upload Debug APKs
+        uses: actions/upload-artifact@v7
+        with:
+          name: debug-apks
+          path: tools/build/outputs/apk/debug/*
+          archive: true
+
+      - name: Upload Release APKs
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-apks
+          path: tools/build/outputs/apk/release/*
+          archive: true
+          

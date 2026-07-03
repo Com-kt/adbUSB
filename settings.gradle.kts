@@ -28,3 +28,4 @@ dependencyResolutionManagement {
 rootProject.name = "usbFlash"
 
 include(":app")
+include(":tools")
