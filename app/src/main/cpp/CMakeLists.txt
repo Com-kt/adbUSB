@@ -12,9 +12,6 @@ set(SOURCE_DIR src/main/cpp)
 add_library(native-lib SHARED
         native-lib.cpp
         native-sig.cpp
-        native-zip.cpp
-        native-unzip.cpp
-        crypto_utils.cpp
 )
 
 find_library(log-lib log)
@@ -23,7 +20,6 @@ find_library(android-lib android)
 target_link_libraries(native-lib
     ${log}
     ${android}
-    z
 )
 
 target_link_options(native-lib PRIVATE "-Wl,-z,max-page-size=65536")

@@ -4,12 +4,6 @@
 -keep class okio.** { *; }
 -dontwarn okio.**
 
--keep class org.** { *; }
--dontwarn org.**
-
--keep class android.** { *; }
--dontwarn android.**
-
 -keep class kotlinx.coroutines.** { *; }
 -dontwarn kotlinx.coroutines.**
 -keep class kotlin.coroutines.** { *; }
