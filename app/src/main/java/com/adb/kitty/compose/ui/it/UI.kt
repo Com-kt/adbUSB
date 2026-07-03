@@ -532,7 +532,7 @@ fun LogSection(
     
     val customTextSelectionColors = TextSelectionColors(
         handleColor = MaterialTheme.colorScheme.primary,
-        backgroundColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)
+        backgroundColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
     )
 
     LaunchedEffect(logs.size) {
