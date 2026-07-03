@@ -559,14 +559,14 @@ fun LogSection(
             .padding(8.dp)
     ) {
         CompositionLocalProvider(LocalTextSelectionColors provides customTextSelectionColors) {
-            SelectionContainer {
-                LazyColumn(
-                    state = listState,
-                    modifier = Modifier
-                        .fillMaxHeight()
-                        .wrapContentWidth() 
-                ) {
-                    items(logs) { log ->
+            LazyColumn(
+                state = listState,
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .wrapContentWidth() 
+            ) {
+                items(logs) { log ->
+                    SelectionContainer {
                         Text(
                             text = log,
                             fontFamily = FontFamily.Monospace,
