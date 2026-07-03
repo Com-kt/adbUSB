@@ -13,23 +13,23 @@ import androidx.annotation.Keep
 
 @Keep
 private val DarkColorScheme = darkColorScheme(
-    primary = Purple80,
-    secondary = PurpleGrey80,
-    tertiary = Pink80
+    primary = PinkPrimary80,
+    secondary = PinkSecondary80,
+    tertiary = PinkTertiary80
 )
 
 @Keep
 private val LightColorScheme = lightColorScheme(
-    primary = Purple40,
-    secondary = PurpleGrey40,
-    tertiary = Pink40
+    primary = PinkPrimary40,
+    secondary = PinkSecondary40,
+    tertiary = PinkTertiary40
 )
 
 @Keep
 @Composable
 fun ComposeEmptyActivityTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
-    dynamicColor: Boolean = true,
+    dynamicColor: Boolean = false,
     content: @Composable () -> Unit
 ) {
     val colorScheme = when {

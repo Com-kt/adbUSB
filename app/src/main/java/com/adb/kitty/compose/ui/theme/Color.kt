@@ -4,19 +4,19 @@ import androidx.compose.ui.graphics.Color
 import androidx.annotation.Keep
 
 @Keep
-val Purple80 = Color(0xFFD0BCFF)
+val PinkPrimary80 = Color(0xFFFFB1C8)       // 柔雾樱花粉（核心主色）
 
 @Keep
-val PurpleGrey80 = Color(0xFFCCC2DC)
+val PinkSecondary80 = Color(0xFFE5BDCB)     // 暮色粉灰（低调次要色）
 
 @Keep
-val Pink80 = Color(0xFFEFB8C8)
+val PinkTertiary80 = Color(0xFFF5BC99)      // 晚霞暖橘（局部点缀色）
 
 @Keep
-val Purple40 = Color(0xFF6650a4)
+val PinkPrimary40 = Color(0xFFB9145A)       // 浓郁莓果粉（核心主色）
 
 @Keep
-val PurpleGrey40 = Color(0xFF625b71)
+val PinkSecondary40 = Color(0xFF765662)     // 暗香粉灰（低调次要色）
 
 @Keep
-val Pink40 = Color(0xFF7D5260)
+val PinkTertiary40 = Color(0xFF815535)      // 落日珊瑚（局部点缀色）
