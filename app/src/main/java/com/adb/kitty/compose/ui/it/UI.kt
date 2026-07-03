@@ -574,7 +574,6 @@ fun LogSection(
                             softWrap = false,
                             modifier = Modifier
                                 .padding(vertical = 1.dp)
-                                .clip(RoundedCornerShape(4.dp))
                         )
                     }
                 }
