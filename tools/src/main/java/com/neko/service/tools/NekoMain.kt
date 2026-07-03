@@ -1,7 +1,7 @@
 package com.neko.service.tools
 
 import android.os.Looper
-import android.os.Process
+import android.system.Os // 关键导入：引入 Linux POSIX 系统调用接口
 import android.util.Log
 import kotlinx.coroutines.*
 import kotlin.system.exitProcess
@@ -15,13 +15,18 @@ object NekoMain {
         Log.i(TAG, "=========================================")
         Log.i(TAG, "Neko 守护进程正在启动...")
 
-        val uid = Process.myUid()
-        Log.i(TAG, "当前执行账号的 UID: $uid")
-        if (uid != 0) {
-            Log.e(TAG, "严重错误：当前未运行在 ROOT 环境下 (UID 不是 0)！进程即将退出。")
+        // 使用 Os 直接抓取底层的 UID 和 GID
+        val uid = Os.getuid()
+        val gid = Os.getgid()
+        
+        Log.i(TAG, "当前执行账号的 UID: $uid | GID: $gid")
+        
+        // 在真正的 Root 域下，uid 和 gid 必须全部为 0 (root:root)
+        if (uid != 0 || gid != 0) {
+            Log.e(TAG, "严重错误：当前未运行在绝对 ROOT 环境下 (UID=$uid, GID=$gid)！进程即将退出。")
             exitProcess(1)
         }
-        Log.i(TAG, "ROOT 权限确认成功，已接管底层控制权。")
+        Log.i(TAG, "ROOT 权限与用户组确认成功，已接管底层最高控制权。")
 
         Looper.prepareMainLooper()
 
