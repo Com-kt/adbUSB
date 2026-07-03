@@ -1,7 +1,7 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
   <style name="Theme.ComposeEmptyActivity" parent="android:Theme.Material.Light.NoActionBar" >
       <item name="android:actionModeBackground">@drawable/your_menu_background</item>
-      <item name="android:actionMenuTextColor">?attr/colorSurfaceContainerHighest</item>
+      <item name="android:actionMenuTextColor">?android:attr/colorBackground</item>
   </style>
 
   <style name="AppTheme" parent="Theme.ComposeEmptyActivity" />
