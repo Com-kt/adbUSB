@@ -528,6 +528,11 @@ fun LogSection(
 ) {
     val listState = rememberLazyListState()
     val globalHorizontalScrollState = rememberScrollState()
+    
+    val customTextSelectionColors = TextSelectionColors(
+        handleColor = MaterialTheme.colorScheme.primary,
+        backgroundColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)
+    )
 
     LaunchedEffect(logs.size) {
         if (logs.isNotEmpty()) {
@@ -552,21 +557,23 @@ fun LogSection(
             .horizontalScroll(globalHorizontalScrollState)
             .padding(8.dp)
     ) {
-        SelectionContainer {
-            LazyColumn(
-                state = listState,
-                modifier = Modifier
-                    .fillMaxHeight()
-                    .wrapContentWidth() 
-            ) {
-                items(logs) { log ->
-                    Text(
-                        text = log,
-                        fontFamily = FontFamily.Monospace,
-                        style = MaterialTheme.typography.bodyMedium,
-                        softWrap = false,
-                        modifier = Modifier.padding(vertical = 1.dp)
-                    )
+        CompositionLocalProvider(LocalTextSelectionColors provides customTextSelectionColors) {
+            SelectionContainer {
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .wrapContentWidth() 
+                ) {
+                    items(logs) { log ->
+                        Text(
+                            text = log,
+                            fontFamily = FontFamily.Monospace,
+                            style = MaterialTheme.typography.bodyMedium,
+                            softWrap = false,
+                            modifier = Modifier.padding(vertical = 1.dp)
+                        )
+                    }
                 }
             }
         }
