@@ -532,6 +532,71 @@ fun LogSection(
     
     val customTextSelectionColors = TextSelectionColors(
         handleColor = MaterialTheme.colorScheme.primary,
+        backgroundColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
+    )
+
+    LaunchedEffect(logs.size) {
+        if (logs.isNotEmpty()) {
+            val lastIndex = logs.size - 1
+            val lastVisibleIndex = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
+            if (lastIndex - lastVisibleIndex < 5) {
+                listState.scrollToItem(lastIndex) 
+            } else if (lastIndex - lastVisibleIndex < 20) {
+                listState.animateScrollToItem(lastIndex)
+            } else {
+                listState.scrollToItem(lastIndex)
+            }
+        }
+    }
+
+    Box(
+        modifier = modifier
+            .border(1.dp, MaterialTheme.colorScheme.outline)
+            .horizontalScroll(globalHorizontalScrollState)
+            .padding(8.dp)
+    ) {
+        CompositionLocalProvider(LocalTextSelectionColors provides customTextSelectionColors) {
+            SelectionContainer {
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        // 这里绝对不能写 wrapContentWidth()！
+                        // 在海量日志下，wrapContent 强迫 LazyColumn 每次滑动去重新测量所有可见文本的最长宽度，是卡顿的元凶。
+                        .fillMaxWidth() 
+                ) {
+                    items(
+                        items = logs,
+                        key = { log -> log.hashCode() + log.length }
+                    ) { log ->
+                        Text(
+                            text = log,
+                            fontFamily = FontFamily.Monospace,
+                            style = MaterialTheme.typography.bodyMedium,
+                            softWrap = false,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 1.dp)
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+/*
+@Keep
+@Composable
+fun LogSection(
+    logs: List<String>,
+    modifier: Modifier = Modifier
+) {
+    val listState = rememberLazyListState()
+    val globalHorizontalScrollState = rememberScrollState()
+    
+    val customTextSelectionColors = TextSelectionColors(
+        handleColor = MaterialTheme.colorScheme.primary,
         backgroundColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
     )
 
@@ -559,14 +624,14 @@ fun LogSection(
             .padding(8.dp)
     ) {
         CompositionLocalProvider(LocalTextSelectionColors provides customTextSelectionColors) {
-            LazyColumn(
-                state = listState,
-                modifier = Modifier
-                    .fillMaxHeight()
-                    .wrapContentWidth() 
-            ) {
-                items(logs) { log ->
-                    SelectionContainer {
+            SelectionContainer {
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .wrapContentWidth() 
+                ) {
+                    items(logs) { log ->
                         Text(
                             text = log,
                             fontFamily = FontFamily.Monospace,
@@ -581,6 +646,7 @@ fun LogSection(
         }
     }
 }
+*/
 
 @Keep
 @OptIn(ExperimentalMaterial3Api::class)
