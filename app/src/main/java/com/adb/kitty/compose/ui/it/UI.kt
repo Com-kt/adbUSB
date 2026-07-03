@@ -80,6 +80,7 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.*
 import androidx.compose.ui.*
 import androidx.compose.ui.res.*
+import androidx.compose.ui.draw.*
 import androidx.compose.ui.unit.*
 import androidx.compose.ui.window.*
 import androidx.compose.ui.platform.*
@@ -571,7 +572,9 @@ fun LogSection(
                             fontFamily = FontFamily.Monospace,
                             style = MaterialTheme.typography.bodyMedium,
                             softWrap = false,
-                            modifier = Modifier.padding(vertical = 1.dp)
+                            modifier = Modifier
+                                .padding(vertical = 1.dp)
+                                .clip(RoundedCornerShape(4.dp))
                         )
                     }
                 }
