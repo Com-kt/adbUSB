@@ -399,10 +399,6 @@ class AdbSessionService : Service() {
 
         val manager = wifiP2pManager
         val channel = p2pChannel
-        if (manager == null || channel == null) {
-            onLog("[错误] P2P 基础设施未就绪（Manager 或 Channel 为 null）")
-            return
-        }
 
         // 1. 条件判断：只有 API >= 29 且参数完整，才玩高级自定义
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && !customSsid.isNullOrEmpty() && !customPass.isNullOrEmpty()) {

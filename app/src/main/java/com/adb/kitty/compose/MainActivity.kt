@@ -408,7 +408,7 @@ class MainActivity : ComponentActivity() {
                 appendLog("[提示] ❌ 错误：--ssid 和 --pass 必须成对出现！")
                 return
             }
-            if (pass != null && pass!!.length < 8) {
+            if (pass != null && pass.length < 8) {
                 appendLog("[提示] ❌ 错误：Wi-Fi 密码长度不能少于 8 位！")
                 return
             }
