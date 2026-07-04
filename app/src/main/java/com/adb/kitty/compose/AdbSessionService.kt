@@ -54,7 +54,6 @@ class AdbSessionService : Service() {
 
     private val kadbInstancePool = ConcurrentHashMap<String, Kadb>()
     
-    // 专属服务的轻量级协程作用域，接管 3 秒定时刷新任务
     private val serviceScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
     private var refreshJob: Job? = null
 
@@ -124,14 +123,13 @@ class AdbSessionService : Service() {
         createNotificationChannel()
         
         // 1. 初始状态闪击启动前台服务
-        val initialText = "正在初始化... | ⏱️ 已持续运行: 00:00:00"
+        val initialText = "正在初始化 | ⏱️ 已运行: 00:00:00"
         
         // 因为 minSdk >= 28，我们只需要专门针对 Android 14 (API 34) 以上进行安全常量绑定即可
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) { // API 34+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             startForeground(
                 NOTIFICATION_ID, 
                 buildNotification(initialText),
-              //  ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE
                 ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE or ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
             )
         } else {
@@ -178,7 +176,7 @@ class AdbSessionService : Service() {
      */
     private fun buildNotification(contentText: String): Notification {
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("adbd 前台守护服务")
+            .setContentTitle("正在运行前台核心服务")
             .setContentText(contentText)
             .setSmallIcon(android.R.drawable.ic_dialog_info)
             .setPriority(NotificationCompat.PRIORITY_MIN)
@@ -209,10 +207,10 @@ class AdbSessionService : Service() {
         // 因为 minSdk >= 28，百分之百支持 NotificationChannel，直接畅快创建
         val channel = NotificationChannel(
             CHANNEL_ID, 
-            "无线调试前台服务", 
+            "核心前台服务", 
             NotificationManager.IMPORTANCE_MIN
         ).apply {
-            description = "确保退后台或返回桌面时连接不断开，在前台服务连接无线调试"
+            description = "此服务可以确保在退后台或返回桌面时连接不断开、网络不断开"
             
             group = GROUP_ID
             
