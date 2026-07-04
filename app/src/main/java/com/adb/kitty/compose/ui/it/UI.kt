@@ -85,6 +85,7 @@ import androidx.compose.ui.*
 import androidx.compose.ui.res.*
 import androidx.compose.ui.draw.*
 import androidx.compose.ui.unit.*
+import androidx.compose.ui.layout.*
 import androidx.compose.ui.window.*
 import androidx.compose.ui.platform.*
 import androidx.compose.ui.graphics.*
@@ -528,6 +529,29 @@ fun DeviceSelectionSection(
 }
 
 @Keep
+private fun extractLogWord(text: String, index: Int): String {
+    if (text.isEmpty() || index !in text.indices) return ""
+    val delimiters = charArrayOf(' ', ',', '(', ')', '[', ']', '=', '{', '}', '\n', '\r', '\t', ':', ';')
+    var start = index
+    while (start > 0 && !delimiters.contains(text[start - 1])) { start-- }
+    var end = index
+    while (end < text.length && !delimiters.contains(text[end])) { end++ }
+    return text.substring(start, end).trim()
+}
+
+@Keep
+@Composable
+private fun CustomMenuButton(text: String, onClick: () -> Unit) {
+    Text(
+        text = text,
+        fontSize = 14.sp,
+        fontWeight = FontWeight.Medium,
+        color = Color(0xFF1F2937),
+        modifier = Modifier.clickable { onClick() }
+    )
+}
+
+@Keep
 @Composable
 fun LogSection(
     logCount: Int,
@@ -552,8 +576,8 @@ fun LogSection(
 
     var showMenu by remember { mutableStateOf(false) }
     var menuOffset by remember { mutableStateOf(IntOffset.Zero) }
-    var selectedWord by remember { mutableStateOf("") }
-    var currentFullLine by remember { mutableStateOf("") }
+    var selectedWord by remember { mutableStateOf("") } 
+    var currentFullLine by remember { mutableStateOf("") } 
 
     LaunchedEffect(logCount) {
         if (logCount > 0) {
@@ -595,23 +619,23 @@ fun LogSection(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(vertical = 1.dp)
-                        .onGloballyPositioned { coordinates ->
+                        .onGloballyPositioned { coordinates: LayoutCoordinates ->
                             itemRowPosition = coordinates.positionInWindow()
                         }
                         .pointerInput(logLine) {
-                            detectTapGestures(
-                                onLongPress = { changeOffset ->
+                            this.detectTapGestures(
+                                onLongPress = { changeOffset: Offset ->
                                     textLayoutResult?.let { layoutResult ->
                                         val characterIndex = layoutResult.getOffsetForPosition(changeOffset)
                                         if (characterIndex in logLine.indices) {
                                             val word = extractLogWord(logLine, characterIndex)
                                             if (word.isNotEmpty()) {
                                                 selectedWord = word
-                                                currentFullLine = logLine
+                                                currentFullLine = logLine 
                                                 val cursorRect = layoutResult.getCursorRect(characterIndex)
                                                 
                                                 menuOffset = IntOffset(
-                                                    x = (itemRowPosition.x + cursorRect.left).toInt() - 200,
+                                                    x = (itemRowPosition.x + cursorRect.left).toInt() - 200, 
                                                     y = (itemRowPosition.y + cursorRect.top).toInt() - 140  
                                                 )
                                                 showMenu = true
@@ -635,33 +659,27 @@ fun LogSection(
                 Row(
                     modifier = Modifier
                         .clip(RoundedCornerShape(28.dp))
-                        .background(Color.White.copy(alpha = 0.95f)) 
+                        .background(Color.Transparent) 
                         .border(1.dp, Color.LightGray.copy(alpha = 0.4f), RoundedCornerShape(28.dp))
                         .padding(horizontal = 20.dp, vertical = 10.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(18.dp)
                 ) {
-                    // 1. 复制功能
                     CustomMenuButton("复制") {
                         clipboardManager.setText(AnnotatedString(selectedWord))
                         showMenu = false
                     }
 
-                    // 2. 粘贴功能
                     CustomMenuButton("粘贴") {
                         val clipText = clipboardManager.getText()?.text ?: ""
-                        // 提示：此处拿到了系统剪切板内容 clipText，可根据业务需求将其填入特定输入框或处理
                         showMenu = false
                     }
 
-                    // 3. 全选功能
                     CustomMenuButton("全选") {
-                        // 直接把当前行的整段日志丢入剪切板完成“一键全选”
                         clipboardManager.setText(AnnotatedString(currentFullLine))
                         showMenu = false
                     }
 
-                    // 4. 搜索功能
                     CustomMenuButton("搜索") {
                         val intent = Intent(Intent.ACTION_WEB_SEARCH).apply {
                             putExtra(android.app.SearchManager.QUERY, selectedWord)
@@ -670,7 +688,6 @@ fun LogSection(
                         showMenu = false
                     }
 
-                    // 5. 翻译功能
                     CustomMenuButton("翻译") {
                         val intent = Intent(Intent.ACTION_TRANSLATE).apply {
                             putExtra(Intent.EXTRA_TEXT, selectedWord)
@@ -678,12 +695,11 @@ fun LogSection(
                         try {
                             context.startActivity(intent)
                         } catch (e: Exception) {
-                            // 防止极少部分裁剪版系统（无任何翻译引擎）报错闪退
+                            // Fallback stub protection
                         }
                         showMenu = false
                     }
 
-                    // 6. 朗读功能
                     CustomMenuButton("朗读") {
                         tts?.speak(selectedWord, TextToSpeech.QUEUE_FLUSH, null, null)
                         showMenu = false
