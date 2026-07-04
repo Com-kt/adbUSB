@@ -125,7 +125,7 @@ class AdbSessionService : Service() {
         // 1. 初始状态闪击启动前台服务
         val initialText = "正在初始化 | ⏱️ 已运行: 00:00:00"
         
-        // 因为 minSdk >= 28，我们只需要专门针对 Android 14 (API 34) 以上进行安全常量绑定即可
+        // 因为 minSdk >= 29，我们只需要专门针对 Android 14 (API 34) 以上进行安全常量绑定即可
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             startForeground(
                 NOTIFICATION_ID, 
@@ -133,7 +133,7 @@ class AdbSessionService : Service() {
                 ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE or ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
             )
         } else {
-            // Android 9.0 ~ Android 13，直接启动即可
+            // Android 10 ~ Android 13，直接启动即可
             startForeground(NOTIFICATION_ID, buildNotification(initialText))
         }
 
@@ -187,7 +187,7 @@ class AdbSessionService : Service() {
     }
 
     /**
-     * 🌟 针对 minSdk 28 深度瘦身的渠道创建方法
+     * 🌟 针对 minSdk 29 深度瘦身的渠道创建方法
      */
     private fun createNotificationChannel() {
         val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
@@ -204,7 +204,7 @@ class AdbSessionService : Service() {
         val groupName = "应用核心服务"
         val channelGroup = NotificationChannelGroup(GROUP_ID, groupName)
         manager.createNotificationChannelGroup(channelGroup)
-        // 因为 minSdk >= 28，百分之百支持 NotificationChannel，直接畅快创建
+        // 因为 minSdk >= 29，百分之百支持 NotificationChannel，直接畅快创建
         val channel = NotificationChannel(
             CHANNEL_ID, 
             "核心前台服务", 

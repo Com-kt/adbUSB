@@ -1642,7 +1642,7 @@ class MainActivity : ComponentActivity() {
         } catch (e: Exception) { e.printStackTrace() }
         return list
     }
-    
+
     private fun getCurrentWifiSsid(): String {
         try {
             val connectivityManager = applicationContext.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
@@ -1659,8 +1659,11 @@ class MainActivity : ComponentActivity() {
                 }
             }
             
+            @Suppress("DEPRECATION")
             val wifiManager = applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
+            @Suppress("DEPRECATION")
             val info = wifiManager.connectionInfo
+            
             if (info != null) {
                 val ssid = info.ssid.replace("\"", "")
                 if (ssid != "<unknown ssid>" && ssid.isNotEmpty()) {
