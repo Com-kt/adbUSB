@@ -91,6 +91,7 @@ import androidx.compose.ui.platform.*
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.geometry.*
 import androidx.compose.ui.semantics.*
+import androidx.compose.ui.input.pointer.*
 import androidx.compose.ui.input.nestedscroll.*
 import androidx.compose.ui.text.*
 import androidx.compose.ui.text.style.*
