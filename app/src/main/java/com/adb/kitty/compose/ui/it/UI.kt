@@ -677,12 +677,13 @@ fun DeviceSelectionBottomSheet(
             LazyColumn(modifier = Modifier.fillMaxWidth()) {
                 items(devices) { dev ->
                     ListItem(
-                        headlineContent = { Text("📺 IP: ${dev.ip}:${dev.port}") },
                         supportingContent = { Text("上次并网时间: ${getRelativeTime(dev.lastConnectedTime)}") },
                         modifier = Modifier
                             .fillMaxWidth()
                             .clickable { onDeviceSelected(dev) }
-                    )
+                    ) {
+                        Text("📺 IP: ${dev.ip}:${dev.port}")
+                    }
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                 }
             }
