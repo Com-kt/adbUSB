@@ -657,9 +657,13 @@ fun DeviceSelectionBottomSheet(
     onDeviceSelected: (AdbDevice) -> Unit,
     onDismiss: () -> Unit
 ) {
+    val sheetState = rememberBottomSheetState(
+        initialValue = SheetValue.Hidden
+    )
+
     ModalBottomSheet(
         onDismissRequest = onDismiss,
-        sheetState = rememberModalBottomSheetState()
+        sheetState = sheetState
     ) {
         Column(
             modifier = Modifier
