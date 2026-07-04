@@ -324,7 +324,6 @@ dependencies {
     implementation(libs.mt.dataFilesProvider)
     implementation(libs.lsposed.hiddenapibypass)
     implementation(libs.nayuki.qrcode)
-    implementation(libs.material)
     implementation(libs.zxing.core)
     implementation(libs.bundles.libsu)
     implementation(libs.com.flyfishxu.kadb)
