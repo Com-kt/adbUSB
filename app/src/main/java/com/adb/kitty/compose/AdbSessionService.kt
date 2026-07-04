@@ -196,10 +196,10 @@ class AdbSessionService : Service() {
         val oldChannelId = "adb_kitty_channel"
         val existingChannel = manager.getNotificationChannel(oldChannelId)
         if (existingChannel != null) {
-            onLog("检测到旧的通知渠道 [$oldChannelId] 依然存在，正在删除")
+            MainActivity.appendLog("检测到旧的通知渠道 [$oldChannelId] 依然存在，正在删除")
             manager.deleteNotificationChannel(oldChannelId)
         } else {
-            onLog("旧通知渠道 [$oldChannelId] 不存在或已被清理，跳过删除")
+            MainActivity.appendLog("旧通知渠道 [$oldChannelId] 不存在或已被清理，跳过删除")
         }
         
         val groupName = "应用核心服务"
