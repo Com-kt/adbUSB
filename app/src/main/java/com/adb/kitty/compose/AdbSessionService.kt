@@ -2,6 +2,7 @@ package com.adb.kitty.compose
 
 import android.app.Notification
 import android.app.NotificationChannel
+import android.app.NotificationChannelGroup
 import android.app.NotificationManager
 import android.app.Service
 import android.content.Context
@@ -47,7 +48,8 @@ import java.lang.reflect.Method
 class AdbSessionService : Service() {
 
     private val NOTIFICATION_ID = 101
-    private val CHANNEL_ID = "adb_kitty_channel"
+    private val CHANNEL_ID = "com.adb.kitty.compose.core_service_channel"
+    private val GROUP_ID = "com.adb.kitty.compose.core_service_group"
 
     private val kadbInstancePool = ConcurrentHashMap<String, Kadb>()
     
@@ -178,7 +180,8 @@ class AdbSessionService : Service() {
             .setContentTitle("adbd 前台守护服务")
             .setContentText(contentText)
             .setSmallIcon(android.R.drawable.ic_dialog_info)
-            .setPriority(NotificationCompat.PRIORITY_LOW) // 静默级别，不打扰用户
+            .setPriority(NotificationCompat.PRIORITY_MIN)
+            .setVisibility(NotificationCompat.VISIBILITY_SECRET)
             .setOngoing(true) // 强力防误划清除
             .setOnlyAlertOnce(true) // 极其重要：杜绝高频刷新带来的手机异常震动或声音
             .build()
@@ -190,15 +193,30 @@ class AdbSessionService : Service() {
     private fun createNotificationChannel() {
         val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         
+        val oldChannelId = "adb_kitty_channel"
+        val existingChannel = manager.getNotificationChannel(oldChannelId)
+        if (existingChannel != null) {
+            onLog("检测到旧的通知渠道 [$oldChannelId] 依然存在，正在删除")
+            manager.deleteNotificationChannel(oldChannelId)
+        } else {
+            onLog("旧通知渠道 [$oldChannelId] 不存在或已被清理，跳过删除")
+        }
+        
+        val groupName = "应用核心服务"
+        val channelGroup = NotificationChannelGroup(GROUP_ID, groupName)
+        manager.createNotificationChannelGroup(channelGroup)
         // 因为 minSdk >= 28，百分之百支持 NotificationChannel，直接畅快创建
         val channel = NotificationChannel(
             CHANNEL_ID, 
             "无线调试前台服务", 
-            NotificationManager.IMPORTANCE_LOW
+            NotificationManager.IMPORTANCE_MIN
         ).apply {
             description = "确保退后台或返回桌面时连接不断开，在前台服务连接无线调试"
             
+            group = GROUP_ID
+            
             // 确保渠道本身彻底静默
+            setShowBadge(false)
             enableLights(false)
             enableVibration(false)
             setSound(null, null)
