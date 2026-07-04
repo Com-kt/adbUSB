@@ -126,7 +126,8 @@ fun CenterAlignedTopAppBarExample(
     }
     var expanded by remember { mutableStateOf(false) }
     
-    val logs = viewModel.logs
+    val logCount = viewModel.logCount
+    val getLogLineAt = { index: Int -> viewModel.getLogLineAt(index) }
 
     Scaffold(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
@@ -456,9 +457,8 @@ fun CenterAlignedTopAppBarExample(
                 }
             }
             LogSection(
-                logCount = viewModel.logCount,
-                getLogLineAt = { idx -> viewModel.getLogLineAt(idx) },
-                logs = logs,
+                logCount = logCount,
+                getLogLineAt = getLogLineAt,
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth()

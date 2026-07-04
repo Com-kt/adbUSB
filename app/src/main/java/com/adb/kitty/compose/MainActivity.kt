@@ -1066,8 +1066,7 @@ class MainActivity : ComponentActivity() {
     }
     
     private fun exportLogToFlashFolder() {
-        val logContent = viewModel.logs.joinToString("\n")
-        if (logContent.isEmpty()) {
+        if (viewModel.logCount == 0) {
             appendLog("[提示] 当前控制台日志空空如也")
             return
         }
@@ -1077,14 +1076,19 @@ class MainActivity : ComponentActivity() {
         val fileName = "Log_$timeStamp.txt"
         val targetFile = File(flashFolder, fileName)
 
-        try {
-            FileWriter(targetFile).use { writer -> writer.write(logContent) }
+        if (targetFile.parentFile?.exists() == false) {
+            targetFile.parentFile?.mkdirs()
+        }
+
+        val isSuccess = viewModel.exportFullLogToFile(targetFile)
+
+        if (isSuccess) {
             appendLog("[系统] 🎉 日志已成功安全写入文件：${targetFile.absolutePath}")
-        } catch (e: Exception) {
-            appendLog("[错误] ❌ 写入文件时发生异常: ${e.message}")
+        } else {
+            appendLog("[错误] ❌ 写入文件时发生异常，请检查磁盘权限或空间是否充足。")
         }
     }
-    
+
     private fun handleLocalAdbInstall(context: Context, command: String) {
         appendLog("安装 >> $command")
         val trimmedCmd = command.trim()

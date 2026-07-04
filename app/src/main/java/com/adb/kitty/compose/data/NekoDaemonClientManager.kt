@@ -12,18 +12,16 @@ import java.io.PrintWriter
 
 class NekoDaemonClientManager {
 
-    private const val SOCKET_NAME = "com.neko.service.tools.socket"
+    companion object {
+        private const val SOCKET_NAME = "com.neko.service.tools.socket"
+    }
     
-    // Reactive stream for your Compose view model layer to collect incoming logs
     private val _incomingLogs = MutableSharedFlow<String>(replay = 0)
     val incomingLogs: SharedFlow<String> = _incomingLogs
 
     private var socketWriter: PrintWriter? = null
     private var isConnected = false
 
-    /**
-     * Connects to the background Root daemon process and starts collecting logs.
-     */
     suspend fun connectAndListen() = withContext(Dispatchers.IO) {
         val socket = LocalSocket()
         try {
@@ -34,7 +32,7 @@ class NekoDaemonClientManager {
             
             _incomingLogs.emit("成功连接至 Neko 守护进程套接字接口点。")
 
-            var line: String?
+            var line: String? = null
             while (isConnected && reader.readLine().also { line = it } != null) {
                 line?.let { _incomingLogs.emit(it) }
             }
@@ -47,9 +45,6 @@ class NekoDaemonClientManager {
         }
     }
 
-    /**
-     * Call this from the App UI layer to execute tasks on the Root level
-     */
     fun sendCommand(command: String) {
         if (isConnected) {
             Thread {

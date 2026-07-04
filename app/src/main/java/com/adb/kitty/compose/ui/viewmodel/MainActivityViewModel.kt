@@ -127,6 +127,18 @@ class MainActivityViewModel : ViewModel() {
         appendLog("[系统] 控制台及原生高速缓存区日志已全面清空。")
     }
     
+    fun exportFullLogToFile(targetFile: File): Boolean {
+        return try {
+            targetFile.bufferedWriter().use { writer ->
+                writer.write(masterLogBuffer.toString())
+            }
+            true
+        } catch (e: Exception) {
+            e.printStackTrace()
+            false
+        }
+    }
+    
     val items: List<CommandUiItem> by lazy { rememberCombinedItems() }
 
     private fun rememberCombinedItems(): List<CommandUiItem> {
