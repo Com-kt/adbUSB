@@ -417,15 +417,35 @@ class AdbSessionService : Service() {
         val manager = wifiP2pManager
         val channel = p2pChannel ?: return
 
-        // 1. 条件判断：只有 API >= 29 且参数完整，才玩高级自定义
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && !customSsid.isNullOrEmpty() && !customPass.isNullOrEmpty()) {
-            onLog("[P2P] 检测到当前系统为 Android 10+，启用自定义 SSID/密码 模式...")
-    
-            // 2. 调用隔离层，此时传入的 manager 和 channel 已经是绝对非空的了
-            P2pApi29Helper.createCustomGroup(manager, channel, customSsid, customPass, onLog)
+        if (!customSsid.isNullOrEmpty() && !customPass.isNullOrEmpty()) {
+            onLog("[P2P] 启用自定义 SSID/密码 模式...")
+            
+            // 避坑点 1：P2P 的 SSID 必须以 "DIRECT-" 开头
+            val formattedSsid = if (customSsid.startsWith("DIRECT-")) customSsid else "DIRECT-$customSsid"
+        
+            // 避坑点 2：密码长度必须在 8 ~ 63 位之间
+            if (customPass.length < 8 || customPass.length > 63) {
+                onLog("[错误] 自定义密码长度必须在 8-63 位之间！")
+                return
+            }
+
+            val config = WifiP2pConfig.Builder()
+                .setNetworkName(formattedSsid)
+                .setPassphrase(customPass)
+                .build()
+
+            manager.createGroup(channel, config, object : WifiP2pManager.ActionListener {
+                override fun onSuccess() {
+                    onLog("[P2P] 自定义群组锁定成功！")
+                    onLog("[P2P] 本地网络信息 -> SSID: $formattedSsid | 密码: $customPass")
+                }
+
+                override fun onFailure(reason: Int) {
+                    onLog("[错误] 自定义群组创建失败，原因代码: $reason")
+                }
+            })
         } else {
-            // 3. 针对 API 28 或未传参的设备，优雅降级为传统随机群组模式
-            onLog("[P2P] 启用标准模式创建群组（系统随机分配凭证）...")
+            onLog("[P2P] 未提供自定义参数，启用标准模式创建群组（系统随机分配凭证）...")
             manager.createGroup(channel, object : WifiP2pManager.ActionListener {
                 override fun onSuccess() {
                     onLog("[P2P] 随机群组创建成功！正在向系统索要网络凭证...")
@@ -442,43 +462,6 @@ class AdbSessionService : Service() {
                 }
                 override fun onFailure(reason: Int) {
                     onLog("[错误] 随机群组创建失败: $reason")
-                }
-            })
-        }
-    }
-    
-    @RequiresApi(Build.VERSION_CODES.Q)
-    private object P2pApi29Helper {
-        @SuppressLint("MissingPermission")
-        fun createCustomGroup(
-            manager: WifiP2pManager,
-            channel: WifiP2pManager.Channel,
-            ssid: String,
-            pass: String,
-            onLog: (String) -> Unit
-        ) {
-            // 避坑点：P2P 的 SSID 必须以 "DIRECT-" 开头
-            val formattedSsid = if (ssid.startsWith("DIRECT-")) ssid else "DIRECT-$ssid"
-        
-            // 避坑点：密码长度必须在 8 ~ 63 位之间
-            if (pass.length < 8 || pass.length > 63) {
-                onLog("[错误] 自定义密码长度必须在 8-63 位之间！")
-                return
-            }
-
-            val config = WifiP2pConfig.Builder()
-                .setNetworkName(formattedSsid)
-                .setPassphrase(pass)
-                .build()
-
-            manager.createGroup(channel, config, object : WifiP2pManager.ActionListener {
-                override fun onSuccess() {
-                    onLog("[P2P] 自定义群组锁定成功！")
-                    onLog("[P2P] 本地网络信息 -> SSID: $formattedSsid | 密码: $pass")
-                }
-
-                override fun onFailure(reason: Int) {
-                    onLog("[错误] 自定义群组创建失败，原因代码: $reason")
                 }
             })
         }
@@ -692,12 +675,7 @@ class AdbSessionService : Service() {
         } catch (e: Exception) {
             if (wifiLock == null) {
                 val wm = applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
-                wifiLock = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
-                    wm.createWifiLock(WifiManager.WIFI_MODE_FULL_LOW_LATENCY, "AdbSessionService:FallbackWifiLock")
-                } else {
-                    @Suppress("DEPRECATION")
-                    wm.createWifiLock(WifiManager.WIFI_MODE_FULL, "AdbSessionService:FallbackWifiLock")
-                }
+                wifiLock = wm.createWifiLock(WifiManager.WIFI_MODE_FULL_LOW_LATENCY, "AdbSessionService:FallbackWifiLock")
             }
         }
 

@@ -8,39 +8,37 @@
 
 # Code
 - [x] USB
-    - [x] Host (Android 9+)
+    - [x] Host (Android 10+)
     - [ ] accessory (Android 12+)
-    - [x] UsbManager API (Android 9+)
+    - [x] UsbManager API (Android 10+)
 - [ ] EDL
     - [ ] 9008
     - [ ] 900e
 - [x] Fastboot
-    - [x] reboot (Android 9+)
-    - [x] oem (Android 9+)
-    - [x] getvar (Android 9+)
-    - [x] erase (Android 9+)
-    - [x] flash (Android 9+)
+    - [x] reboot (Android 10+)
+    - [x] oem (Android 10+)
+    - [x] getvar (Android 10+)
+    - [x] erase (Android 10+)
+    - [x] flash (Android 10+)
         - [x] Raw Image (Support?)
             - [x] Test Flash OKAY
         - [x] Sparse Image (Support?)
             - [ ] Test Flash OKAY
-    - [x] boot (Android 9+)
-    - [x] format (Android 9+)
-    - [x] set active (Android 9+)
+    - [x] boot (Android 10+)
+    - [x] format (Android 10+)
+    - [x] set active (Android 10+)
     - [x] usb-Host
         - [x] 255/66/3
-        - [ ] 255/68/3
 - [x] ADB
-    - [x] shell (Android 9+)
-    - [x] pull (Android 9+)
-    - [x] push (Android 9+)
-    - [x] install (Android 9+)
-    - [x] uninstall (Android 9+)
+    - [x] shell (Android 10+)
+    - [x] pull (Android 10+)
+    - [x] push (Android 10+)
+    - [x] install (Android 10+)
+    - [x] uninstall (Android 10+)
     - [x] pair (Android 11+)
     - [x] connect (Android 11+)
     - [x] usb-Host
         - [x] 255/66/1
-        - [ ] 6/1/1
 - [x] Application
     - [x] aab-Bundle
     - [x] Android TV
@@ -88,7 +86,7 @@ android:largeHeap="true"
 <!-- SDK -->
 <uses-sdk
     <!-- minSdk = 最低支持的系统 -->
-    android:minSdkVersion="28"
+    android:minSdkVersion="29"
     <!-- targetSdk = 目标支持的系统 -->
     android:targetSdkVersion="37" />
 ```
