@@ -70,6 +70,7 @@ import androidx.compose.foundation.lazy.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.*
 import androidx.compose.foundation.interaction.*
+import androidx.compose.foundation.text.*
 import androidx.compose.foundation.text.selection.*
 import androidx.compose.material.icons.*
 import androidx.compose.material.icons.filled.*
@@ -270,6 +271,7 @@ class MainActivity : ComponentActivity() {
                 Color.Transparent.toArgb()
             )
         )
+        contextMenuConfig = ContextMenuConfig.NativePlatformOnly
         setContent {
             CenterAlignedTopAppBarExample(
                 viewModel = viewModel,
