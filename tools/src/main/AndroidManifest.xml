@@ -4,7 +4,7 @@
     android:installLocation="internalOnly">
     <!-- with app_process Start -->
     <application
-        android:label="NekoService"
+        android:label="api36"
         tools:targetApi="37">
     </application>
 </manifest>

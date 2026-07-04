@@ -8,6 +8,8 @@ import android.animation.*
 import android.provider.*
 import android.app.PendingIntent
 
+import android.speech.tts.TextToSpeech
+
 import android.os.*
 import android.view.*
 import android.widget.*
@@ -69,6 +71,7 @@ import androidx.compose.foundation.lazy.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.*
 import androidx.compose.foundation.interaction.*
+import androidx.compose.foundation.gestures.*
 import androidx.compose.foundation.text.selection.*
 import androidx.compose.material.icons.*
 import androidx.compose.material.icons.filled.*
@@ -85,6 +88,7 @@ import androidx.compose.ui.unit.*
 import androidx.compose.ui.window.*
 import androidx.compose.ui.platform.*
 import androidx.compose.ui.graphics.*
+import androidx.compose.ui.geometry.*
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.input.nestedscroll.*
 import androidx.compose.ui.text.*
@@ -530,12 +534,180 @@ fun LogSection(
     getLogLineAt: (index: Int) -> String,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
+    val listState = rememberLazyListState()
+    val globalHorizontalScrollState = rememberScrollState()
+    val clipboardManager = LocalClipboardManager.current
+
+    var tts by remember { mutableStateOf<TextToSpeech?>(null) }
+    DisposableEffect(Unit) {
+        tts = TextToSpeech(context) { status ->
+            if (status == TextToSpeech.SUCCESS) tts?.language = Locale.CHINESE
+        }
+        onDispose {
+            tts?.stop()
+            tts?.shutdown()
+        }
+    }
+
+    var showMenu by remember { mutableStateOf(false) }
+    var menuOffset by remember { mutableStateOf(IntOffset.Zero) }
+    var selectedWord by remember { mutableStateOf("") }
+    var currentFullLine by remember { mutableStateOf("") }
+
+    LaunchedEffect(logCount) {
+        if (logCount > 0) {
+            val lastIndex = logCount - 1
+            val lastVisibleIndex = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
+            if (lastIndex - lastVisibleIndex < 5) {
+                listState.scrollToItem(lastIndex) 
+            } else if (lastIndex - lastVisibleIndex < 20) {
+                listState.animateScrollToItem(lastIndex)
+            } else {
+                listState.scrollToItem(lastIndex)
+            }
+        }
+    }
+
+    Box(
+        modifier = modifier
+            .border(1.dp, MaterialTheme.colorScheme.outline)
+            .horizontalScroll(globalHorizontalScrollState)
+            .padding(8.dp)
+    ) {
+        LazyColumn(
+            state = listState,
+            modifier = Modifier.fillMaxHeight().fillMaxWidth() 
+        ) {
+            items(
+                count = logCount,
+                key = { index -> index }
+            ) { index ->
+                val logLine = getLogLineAt(index)
+                var textLayoutResult by remember { mutableStateOf<TextLayoutResult?>(null) }
+                var itemRowPosition by remember { mutableStateOf(Offset.Zero) }
+
+                Text(
+                    text = logLine,
+                    fontFamily = FontFamily.Monospace,
+                    style = MaterialTheme.typography.bodyMedium,
+                    softWrap = false,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 1.dp)
+                        .onGloballyPositioned { coordinates ->
+                            itemRowPosition = coordinates.positionInWindow()
+                        }
+                        .pointerInput(logLine) {
+                            detectTapGestures(
+                                onLongPress = { changeOffset ->
+                                    textLayoutResult?.let { layoutResult ->
+                                        val characterIndex = layoutResult.getOffsetForPosition(changeOffset)
+                                        if (characterIndex in logLine.indices) {
+                                            val word = extractLogWord(logLine, characterIndex)
+                                            if (word.isNotEmpty()) {
+                                                selectedWord = word
+                                                currentFullLine = logLine
+                                                val cursorRect = layoutResult.getCursorRect(characterIndex)
+                                                
+                                                menuOffset = IntOffset(
+                                                    x = (itemRowPosition.x + cursorRect.left).toInt() - 200,
+                                                    y = (itemRowPosition.y + cursorRect.top).toInt() - 140  
+                                                )
+                                                showMenu = true
+                                            }
+                                        }
+                                    }
+                                }
+                            )
+                        },
+                    onTextLayout = { textLayoutResult = it }
+                )
+            }
+        }
+
+        if (showMenu) {
+            Popup(
+                offset = menuOffset,
+                onDismissRequest = { showMenu = false },
+                properties = PopupProperties(focusable = true)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(28.dp))
+                        .background(Color.White.copy(alpha = 0.95f)) 
+                        .border(1.dp, Color.LightGray.copy(alpha = 0.4f), RoundedCornerShape(28.dp))
+                        .padding(horizontal = 20.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(18.dp)
+                ) {
+                    // 1. 复制功能
+                    CustomMenuButton("复制") {
+                        clipboardManager.setText(AnnotatedString(selectedWord))
+                        showMenu = false
+                    }
+
+                    // 2. 粘贴功能
+                    CustomMenuButton("粘贴") {
+                        val clipText = clipboardManager.getText()?.text ?: ""
+                        // 提示：此处拿到了系统剪切板内容 clipText，可根据业务需求将其填入特定输入框或处理
+                        showMenu = false
+                    }
+
+                    // 3. 全选功能
+                    CustomMenuButton("全选") {
+                        // 直接把当前行的整段日志丢入剪切板完成“一键全选”
+                        clipboardManager.setText(AnnotatedString(currentFullLine))
+                        showMenu = false
+                    }
+
+                    // 4. 搜索功能
+                    CustomMenuButton("搜索") {
+                        val intent = Intent(Intent.ACTION_WEB_SEARCH).apply {
+                            putExtra(android.app.SearchManager.QUERY, selectedWord)
+                        }
+                        context.startActivity(intent)
+                        showMenu = false
+                    }
+
+                    // 5. 翻译功能
+                    CustomMenuButton("翻译") {
+                        val intent = Intent(Intent.ACTION_TRANSLATE).apply {
+                            putExtra(Intent.EXTRA_TEXT, selectedWord)
+                        }
+                        try {
+                            context.startActivity(intent)
+                        } catch (e: Exception) {
+                            // 防止极少部分裁剪版系统（无任何翻译引擎）报错闪退
+                        }
+                        showMenu = false
+                    }
+
+                    // 6. 朗读功能
+                    CustomMenuButton("朗读") {
+                        tts?.speak(selectedWord, TextToSpeech.QUEUE_FLUSH, null, null)
+                        showMenu = false
+                    }
+                }
+            }
+        }
+    }
+}
+
+/*
+@Keep
+@Composable
+fun LogSection(
+    logCount: Int,
+    getLogLineAt: (index: Int) -> String,
+    modifier: Modifier = Modifier
+) {
     val listState = rememberLazyListState()
     val globalHorizontalScrollState = rememberScrollState()
     
     val customTextSelectionColors = TextSelectionColors(
         handleColor = MaterialTheme.colorScheme.primary,
-        backgroundColor = Color.Transparent
+        backgroundColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)
     )
 
     // React to the total line count size changes
@@ -590,6 +762,7 @@ fun LogSection(
         }
     }
 }
+*/
 
 @Keep
 @OptIn(ExperimentalMaterial3Api::class)
