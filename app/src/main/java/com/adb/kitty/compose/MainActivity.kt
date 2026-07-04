@@ -87,6 +87,7 @@ import androidx.compose.ui.window.*
 import androidx.compose.ui.platform.*
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.semantics.*
+import androidx.compose.ui.viewinterop.*
 import androidx.compose.ui.input.nestedscroll.*
 import androidx.compose.ui.text.*
 import androidx.compose.ui.text.style.*
@@ -271,7 +272,6 @@ class MainActivity : ComponentActivity() {
                 Color.Transparent.toArgb()
             )
         )
-        contextMenuConfig = ContextMenuConfig.NativePlatformOnly
         setContent {
             CenterAlignedTopAppBarExample(
                 viewModel = viewModel,

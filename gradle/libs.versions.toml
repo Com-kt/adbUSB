@@ -16,6 +16,7 @@ nayukiQR = "1.8.0"
 libsuVersion = "6.0.0"
 lifecycle = "2.11.0"
 
+material = "1.14.0"
 material3 = "1.5.0-alpha23"
 
 kadb = "2.1.2"
@@ -36,6 +37,8 @@ androidx-lifecycle-livedata-ktx = { group = "androidx.lifecycle", name = "lifecy
 androidx-lifecycle-process = { group = "androidx.lifecycle", name = "lifecycle-process", version.ref = "lifecycle" }
 androidx-lifecycle-reactivestreams-ktx = { group = "androidx.lifecycle", name = "lifecycle-reactivestreams-ktx", version.ref = "lifecycle" }
 androidx-lifecycle-service = { group = "androidx.lifecycle", name = "lifecycle-service", version.ref = "lifecycle" }
+
+material = { group = "com.google.android.material", name = "material", version.ref = "material" }
 
 # kotlinx 协程
 kotlinx-coroutines-core = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-core", version.ref = "kotlinxCoroutines" }
