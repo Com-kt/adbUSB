@@ -1,0 +1,10 @@
+{
+  "compression": {
+    "uncompressed_glob": []
+  },
+  "optimizations": {
+    "uncompressNativeLibraries": {
+      "enabled": false
+    }
+  }
+}

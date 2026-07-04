@@ -231,6 +231,7 @@ android {
     }
     
     bundle {
+        integrityConfigDir.set(file("BundleConfig.json"))
         language {
             enableSplit = true
         }
