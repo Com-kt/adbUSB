@@ -83,9 +83,49 @@ import com.adb.kitty.compose.ui.it.*
 
 @Keep
 class MainActivityViewModel : ViewModel() {
-
-    private val _logs = mutableStateListOf<String>()
-    val logs: List<String> = _logs
+    
+    private val masterLogBuffer = StringBuilder()
+    private val logLineRanges = mutableStateListOf<Long>()
+    val logCount: Int get() = logLineRanges.size
+    
+    fun getLogLineAt(index: Int): String {
+        if (index !in logLineRanges.indices) return ""
+        
+        // Wrap the primitive element into your inline value class container on-demand.
+        // This takes EXACTLY ZERO memory allocations because it maps straight to stack memory instructions!
+        val pointer = LogRangePointer(logLineRanges[index])
+        return masterLogBuffer.substring(pointer.start, pointer.end)
+    }
+    
+    fun appendLog(msg: String) {
+        val current = LocalDateTime.now()
+        val formatter = DateTimeFormatter.ofPattern("yyyy.MM.dd HH:mm:ss")
+        val time = current.format(formatter)
+        
+        if (msg.contains("\n")) {
+            msg.split("\n").forEach { line ->
+                if (line.isNotBlank()) pushToBuffer("$time $line")
+            }
+        } else {
+            if (msg.isNotBlank()) pushToBuffer("$time $msg")
+        }
+    }
+    
+    private fun pushToBuffer(fullLine: String) {
+        val startIdx = masterLogBuffer.length
+        masterLogBuffer.append(fullLine).append("\n")
+        val endIdx = masterLogBuffer.length
+        
+        // Extract the primitive 64-bit Long property to push directly into the optimized state array
+        val pointer = LogRangePointer.create(startIdx, endIdx)
+        logLineRanges.add(pointer.packed)
+    }
+    
+    fun clearLogs() {
+        logLineRanges.clear()
+        masterLogBuffer.setLength(0) 
+        appendLog("[系统] 控制台及原生高速缓存区日志已全面清空。")
+    }
     
     val items: List<CommandUiItem> by lazy { rememberCombinedItems() }
 
@@ -101,28 +141,6 @@ class MainActivityViewModel : ViewModel() {
         }
         
         return adbList + fbList + appList
-    }
-    
-    fun appendLog(msg: String) {
-        viewModelScope.launch(Dispatchers.Main) {
-            val current = LocalDateTime.now()
-            val formatter = DateTimeFormatter.ofPattern("yyyy.MM.dd HH:mm:ss")
-            val time = current.format(formatter)
-            
-            if (msg.contains("\n")) {
-                // 如果输出带换行符（如 logcat/getvar all），拆开沉淀，防止 LazyColumn 渲染单条超大文本发生卡顿
-                msg.split("\n").forEach { line ->
-                    _logs.add("$time $line")
-                }
-            } else {
-                _logs.add("$time $msg")
-            }
-        }
-    }
-    
-    fun clearLogs() {
-        _logs.clear()
-        appendLog("[系统] 控制台日志已清空。")
     }
     
     private val _adbService = MutableStateFlow<AdbSessionService?>(null)
