@@ -1,5 +1,6 @@
 package com.adb.kitty.compose
 
+import android.util.Log
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationChannelGroup
@@ -196,10 +197,10 @@ class AdbSessionService : Service() {
         val oldChannelId = "adb_kitty_channel"
         val existingChannel = manager.getNotificationChannel(oldChannelId)
         if (existingChannel != null) {
-            MainActivity.appendLog("检测到旧的通知渠道 [$oldChannelId] 依然存在，正在删除")
+            Log.i("Unknown", "检测到旧的通知渠道 [$oldChannelId] 依然存在，正在删除")
             manager.deleteNotificationChannel(oldChannelId)
         } else {
-            MainActivity.appendLog("旧通知渠道 [$oldChannelId] 不存在或已被清理，跳过删除")
+            Log.d("Unknown", "旧通知渠道 [$oldChannelId] 已不存在或已被清理，跳过删除")
         }
         
         val groupName = "应用核心服务"
