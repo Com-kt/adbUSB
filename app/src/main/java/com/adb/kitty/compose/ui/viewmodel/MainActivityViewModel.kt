@@ -101,7 +101,7 @@ class MainActivityViewModel : ViewModel() {
         val current = LocalDateTime.now()
         val formatter = DateTimeFormatter.ofPattern("yyyy.MM.dd HH:mm:ss")
         val time = current.format(formatter)
-        
+    
         if (msg.contains("\n")) {
             msg.split("\n").forEach { line ->
                 if (line.isNotBlank()) pushToBuffer("$time $line")
@@ -110,13 +110,13 @@ class MainActivityViewModel : ViewModel() {
             if (msg.isNotBlank()) pushToBuffer("$time $msg")
         }
     }
-    
+
     private fun pushToBuffer(fullLine: String) {
         val startIdx = masterLogBuffer.length
-        masterLogBuffer.append(fullLine).append("\n")
+        masterLogBuffer.append(fullLine)
         val endIdx = masterLogBuffer.length
-        
-        // Extract the primitive 64-bit Long property to push directly into the optimized state array
+        masterLogBuffer.append("\n")
+    
         val pointer = LogRangePointer.create(startIdx, endIdx)
         logLineRanges.add(pointer.packed)
     }
