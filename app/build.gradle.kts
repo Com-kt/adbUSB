@@ -268,18 +268,11 @@ android {
                 "proguard-rules.pro"
             )
             optimization.keepRules {
-                // 强行忽略 R8 报错提示中列出的精确字符串坐标
-                ignoreFrom("com.github.L-JINBIN:MTDataFilesProvider")
-                ignoreFrom("com.flyfishxu:kadb")
-                ignoreFrom("org.jetbrains.kotlinx:kotlinx-coroutines-core")
+                // ignoreFrom 只允许忽略来自远程库的依赖
                 ignoreFrom("org.jetbrains.kotlinx:kotlinx-coroutines-android")
                 ignoreFrom("org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm")
-                ignoreFrom("com.github.topjohnwu.libsu:service")
-                ignoreFrom("com.github.topjohnwu.libsu:io")
                 ignoreFrom("com.github.topjohnwu.libsu:core")
                 ignoreFrom("org.lsposed.hiddenapibypass:hiddenapibypass")
-                ignoreFrom("io.nayuki:qrcodegen")
-                ignoreFrom("com.google.zxing:core")
             }
             signingConfig = signingConfigs.getByName("adb")
         }

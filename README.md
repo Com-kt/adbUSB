@@ -83,7 +83,7 @@ android:persistent="true"
 <!-- 允许申请大堆内存 -->
 android:largeHeap="true"
 
-<!-- SDK -->
+<!-- Android SDK 平台 -->
 <uses-sdk
     <!-- minSdk = 最低支持的系统 -->
     android:minSdkVersion="29"
