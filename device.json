@@ -1,4 +1,5 @@
 {
   "supportedAbis": ["arm64-v8a", "armeabi-v7a", "x86", "x86_64"],
-  "supportedLocales": ["zh-rCN", "en-US"]
+  "supportedLocales": ["zh"],
+  "sdkVersion": 29
 }
