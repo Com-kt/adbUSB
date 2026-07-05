@@ -240,14 +240,6 @@ android {
         abi {
             enableSplit = true
         }
-        packaging {
-            dex {
-                useLegacyPackaging = true
-            }
-            jniLibs {
-                useLegacyPackaging = true
-            }
-        }
     }
     
     signingConfigs {
