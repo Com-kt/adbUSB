@@ -1,7 +1,0 @@
-{
-  "optimizations": {
-    "uncompressNativeLibraries": {
-      "enabled": false
-    }
-  }
-}

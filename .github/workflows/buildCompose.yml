@@ -67,22 +67,22 @@ jobs:
           java -jar bundletool.jar build-apks \
             --bundle="$RELEASE_AAB" \
             --output=app/build/outputs/bundle/release/aab-release.apks \
+            --device-spec=device.json \
             --mode=default \
             --ks=app/new_full_ec_key.jks \
             --ks-pass=pass:${{ secrets.KEY_STORE_PASSWORD }} \
             --ks-key-alias=${{ secrets.KEY_ALIAS }} \
-            --key-pass=pass:${{ secrets.KEY_PASSWORD }} \
-            --bundle-config=app/BundleConfig.json
+            --key-pass=pass:${{ secrets.KEY_PASSWORD }}
       
           java -jar bundletool.jar build-apks \
             --bundle="$DEBUG_AAB" \
             --output=app/build/outputs/bundle/debug/aab-debug.apks \
+            --device-spec=device.json \
             --mode=default \
             --ks=app/new_full_ec_key.jks \
             --ks-pass=pass:${{ secrets.KEY_STORE_PASSWORD }} \
             --ks-key-alias=${{ secrets.KEY_ALIAS }} \
-            --key-pass=pass:${{ secrets.KEY_PASSWORD }} \
-            --bundle-config=app/BundleConfig.json
+            --key-pass=pass:${{ secrets.KEY_PASSWORD }}
 
           APKSIGNER=$(find $ANDROID_HOME/build-tools -name apksigner | sort -V | tail -n 1)
           echo "Using system apksigner: $APKSIGNER"
