@@ -60,6 +60,8 @@ jobs:
     
           RELEASE_AAB=$(ls app/build/outputs/bundle/release/*.aab | head -n 1)
           DEBUG_AAB=$(ls app/build/outputs/bundle/debug/*.aab | head -n 1)
+          AAPT2_PATH=$(ls -d $ANDROID_HOME/build-tools/*/aapt2 | tail -1)
+          echo "Found GitHub Actions AAPT2 at: $AAPT2_PATH"
     
           echo "=== Release AAB: $RELEASE_AAB ==="
           echo "=== Debug AAB: $DEBUG_AAB ==="
@@ -67,7 +69,7 @@ jobs:
           java -jar bundletool.jar build-apks \
             --bundle="$RELEASE_AAB" \
             --output=app/build/outputs/bundle/release/aab-release.apks \
-            --device-spec=device.json \
+            --aapt2="$AAPT2_PATH" \
             --mode=default \
             --ks=app/new_full_ec_key.jks \
             --ks-pass=pass:${{ secrets.KEY_STORE_PASSWORD }} \
@@ -77,7 +79,7 @@ jobs:
           java -jar bundletool.jar build-apks \
             --bundle="$DEBUG_AAB" \
             --output=app/build/outputs/bundle/debug/aab-debug.apks \
-            --device-spec=device.json \
+            --aapt2="$AAPT2_PATH" \
             --mode=default \
             --ks=app/new_full_ec_key.jks \
             --ks-pass=pass:${{ secrets.KEY_STORE_PASSWORD }} \
