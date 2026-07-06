@@ -25,7 +25,10 @@ private val DarkColorScheme = darkColorScheme(
     onBackground = OnPinkBackground80,
     onSurface = OnPinkSurface80,
     surfaceVariant = PinkSurfaceVariant80,
-    onSurfaceVariant = OnPinkSurfaceVariant80
+    onSurfaceVariant = OnPinkSurfaceVariant80,
+    surfaceContainer = PinkSurfaceVariant80, 
+    surfaceContainerHigh = PinkSurfaceVariant80,
+    surfaceContainerLow = PinkBackground80
 )
 
 @Keep
@@ -40,7 +43,10 @@ private val LightColorScheme = lightColorScheme(
     onBackground = OnPinkBackground40,
     onSurface = OnPinkSurface40,
     surfaceVariant = PinkSurfaceVariant40,
-    onSurfaceVariant = OnPinkSurfaceVariant40
+    onSurfaceVariant = OnPinkSurfaceVariant40,
+    surfaceContainer = PinkSurfaceVariant40, 
+    surfaceContainerHigh = PinkSurfaceVariant40,
+    surfaceContainerLow = PinkBackground40
 )
 
 @Keep
