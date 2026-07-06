@@ -16,6 +16,7 @@ import androidx.annotation.Keep
 @Keep
 private val DarkColorScheme = darkColorScheme(
     primary = PinkPrimary80,
+    onPrimary = OnPinkPrimary80,
     primaryContainer = PinkContainer80,
     onPrimaryContainer = OnPinkContainer80,
     secondary = PinkSecondary80,
@@ -26,14 +27,15 @@ private val DarkColorScheme = darkColorScheme(
     onSurface = OnPinkSurface80,
     surfaceVariant = PinkSurfaceVariant80,
     onSurfaceVariant = OnPinkSurfaceVariant80,
-    surfaceContainer = PinkSurfaceVariant80, 
-    surfaceContainerHigh = PinkSurfaceVariant80,
-    surfaceContainerLow = PinkBackground80
+    surfaceContainer = PinkSurfaceContainer80, 
+    surfaceContainerHigh = PinkSurfaceContainerHigh80,
+    surfaceContainerLow = PinkSurfaceContainerLow80
 )
 
 @Keep
 private val LightColorScheme = lightColorScheme(
     primary = PinkPrimary40,
+    onPrimary = OnPinkPrimary40,
     primaryContainer = PinkContainer40,
     onPrimaryContainer = OnPinkContainer40,
     secondary = PinkSecondary40,
@@ -44,9 +46,9 @@ private val LightColorScheme = lightColorScheme(
     onSurface = OnPinkSurface40,
     surfaceVariant = PinkSurfaceVariant40,
     onSurfaceVariant = OnPinkSurfaceVariant40,
-    surfaceContainer = PinkSurfaceVariant40, 
-    surfaceContainerHigh = PinkSurfaceVariant40,
-    surfaceContainerLow = PinkBackground40
+    surfaceContainer = PinkSurfaceContainer40, 
+    surfaceContainerHigh = PinkSurfaceContainerHigh40,
+    surfaceContainerLow = PinkSurfaceContainerLow40
 )
 
 @Keep
