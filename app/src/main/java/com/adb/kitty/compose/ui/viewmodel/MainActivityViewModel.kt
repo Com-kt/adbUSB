@@ -96,10 +96,10 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
 
     fun setDynamicColorEnabled(enabled: Boolean) {
         _useDynamicColor.value = enabled
-        
-        sharedPrefs.edit()
-            .putBoolean(KEY_USE_DYNAMIC_COLOR, enabled)
-            .apply()
+    
+        sharedPrefs.edit {
+            putBoolean(KEY_USE_DYNAMIC_COLOR, enabled)
+        }
     }
     
     private val masterLogBuffer = StringBuilder()
