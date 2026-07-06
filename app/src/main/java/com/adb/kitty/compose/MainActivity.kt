@@ -273,48 +273,50 @@ class MainActivity : ComponentActivity() {
             )
         )
         setContent {
-            CenterAlignedTopAppBarExample(
-                viewModel = viewModel,
-                activity = this@MainActivity,
-                onExecuteCommand = { cmd -> 
-                    dispatchCommandRoute(cmd)
-                }
-            )
-            
-            if (showDeviceListBottomSheet.value) {
-                DeviceSelectionBottomSheet(
-                    wifiName = getCurrentWifiSsid(),
-                    devices = matchedDevicesList,
-                    onDeviceSelected = { selectedDevice ->
-                        appendLog("[系统] 用户从底栏选择了设备: ${selectedDevice.ip}:${selectedDevice.port}")
-                        lifecycleScope.launch(Dispatchers.IO) {
-                            handleLocalAdbConnect("adb connect ${selectedDevice.ip}:${selectedDevice.port}")
-                        }
-                        showDeviceListBottomSheet.value = false
-                    },
-                    onDismiss = { showDeviceListBottomSheet.value = false }
-                )
-            }
-            
-            qrCodeDialogContent?.let { textToEncode ->
-                QrCodePopupDialog(
-                    contentString = textToEncode,
-                    onDismiss = { qrCodeDialogContent = null }
-                )
-            }
-            
-            qrDecodeResult?.let { decodedText ->
-                QrDecodeResultDialog(
-                    rawResult = decodedText,
-                    onDismiss = { qrDecodeResult = null },
-                    onExportToFile = { content ->
-                        val savedName = saveTextToFlashFolder(this@MainActivity, flashFolder, content)
-                        if (savedName != null) {
-                            appendLog("[系统] 解码内容已成功全部输出至: flash/$savedName")
-                        }
-                        qrDecodeResult = null 
+            NekoTheme(dynamicColor = false) {
+                CenterAlignedTopAppBarExample(
+                    viewModel = viewModel,
+                    activity = this@MainActivity,
+                    onExecuteCommand = { cmd -> 
+                        dispatchCommandRoute(cmd)
                     }
                 )
+            
+                if (showDeviceListBottomSheet.value) {
+                    DeviceSelectionBottomSheet(
+                        wifiName = getCurrentWifiSsid(),
+                        devices = matchedDevicesList,
+                        onDeviceSelected = { selectedDevice ->
+                            appendLog("[系统] 用户从底栏选择了设备: ${selectedDevice.ip}:${selectedDevice.port}")
+                            lifecycleScope.launch(Dispatchers.IO) {
+                                handleLocalAdbConnect("adb connect ${selectedDevice.ip}:${selectedDevice.port}")
+                            }
+                            showDeviceListBottomSheet.value = false
+                        },
+                        onDismiss = { showDeviceListBottomSheet.value = false }
+                    )
+                }
+            
+                qrCodeDialogContent?.let { textToEncode ->
+                    QrCodePopupDialog(
+                        contentString = textToEncode,
+                        onDismiss = { qrCodeDialogContent = null }
+                    )
+                }
+            
+                qrDecodeResult?.let { decodedText ->
+                    QrDecodeResultDialog(
+                        rawResult = decodedText,
+                        onDismiss = { qrDecodeResult = null },
+                        onExportToFile = { content ->
+                            val savedName = saveTextToFlashFolder(this@MainActivity, flashFolder, content)
+                            if (savedName != null) {
+                                appendLog("[系统] 解码内容已成功全部输出至: flash/$savedName")
+                            }
+                            qrDecodeResult = null 
+                        }
+                    )
+                }
             }
         }
         

@@ -1,7 +1,7 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
-  <style name="Theme.ComposeEmptyActivity" parent="android:Theme.Material.Light.NoActionBar" >
+  <style name="Theme.NekoCompose" parent="android:Theme.Material.Light.NoActionBar" >
       <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>
   </style>
 
-  <style name="AppTheme" parent="Theme.ComposeEmptyActivity" />
+  <style name="AppTheme" parent="Theme.NekoCompose" />
 </resources>

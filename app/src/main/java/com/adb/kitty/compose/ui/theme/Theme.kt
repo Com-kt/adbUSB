@@ -46,7 +46,7 @@ private val LightColorScheme = lightColorScheme(
 @Keep
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-fun ComposeEmptyActivityTheme(
+fun NekoTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     dynamicColor: Boolean = true,
     content: @Composable () -> Unit
