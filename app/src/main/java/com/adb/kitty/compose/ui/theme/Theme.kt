@@ -17,6 +17,7 @@ import androidx.annotation.Keep
 private val DarkColorScheme = darkColorScheme(
     primary = PinkPrimary80,
     primaryContainer = PinkContainer80,
+    onPrimaryContainer = OnPinkContainer80,
     secondary = PinkSecondary80,
     tertiary = PinkTertiary80
 )
@@ -25,6 +26,7 @@ private val DarkColorScheme = darkColorScheme(
 private val LightColorScheme = lightColorScheme(
     primary = PinkPrimary40,
     primaryContainer = PinkContainer40,
+    onPrimaryContainer = OnPinkContainer40,
     secondary = PinkSecondary40,
     tertiary = PinkTertiary40
 )
@@ -34,7 +36,7 @@ private val LightColorScheme = lightColorScheme(
 @Composable
 fun ComposeEmptyActivityTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
-    dynamicColor: Boolean = true,
+    dynamicColor: Boolean = false,
     content: @Composable () -> Unit
 ) {
     val colorScheme = when {
