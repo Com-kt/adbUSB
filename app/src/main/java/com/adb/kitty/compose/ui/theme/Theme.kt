@@ -16,6 +16,7 @@ import androidx.annotation.Keep
 @Keep
 private val DarkColorScheme = darkColorScheme(
     primary = PinkPrimary80,
+    primaryContainer = PinkContainer80,
     secondary = PinkSecondary80,
     tertiary = PinkTertiary80
 )
@@ -23,6 +24,7 @@ private val DarkColorScheme = darkColorScheme(
 @Keep
 private val LightColorScheme = lightColorScheme(
     primary = PinkPrimary40,
+    primaryContainer = PinkContainer40,
     secondary = PinkSecondary40,
     tertiary = PinkTertiary40
 )

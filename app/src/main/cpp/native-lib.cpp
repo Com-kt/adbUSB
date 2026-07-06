@@ -31,7 +31,7 @@
 #include <iomanip>
 #include <sstream>
 
-const char* USER_KITTY_CONSTANT = "FAILunknown";
+const char* USER_KITTY_CONSTANT = "Unknown";
 
 extern "C" JNIEXPORT jstring JNICALL
 Java_com_adb_kitty_compose_data_NativeLibs_UserString(JNIEnv *env, jobject) {
