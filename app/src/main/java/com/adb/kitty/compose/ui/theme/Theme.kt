@@ -19,7 +19,13 @@ private val DarkColorScheme = darkColorScheme(
     primaryContainer = PinkContainer80,
     onPrimaryContainer = OnPinkContainer80,
     secondary = PinkSecondary80,
-    tertiary = PinkTertiary80
+    tertiary = PinkTertiary80,
+    background = PinkBackground80,
+    surface = PinkSurface80,
+    onBackground = OnPinkBackground80,
+    onSurface = OnPinkSurface80,
+    surfaceVariant = PinkSurfaceVariant80,
+    onSurfaceVariant = OnPinkSurfaceVariant80
 )
 
 @Keep
@@ -28,7 +34,13 @@ private val LightColorScheme = lightColorScheme(
     primaryContainer = PinkContainer40,
     onPrimaryContainer = OnPinkContainer40,
     secondary = PinkSecondary40,
-    tertiary = PinkTertiary40
+    tertiary = PinkTertiary40,
+    background = PinkBackground40,
+    surface = PinkSurface40,
+    onBackground = OnPinkBackground40,
+    onSurface = OnPinkSurface40,
+    surfaceVariant = PinkSurfaceVariant40,
+    onSurfaceVariant = OnPinkSurfaceVariant40
 )
 
 @Keep
