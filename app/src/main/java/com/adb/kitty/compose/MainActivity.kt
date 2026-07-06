@@ -29,9 +29,6 @@ import androidx.core.app.NotificationManagerCompat
 *        kotlinx 协程         *
 *    suspend 都给我挂起     *
 ********************************/
-import androidx.lifecycle.*
-import androidx.lifecycle.viewmodel.*
-import androidx.lifecycle.viewmodel.internal.*
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.*
 import kotlinx.coroutines.flow.*
@@ -63,7 +60,9 @@ import androidx.activity.*
 import androidx.activity.compose.*
 import androidx.activity.result.contract.*
 import androidx.lifecycle.*
+import androidx.lifecycle.compose.*
 import androidx.lifecycle.viewmodel.*
+import androidx.lifecycle.viewmodel.internal.*
 import androidx.lifecycle.viewmodel.compose.*
 import androidx.compose.foundation.*
 import androidx.compose.foundation.lazy.*
