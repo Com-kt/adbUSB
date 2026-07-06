@@ -132,6 +132,8 @@ fun CenterAlignedTopAppBarExample(
     }
     var expanded by remember { mutableStateOf(false) }
     
+    val useDynamicColor by viewModel.useDynamicColor.collectAsStateWithLifecycle()
+    
     val logCount = viewModel.logCount
     val getLogLineAt = { index: Int -> viewModel.getLogLineAt(index) }
 
@@ -201,6 +203,31 @@ fun CenterAlignedTopAppBarExample(
                             onDismissRequest = { showMenu = false }
                         ) {
                             DropdownMenuItem(
+                                text = { 
+                                    Text("使用系统壁纸颜色") 
+                                },
+                                leadingIcon = { 
+                                    Icon(Icons.Outlined.Palette, null) 
+                                },
+                                trailingIcon = {
+                                    Switch(
+                                        checked = useDynamicColor,
+                                        onCheckedChange = { isChecked ->
+                                            viewModel.setDynamicColorEnabled(isChecked)
+                                            showMenu = false
+                                        },
+                                        colors = SwitchDefaults.colors(
+                                            checkedThumbColor = MaterialTheme.colorScheme.primary
+                                        )
+                                    )
+                                },
+                                onClick = {
+                                    viewModel.setDynamicColorEnabled(!useDynamicColor)
+                                    showMenu = false
+                                }
+                            )
+                            HorizontalDivider()
+                            DropdownMenuItem(
                                 text = {
                                     Text(
                                         stringResource(R.string.action_menu_dellog)
@@ -209,7 +236,7 @@ fun CenterAlignedTopAppBarExample(
                                 leadingIcon = { Icon(Icons.Outlined.Delete, null) },
                                 onClick = { 
                                     viewModel.clearLogs()
-                                    showMenu = false 
+                                    showMenu = false
                                 }
                             )
                             DropdownMenuItem(

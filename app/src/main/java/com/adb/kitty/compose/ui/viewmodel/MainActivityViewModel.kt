@@ -82,7 +82,25 @@ import com.adb.kitty.compose.*
 import com.adb.kitty.compose.ui.it.*
 
 @Keep
-class MainActivityViewModel : ViewModel() {
+class MainActivityViewModel(application: Application) : AndroidViewModel(application) {
+    
+    private val sharedPrefs = application.getSharedPreferences(
+        "user_color_settings", 
+        Context.MODE_PRIVATE
+    )
+    private val KEY_USE_DYNAMIC_COLOR = "key_user_dynamic_color"
+    private val _useDynamicColor = MutableStateFlow(
+        sharedPrefs.getBoolean(KEY_USE_DYNAMIC_COLOR, true)
+    )
+    val useDynamicColor = _useDynamicColor.asStateFlow()
+
+    fun setDynamicColorEnabled(enabled: Boolean) {
+        _useDynamicColor.value = enabled
+        
+        sharedPrefs.edit()
+            .putBoolean(KEY_USE_DYNAMIC_COLOR, enabled)
+            .apply()
+    }
     
     private val masterLogBuffer = StringBuilder()
     private val logLineRanges = mutableStateListOf<Long>()

@@ -273,7 +273,8 @@ class MainActivity : ComponentActivity() {
             )
         )
         setContent {
-            NekoTheme(dynamicColor = false) {
+            val useDynamicColor by viewModel.useDynamicColor.collectAsStateWithLifecycle()
+            NekoTheme(dynamicColor = useDynamicColor) {
                 CenterAlignedTopAppBarExample(
                     viewModel = viewModel,
                     activity = this@MainActivity,
