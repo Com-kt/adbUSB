@@ -188,7 +188,6 @@ fun CenterAlignedTopAppBarExample(
                     }
                 },
                 actions = {
-                    // 2. 使用 Box 包裹图标和菜单
                     Box {
                         IconButton(onClick = { showMenu = !showMenu }) {
                             Icon(
@@ -196,30 +195,18 @@ fun CenterAlignedTopAppBarExample(
                                 contentDescription = "More options"
                             )
                         }
-                        
-                        // 3. 定义下拉菜单
                         DropdownMenu(
                             expanded = showMenu,
                             onDismissRequest = { showMenu = false }
                         ) {
                             DropdownMenuItem(
-                                text = { 
-                                    Text("使用系统壁纸颜色") 
+                                text = {
+                                    Text(
+                                        stringResource(R.string.action_menu_color)
+                                    )
                                 },
                                 leadingIcon = { 
                                     Icon(Icons.Outlined.Palette, null) 
-                                },
-                                trailingIcon = {
-                                    Switch(
-                                        checked = useDynamicColor,
-                                        onCheckedChange = { isChecked ->
-                                            viewModel.setDynamicColorEnabled(isChecked)
-                                            showMenu = false
-                                        },
-                                        colors = SwitchDefaults.colors(
-                                            checkedThumbColor = MaterialTheme.colorScheme.primary
-                                        )
-                                    )
                                 },
                                 onClick = {
                                     viewModel.setDynamicColorEnabled(!useDynamicColor)

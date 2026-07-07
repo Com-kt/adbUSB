@@ -90,7 +90,7 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
     )
     private val KEY_USE_DYNAMIC_COLOR = "key_user_dynamic_color"
     private val _useDynamicColor = MutableStateFlow(
-        sharedPrefs.getBoolean(KEY_USE_DYNAMIC_COLOR, true)
+        sharedPrefs.getBoolean(KEY_USE_DYNAMIC_COLOR, false)
     )
     val useDynamicColor = _useDynamicColor.asStateFlow()
 
