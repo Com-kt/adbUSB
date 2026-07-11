@@ -645,6 +645,8 @@ private fun determineLogColor(
         line.contains("错误") || 
         line.contains("异常") || 
         line.contains("失败") || 
+        line.contains("🔴") || 
+        line.contains("FAIL") || 
         line.contains("Exception") || 
         line.contains("Error") || 
         line.contains("Fatal")
@@ -656,6 +658,9 @@ private fun determineLogColor(
     if (line.indexOf(" W/", 0) in 0 until maxScanLen || 
         line.contains("警告") || 
         line.contains("超时") || 
+        line.contains("未知") || 
+        line.contains("TIMEOUT") || 
+        line.contains("Unknown") || 
         line.contains("Warn") || 
         line.contains("Warning") || 
         line.contains("Timeout")
@@ -666,6 +671,7 @@ private fun determineLogColor(
     // 优先级第三：【成功】
     // 绿色在日志中极其显眼，通常用于核心流程跑通的打点
     if (line.contains("成功") || 
+        line.contains("🟢") || 
         line.contains("Success") || 
         line.contains("OKAY") || 
         line.contains("OK")
@@ -677,6 +683,7 @@ private fun determineLogColor(
     if (line.indexOf(" I/", 0) in 0 until maxScanLen || 
         line.contains("提示") || 
         line.contains("信息") || 
+        line.contains("INFO") || 
         line.contains("Info") || 
         line.contains("Hint")
     ) {
