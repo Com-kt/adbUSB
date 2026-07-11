@@ -557,13 +557,13 @@ fun LogSection(
         backgroundColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)
     )
     
-    val colorScheme = MaterialTheme.colorScheme
-    val debugColor = colorScheme.secondary
-    val infoColor = colorScheme.primary
-    val warnColor = Color(0xFFFF9800)
-    val errorColor = colorScheme.error
-    val traceColor = colorScheme.outline
-    val successColor = Color(0xFF4CAF50)
+    val isDark = isSystemInDarkTheme()
+    val errorColor = remember(isDark) { if (isDark) Color(0xFFFF8A80) else Color(0xFFC62828) }   // 柔粉红 / 深绛红
+    val warnColor = remember(isDark) { if (isDark) Color(0xFFFFCC80) else Color(0xFFE65100) }    // 浅麦黄 / 暗深橙
+    val successColor = remember(isDark) { if (isDark) Color(0xFFA5D6A7) else Color(0xFF2E7D32) } // 薄荷绿 / 森林绿
+    val infoColor = remember(isDark) { if (isDark) Color(0xFF90CAF9) else Color(0xFF1565C0) }    // 淡空蓝 / 深宝蓝
+    val debugColor = remember(isDark) { if (isDark) Color(0xFFCE93D8) else Color(0xFF7B1FA2) }   // 薰衣紫 / 暗茄紫
+    val traceColor = remember(isDark) { if (isDark) Color(0xFFB0BEC5) else Color(0xFF546E7A) }   // 灰蓝石 / 黛青石
 
     // React to the total line count size changes
     LaunchedEffect(logCount) {
