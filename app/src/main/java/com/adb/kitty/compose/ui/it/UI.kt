@@ -3,7 +3,6 @@ package com.adb.kitty.compose.ui.it
 import android.*
 import android.util.*
 import android.content.pm.*
-import android.graphics.*
 import android.animation.*
 import android.provider.*
 import android.app.PendingIntent
