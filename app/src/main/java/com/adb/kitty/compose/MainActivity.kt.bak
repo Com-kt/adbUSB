@@ -251,7 +251,7 @@ class MainActivity : ComponentActivity() {
                     }
                     WifiManager.WIFI_STATE_DISABLED -> {
                         isWifiEnabled = false
-                        appendLog("[警告] ⏳ WLAN 已关闭")
+                        appendLog("[系统] ⏳ WLAN 已关闭")
                         handleWifiConnectionFlow()
                     }
                 }
