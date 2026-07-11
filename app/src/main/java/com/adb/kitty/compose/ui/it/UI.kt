@@ -602,10 +602,8 @@ fun LogSection(
                             index
                         }
                     ) { index ->
-                        val logLineStr = remember(index) { 
-                            getLogLineAt(index) 
-                        }
-                        val rowTextColor = remember(index, debugColor, infoColor, warnColor, errorColor, traceColor, successColor) {
+                        val logLineStr = getLogLineAt(index)
+                        val rowTextColor = remember(logLineStr, debugColor, infoColor, warnColor, errorColor, traceColor, successColor) {
                             determineLogColor(logLineStr, debugColor, infoColor, warnColor, errorColor, traceColor, successColor)
                         }
                         Text(

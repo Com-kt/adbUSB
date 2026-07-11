@@ -141,8 +141,7 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
     
     fun clearLogs() {
         logLineRanges.clear()
-        masterLogBuffer.setLength(0) 
-        appendLog("[INFO] 控制台及原生高速缓存区日志已全面清空。")
+        masterLogBuffer.setLength(0)
     }
     
     fun exportFullLogToFile(targetFile: File): Boolean {
