@@ -142,7 +142,7 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
     fun clearLogs() {
         logLineRanges.clear()
         masterLogBuffer.setLength(0) 
-        appendLog("[系统] 控制台及原生高速缓存区日志已全面清空。")
+        appendLog("[INFO] 控制台及原生高速缓存区日志已全面清空。")
     }
     
     fun exportFullLogToFile(targetFile: File): Boolean {
@@ -207,13 +207,13 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
         }
         
         if (!service.getConnectedDeviceIds().contains(targetDevice.id) || targetDevice.isActive) {
-            appendLog("[系统] 切换熔断：设备 ${targetDevice.displayName} 已离线或已被激活。")
+            appendLog("[INFO] 切换熔断：设备 ${targetDevice.displayName} 已离线或已被激活。")
             return
         }
         
         try {
             service.currentDeviceId = targetDevice.id
-            appendLog("[系统] 主控权已动态切流至 -> ${targetDevice.displayName}")
+            appendLog("[INFO] 主控权已动态切流至 -> ${targetDevice.displayName}")
         } catch (e: Exception) {
             appendLog("[系统] 切流发生异常: ${e.localizedMessage}")
         }

@@ -173,7 +173,7 @@ class MainActivity : ComponentActivity() {
         ActivityResultContracts.RequestPermission()
     ) { isGranted: Boolean ->
         if (isGranted) {
-            appendLog("[权限] Android 13+ 通知权限授权成功，正在激活前台服务...")
+            appendLog("[权限] Android 13+ 通知权限授权成功，正在激活前台服务…")
             startAndBindAdbService()
         } else {
             handlePermissionDeniedSituation()
@@ -190,9 +190,9 @@ class MainActivity : ComponentActivity() {
             true
         }
         if (isWifiScanGranted && isLocalNetworkGranted) {
-            appendLog("[系统] Wi-Fi 所需权限已授予，已具备激活无线链路条件")
+            appendLog("[INFO] Wi-Fi 所需权限已授予，已具备激活无线链路条件")
         } else {
-            appendLog("[系统] 🔴 权限被拒绝，无法自动扫描 Wi-Fi SSID")
+            appendLog("[警告] 权限被拒绝，无法自动扫描 Wi-Fi SSID")
         }
     }
 
@@ -246,7 +246,7 @@ class MainActivity : ComponentActivity() {
                 when (wifiState) {
                     WifiManager.WIFI_STATE_ENABLED -> {
                         isWifiEnabled = true
-                        appendLog("[系统] ⏳ WLAN 已开启")
+                        appendLog("[INFO] ⏳ WLAN 已开启")
                         if (!oldState) handleWifiConnectionFlow()
                     }
                     WifiManager.WIFI_STATE_DISABLED -> {
@@ -287,7 +287,7 @@ class MainActivity : ComponentActivity() {
                         wifiName = getCurrentWifiSsid(),
                         devices = matchedDevicesList,
                         onDeviceSelected = { selectedDevice ->
-                            appendLog("[系统] 用户从底栏选择了设备: ${selectedDevice.ip}:${selectedDevice.port}")
+                            appendLog("[INFO] 用户从底栏选择了设备: ${selectedDevice.ip}:${selectedDevice.port}")
                             lifecycleScope.launch(Dispatchers.IO) {
                                 handleLocalAdbConnect("adb connect ${selectedDevice.ip}:${selectedDevice.port}")
                             }
@@ -766,7 +766,7 @@ class MainActivity : ComponentActivity() {
             }
         } else {
             if (!isAdbAuthorized && !cmd.startsWith("adb pair") && !cmd.startsWith("adb connect")) {
-                appendLog("[警告] 当前设备未就绪或未授权")
+                appendLog("[警告] 无法发送该命令，暂不支持走应用自身权限，请连接 adbd 之后再尝试发送")
                 return
             }
             lifecycleScope.launch(Dispatchers.IO) {
@@ -874,7 +874,7 @@ class MainActivity : ComponentActivity() {
 
     fun FbSeLinuxCmd() {
         if (!isFastbootMode) {
-             Toast.makeText(this, "当前不是 Fastboot 模式", Toast.LENGTH_SHORT).show()
+             appendLog("[警告] 该命令只能在 Fastboot 模式使用")
            return
         }
         lifecycleScope.launch(Dispatchers.IO) {
