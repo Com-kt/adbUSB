@@ -211,7 +211,7 @@ class MainActivity : ComponentActivity() {
                         connectToInterface(device)
                     }
                 } else {
-                    appendLog("[系统] 用户拒绝了 USB 权限申请")
+                    appendLog("[警告] 用户拒绝了 USB 权限申请")
                 }
             }
         }
@@ -223,7 +223,7 @@ class MainActivity : ComponentActivity() {
                 UsbManager.ACTION_USB_DEVICE_ATTACHED,
                 UsbManager.ACTION_USB_ACCESSORY_ATTACHED -> {
                     isUsbAttached = true
-                    findHostDevice() // 自动盘卡物理硬件
+                    findHostDevice()
                 }
                 UsbManager.ACTION_USB_DEVICE_DETACHED,
                 UsbManager.ACTION_USB_ACCESSORY_DETACHED -> {
@@ -232,7 +232,7 @@ class MainActivity : ComponentActivity() {
                     isFastbootMode = false
                     readerJob?.cancel()
                     usbConn?.close()
-                    appendLog("[系统] USB 设备已断开")
+                    appendLog("[警告] USB 设备已断开")
                 }
             }
         }
@@ -743,7 +743,7 @@ class MainActivity : ComponentActivity() {
                         appendLog("[错误] 查询失败: ${e.message}")
                     }
                 } else {
-                    appendLog("[提示] 当前系统级别 (API ${android.os.Build.VERSION.SDK_INT}) 低于 Android 16，不支持高级保护模式。")
+                    appendLog("[提示] 当前系统级别 (API ${android.os.Build.VERSION.SDK_INT}) 低于 API 36，不支持高级保护模式。")
                 }
                 return
             }
@@ -766,7 +766,7 @@ class MainActivity : ComponentActivity() {
             }
         } else {
             if (!isAdbAuthorized && !cmd.startsWith("adb pair") && !cmd.startsWith("adb connect")) {
-                Toast.makeText(this, "设备未就绪或未授权", Toast.LENGTH_SHORT).show()
+                appendLog("[警告] 当前设备未就绪或未授权")
                 return
             }
             lifecycleScope.launch(Dispatchers.IO) {
@@ -843,7 +843,7 @@ class MainActivity : ComponentActivity() {
     private fun handlePermissionDeniedSituation() {
         appendLog("[错误] ❌ 通知权限被拦截/拒绝！")
         appendLog("[警告] ⚠️ 前台服务失去通知将导致服务被系统瞬间抹杀。")
-        appendLog("[保护] 🚨 已自动熔断并禁用核心功能：[adb]、[adb-wlan]、[fastboot]、[usb]")
+        appendLog("[警告] 🚨 已自动熔断并禁用核心功能：[adb]、[adb-wlan]、[fastboot]、[usb]")
     }
     
     private fun startAndBindAdbService() {
@@ -1224,7 +1224,7 @@ class MainActivity : ComponentActivity() {
         // 1. 如果有旧任务正在运行，先停止它
         if (currentShellJob?.isActive == true) {
             currentShellJob?.cancel()
-            appendLog("[系统] 停止了上一个任务...")
+            appendLog("[提示] 已自动停止了上一个任务…")
         }
 
         // 2. 启动新任务并保存 Job
@@ -1681,10 +1681,10 @@ class MainActivity : ComponentActivity() {
     fun handleWifiConnectionFlow() {
         val wifiManager = applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
         isWifiEnabled = wifiManager.isWifiEnabled
-        appendLog("[系统] 🚀 初始 WLAN 状态: isWifiEnabled = $isWifiEnabled")
+        appendLog("[提示] 🚀 初始 WLAN 状态: isWifiEnabled = $isWifiEnabled")
         if (checkAndRequestWifiPermission()) {
             if (isWifiEnabled) executeAutoWifiConnect()
-            else appendLog("[系统] 📡 自动回连已跳过：手机 WLAN 开关当前未开启。")
+            else appendLog("[警告] 📡 自动回连已跳过：手机 WLAN 开关当前未开启。")
         }
     }
 
@@ -1777,7 +1777,7 @@ class MainActivity : ComponentActivity() {
             if (localVpnIpv6 != null) {
                 appendLog("[本地 VPN 网卡] 成功抓取本地 VPN IPv6 地址: $localVpnIpv6")
             } else {
-                appendLog("[本地 VPN 网卡] 未检测到本地 VPN 的 IPv6 地址 (VPN未开启，或该VPN软件底层未分配IPv6虚拟网卡)")
+                appendLog("[本地 VPN 网卡] 提示: 未检测到本地 VPN 的 IPv6 地址 (VPN未开启，或该VPN软件底层未分配IPv6虚拟网卡)")
             }
             
             appendLog("[系统] === 全网环境深度检测结束 ===")

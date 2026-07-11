@@ -44,7 +44,7 @@ class RefreshRateInspector(
     private val rootConnection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
             rootCpuBinder = ICpuBinder.Stub.asInterface(service)
-            onLogAppend("[系统] 🛑 纯血 Linux 物理节点盲扫引擎准备就绪！")
+            onLogAppend("[系统] 🟢 纯血 Linux 物理节点盲扫引擎准备就绪！")
             onConnectedCallback?.invoke(true)
             onConnectedCallback = null 
         }
