@@ -898,7 +898,7 @@ class MainActivity : ComponentActivity() {
     fun findHostDevice() {
         val devices = usbManager.deviceList
         if (devices.isEmpty()) {
-            appendLog("未发现 USB 设备")
+            appendLog("[INFO] 未发现 USB 设备")
             return
         }
 

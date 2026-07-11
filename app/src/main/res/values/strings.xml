@@ -16,7 +16,7 @@
     <string name="action_menu_rate">Start testing rate[root]</string>
     <string name="action_menu_rate_stop">Stop testing rate[root]</string>
     <string name="action_menu_sospl">enter adb cmd / fastboot cmd</string>
-    <string name="action_menu_color">Try using system wallpaper colors</string>
+    <string name="action_menu_color">use system wallpaper colors</string>
     <string name="action_qr_okay">🛡️ QR code generated successfully</string>
     <string name="action_qr_store">Save to album</string>
     <string name="action_qr_close">closure</string>

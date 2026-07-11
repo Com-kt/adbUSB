@@ -15,7 +15,7 @@
     <string name="action_menu_rate">开始测试帧率[root]</string>
     <string name="action_menu_rate_stop">停止测试帧率[root]</string>
     <string name="action_menu_sospl">输入 adb 命令 / fastboot 命令</string>
-    <string name="action_menu_color">尝试使用系统壁纸颜色</string>
+    <string name="action_menu_color">使用系统壁纸颜色</string>
     <string name="action_qr_okay">🛡️ 二维码生成成功</string>
     <string name="action_qr_store">保存到相册</string>
     <string name="action_qr_close">关闭</string>
