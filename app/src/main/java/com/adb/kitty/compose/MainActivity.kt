@@ -343,8 +343,6 @@ class MainActivity : ComponentActivity() {
 
         inspector = RefreshRateInspector(this, this) { logText -> appendLog(logText) }
         
-        // 首次冷启动探测有线
-        findHostDevice()
     }
     
     private fun dispatchCommandRoute(cmdInput: String) {
