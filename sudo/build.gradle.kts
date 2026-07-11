@@ -1,15 +1,30 @@
 @file:Suppress("UnstableApiUsage")
 
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.io.File
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
     alias(libs.plugins.android.application)
 }
 
+val propCompileSdk = providers.gradleProperty("COMPILE_SDK").get().toInt()
+val propSudoMinSdk = providers.gradleProperty("SUDO_MIN_SDK").get().toInt()
+val propTargetSdk = providers.gradleProperty("TARGET_SDK").get().toInt()
+val buildDate = SimpleDateFormat("yyyyMMdd").format(Date())
+val versionPrefix = providers.gradleProperty("VERSION_PREFIX").get()
+val propVersionCode = providers.gradleProperty("VERSION_CODE").get().toInt()
+val propBuildTools = providers.gradleProperty("BUILDTOOLS_VERSION").get()
+
+val envNewStorePassword = System.getenv("RELEASE_STORE_PASSWORD") ?: ""
+val envNewKeyAlias = System.getenv("RELEASE_KEY_ALIAS") ?: ""
+val envNewKeyPassword = System.getenv("RELEASE_KEY_PASSWORD") ?: ""
+
 android {
     namespace = "com.neko.service.tools"
-    compileSdk = 37
-    buildToolsVersion = "37.0.0"
+    compileSdk = propCompileSdk
+    buildToolsVersion = "$propBuildTools"
     
     packaging {
         dex {
@@ -25,10 +40,10 @@ android {
 
     defaultConfig {
         applicationId = "com.neko.service.tools"
-        minSdk = 36
-        targetSdk = 37
-        versionCode = 1
-        versionName = "1"
+        minSdk = propSudoMinSdk
+        targetSdk = propTargetSdk
+        versionCode = propVersionCode
+        versionName = "$versionPrefix-$buildDate"
     }
 
     compileOptions {
@@ -46,9 +61,9 @@ android {
         create("adb") {
         // keystore file，.bks & .jks & .p12
             storeFile = file("new_full_ec_key.jks")
-            storePassword = System.getenv("RELEASE_STORE_PASSWORD")
-            keyAlias = System.getenv("RELEASE_KEY_ALIAS")
-            keyPassword = System.getenv("RELEASE_KEY_PASSWORD")
+            storePassword = envNewStorePassword
+            keyAlias = envNewKeyAlias
+            keyPassword = envNewKeyPassword
             storeType = "PKCS12"
             enableV1Signing = false
             enableV2Signing = false

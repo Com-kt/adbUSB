@@ -29,10 +29,10 @@ jobs:
 
       - name: Decode Both Keystores
         run: |
-          echo "${{ secrets.SIGNING_KEY_BASE64 }}" | base64 --decode > tools/new_full_ec_key.jks
+          echo "${{ secrets.SIGNING_KEY_BASE64 }}" | base64 --decode > sudo/new_full_ec_key.jks
 
       - name: Build Debug, Release and Bundle
-        run: ./gradlew :tools:assembleDebug :tools:assembleRelease -i -w --stacktrace --warning-mode all 2>&1 | tee build.log
+        run: ./gradlew :sudo:assembleDebug :sudo:assembleRelease -i -w --stacktrace --warning-mode all 2>&1 | tee build.log
         env:
           RELEASE_STORE_PASSWORD: ${{ secrets.KEY_STORE_PASSWORD }}
           RELEASE_KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
@@ -48,14 +48,14 @@ jobs:
       - name: Upload Debug APKs
         uses: actions/upload-artifact@v7
         with:
-          name: tools-debug-apks
-          path: tools/build/outputs/apk/debug/*
+          name: sudo-debug-apks
+          path: sudo/build/outputs/apk/debug/*
           archive: true
 
       - name: Upload Release APKs
         uses: actions/upload-artifact@v7
         with:
-          name: tools-release-apks
-          path: tools/build/outputs/apk/release/*
+          name: sudo-release-apks
+          path: sudo/build/outputs/apk/release/*
           archive: true
           

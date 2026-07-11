@@ -13,7 +13,7 @@ import java.util.concurrent.CopyOnWriteArrayList
 import kotlin.system.exitProcess
 
 // minSdk = 36
-// 为 Android 16 而生的 Sudo Daemon
+// Sudo Daemon
 
 object NekoMain {
 

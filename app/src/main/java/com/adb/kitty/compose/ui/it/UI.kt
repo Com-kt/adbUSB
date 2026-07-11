@@ -557,6 +557,14 @@ fun LogSection(
         handleColor = MaterialTheme.colorScheme.primary,
         backgroundColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)
     )
+    
+    val colorScheme = MaterialTheme.colorScheme
+    val debugColor = colorScheme.secondary
+    val infoColor = colorScheme.primary
+    val warnColor = Color(0xFFFF9800)
+    val errorColor = colorScheme.error
+    val traceColor = colorScheme.outline
+    val successColor = Color(0xFF4CAF50)
 
     // React to the total line count size changes
     LaunchedEffect(logCount) {
@@ -595,8 +603,15 @@ fun LogSection(
                             index
                         }
                     ) { index ->
+                        val logLineStr = remember(index) { 
+                            getLogLineAt(index) 
+                        }
+                        val rowTextColor = remember(index, debugColor, infoColor, warnColor, errorColor, traceColor, successColor) {
+                            determineLogColor(logLineStr, debugColor, infoColor, warnColor, errorColor, traceColor, successColor)
+                        }
                         Text(
-                            text = getLogLineAt(index), // Decodes the string dynamically in real time
+                            text = logLineStr,
+                            color = rowTextColor,
                             fontFamily = FontFamily.Monospace,
                             style = MaterialTheme.typography.bodyMedium,
                             softWrap = false,
@@ -609,6 +624,92 @@ fun LogSection(
             }
         }
     }
+}
+
+@Keep
+private fun determineLogColor(
+    line: String,
+    debugColor: Color,
+    infoColor: Color,
+    warnColor: Color,
+    errorColor: Color,
+    traceColor: Color,
+    successColor: Color
+): Color {
+    if (line.isEmpty()) return Color.Unspecified
+
+    // 优先级最高：最高危的【错误 / 异常 / Fatal】
+    // 无论是标准 Logcat 头部标记，还是文本中包含“错误”“异常”，整行直接爆红
+    val maxScanLen = minOf(line.length, 80)
+    if (line.indexOf(" E/", 0) in 0 until maxScanLen || 
+        line.indexOf(" F/", 0) in 0 until maxScanLen || 
+        line.contains("错误") || 
+        line.contains("异常") || 
+        line.contains("Exception") || 
+        line.contains("Error") || 
+        line.contains("Fatal")
+    ) {
+        return errorColor
+    }
+
+    //. 优先级第二：【警告 / 超时】
+    if (line.indexOf(" W/", 0) in 0 until maxScanLen || 
+        line.contains("警告") || 
+        line.contains("超时") || 
+        line.contains("Warning") || 
+        line.contains("Timeout")
+    ) {
+        return warnColor
+    }
+
+    // 优先级第三：【成功】
+    // 绿色在日志中极其显眼，通常用于核心流程跑通的打点
+    if (line.contains("成功") || 
+        line.contains("Success") || 
+        line.contains("OK")
+    ) {
+        return successColor
+    }
+
+    // 优先级第四：【提示 / 信息 / Info】
+    if (line.indexOf(" I/", 0) in 0 until maxScanLen || 
+        line.contains("提示") || 
+        line.contains("信息") || 
+        line.contains("Info") || 
+        line.contains("Hint")
+    ) {
+        return infoColor
+    }
+
+    // 优先级第五：【调试 / Debug】
+    if (line.indexOf(" D/", 0) in 0 until maxScanLen || 
+        line.contains("Debug")
+    ) {
+        return debugColor
+    }
+
+    // 优先级第六：【追踪 / Verbose / Trace】
+    if (line.indexOf(" V/", 0) in 0 until maxScanLen || 
+        line.contains("Trace") || 
+        line.contains("Verbose")
+    ) {
+        return traceColor
+    }
+
+    // 兜底兼容：针对新版 AS 格式的孤立字母（如 "  E  "）进行前缀快速扫描
+    for (i in 0 until maxScanLen - 2) {
+        if (line[i] == ' ' && line[i + 2] == ' ') {
+            when (line[i + 1]) {
+                'E', 'F' -> return errorColor
+                'W' -> return warnColor
+                'I' -> return infoColor
+                'D' -> return debugColor
+                'V' -> return traceColor
+            }
+        }
+    }
+
+    return Color.Unspecified
 }
 
 @Keep
