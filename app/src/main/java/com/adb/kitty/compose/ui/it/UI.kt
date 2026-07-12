@@ -7,6 +7,13 @@ import android.animation.*
 import android.provider.*
 import android.app.PendingIntent
 
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.graphics.Canvas
+import android.graphics.Paint
+import android.graphics.PorterDuff
+import android.graphics.PorterDuffXfermode
+import android.graphics.Rect
 import android.speech.tts.TextToSpeech
 
 import android.os.*
@@ -61,6 +68,7 @@ import androidx.annotation.*
 import androidx.activity.*
 import androidx.activity.compose.*
 import androidx.activity.result.contract.*
+import androidx.activity.result.PickVisualMediaRequest
 import androidx.lifecycle.*
 import androidx.lifecycle.compose.*
 import androidx.lifecycle.viewmodel.*
@@ -114,6 +122,26 @@ fun CenterAlignedTopAppBarExample(
     var showMenu by remember { mutableStateOf(false) }
     
     val devicesState by viewModel.deviceListState.collectAsStateWithLifecycle()
+    
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
+    
+    val pickMediaLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia()
+    ) { uri ->
+        if (uri != null) {
+            coroutineScope.launch {
+                viewModel.appendLog("[提示] 正在处理大图，请稍候...")
+                val success = processAndSaveAvatar(context, uri)
+                if (success) {
+                    activity.reloadServiceAvatar()
+                    viewModel.appendLog("[成功] 服务头像已更新，取图片正中央区域！")
+                } else {
+                    viewModel.appendLog("[错误] 头像裁剪失败，请检查图片是否损坏")
+                }
+            }
+        }
+    }
     
     var query by rememberSaveable(stateSaver = TextFieldValue.Saver) { 
         mutableStateOf(TextFieldValue("")) 
@@ -198,6 +226,19 @@ fun CenterAlignedTopAppBarExample(
                             expanded = showMenu,
                             onDismissRequest = { showMenu = false }
                         ) {
+                            DropdownMenuItem(
+                                text = {
+                                    Text("使用自定义通知头像")
+                                },
+                                leadingIcon = { Icon(Icons.Outlined.AccountCircle, null) },
+                                onClick = {
+                                    showMenu = false
+                                    pickMediaLauncher.launch(
+                                        PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                                    )
+                                }
+                            )
+                            HorizontalDivider()
                             DropdownMenuItem(
                                 text = {
                                     Text(
@@ -485,6 +526,59 @@ fun CenterAlignedTopAppBarExample(
             )
         }
     }
+}
+
+@Keep
+private suspend fun processAndSaveAvatar(context: Context, uri: Uri): Boolean = withContext(Dispatchers.IO) {
+    runCatching {
+        val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        context.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, options) }
+
+        val targetSize = 256 
+        var sampleSize = 1
+        val minRawSize = Math.min(options.outWidth, options.outHeight)
+        while (minRawSize / sampleSize / 2 >= targetSize) {
+            sampleSize *= 2
+        }
+
+        options.inJustDecodeBounds = false
+        options.inSampleSize = sampleSize
+        val rawBitmap = context.contentResolver.openInputStream(uri)?.use { 
+            BitmapFactory.decodeStream(it, null, options) 
+        } ?: return@withContext false
+
+        val rawWidth = rawBitmap.width
+        val rawHeight = rawBitmap.height
+        val cropSize = Math.min(rawWidth, rawHeight)
+        
+        val left = (rawWidth - cropSize) / 2
+        val top = (rawHeight - cropSize) / 2
+        
+        val srcRect = Rect(left, top, left + cropSize, top + cropSize)
+        val dstRect = Rect(0, 0, targetSize, targetSize)
+
+        val circularBitmap = createBitmap(targetSize, targetSize)
+        val canvas = Canvas(circularBitmap)
+        val paint = Paint().apply { 
+            isAntiAlias = true 
+            isFilterBitmap = true
+        }
+        
+        val radius = targetSize / 2f
+        canvas.drawCircle(radius, radius, radius, paint)
+        
+        paint.xfermode = PorterDuffXfermode(PorterDuff.Mode.SRC_IN)
+        canvas.drawBitmap(rawBitmap, srcRect, dstRect, paint)
+        
+        rawBitmap.recycle()
+
+        val outFile = File(context.filesDir, "custom_avatar.png")
+        FileOutputStream(outFile).use { out ->
+            circularBitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
+        }
+        circularBitmap.recycle()
+        true
+    }.getOrDefault(false)
 }
 
 @Keep

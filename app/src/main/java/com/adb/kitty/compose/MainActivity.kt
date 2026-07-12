@@ -163,6 +163,10 @@ class MainActivity : ComponentActivity() {
             viewModel.setAdbService(null)
         }
     }
+    
+    fun reloadServiceAvatar() {
+        adbService?.reloadAvatar()
+    }
 
     // 2. 桥接方法：将 Activity 内的所有日志无缝灌入 ViewModel
     fun appendLog(msg: String) {

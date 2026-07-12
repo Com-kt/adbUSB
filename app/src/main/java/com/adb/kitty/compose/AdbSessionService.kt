@@ -69,6 +69,7 @@ class AdbSessionService : Service() {
     }
     
     private var lastCommand: String? = null
+    private var cachedCircularIcon: IconCompat? = null
 
     private val kadbInstancePool = ConcurrentHashMap<String, Kadb>()
     
@@ -251,7 +252,7 @@ class AdbSessionService : Service() {
         .addRemoteInput(remoteInput)
         .build()
         
-        val avatarIcon = getCircularIcon(R.mipmap.ic_service_icon)
+        val avatarIcon = getCircularIcon()
         
         val consoleUser = Person.Builder()
             .setName("控制台")
@@ -333,30 +334,47 @@ class AdbSessionService : Service() {
         manager.createNotificationChannel(channel)
     }
     
-    private fun getCircularIcon(resId: Int): IconCompat {
-        val srcBitmap = BitmapFactory.decodeResource(resources, resId)
-    
-        val size = Math.min(srcBitmap.width, srcBitmap.height)
-        val dstBitmap = createBitmap(size, size)
-    
-        val canvas = Canvas(dstBitmap)
-        val paint = Paint().apply {
-            isAntiAlias = true
+    fun reloadAvatar() {
+        cachedCircularIcon = null
+        triggerTickerRefreshImmediate()
+    }
+
+    private fun getCircularIcon(): IconCompat {
+        cachedCircularIcon?.let { return it }
+
+        val avatarFile = File(filesDir, "custom_avatar.png")
+        var srcBitmap: Bitmap? = null
+
+        if (avatarFile.exists()) {
+            runCatching {
+                srcBitmap = BitmapFactory.decodeFile(avatarFile.absolutePath)
+            }
         }
-    
-        val radius = size / 2f
-        canvas.drawCircle(radius, radius, radius, paint)
-    
-        paint.xfermode = PorterDuffXfermode(PorterDuff.Mode.SRC_IN)
-    
-        val left = (srcBitmap.width - size) / 2
-        val top = (srcBitmap.height - size) / 2
-        val srcRect = Rect(left, top, left + size, top + size)
-        val dstRect = Rect(0, 0, size, size)
-        canvas.drawBitmap(srcBitmap, srcRect, dstRect, paint)
-    
-        srcBitmap.recycle()
-        return IconCompat.createWithBitmap(dstBitmap)
+
+        if (srcBitmap == null) {
+            runCatching {
+                val options = BitmapFactory.Options().apply { inSampleSize = 4 }
+                val tempBitmap = BitmapFactory.decodeResource(resources, R.mipmap.ic_service_icon, options)
+            
+                tempBitmap?.let {
+                    val size = Math.min(it.width, it.height)
+                    val dstBitmap = createBitmap(size, size)
+                    val canvas = Canvas(dstBitmap)
+                    val paint = Paint().apply { isAntiAlias = true }
+                    canvas.drawCircle(size / 2f, size / 2f, size / 2f, paint)
+                    paint.xfermode = PorterDuffXfermode(PorterDuff.Mode.SRC_IN)
+                    canvas.drawBitmap(it, Rect((it.width - size) / 2, (it.height - size) / 2, (it.width + size) / 2, (it.height + size) / 2), Rect(0, 0, size, size), paint)
+                    it.recycle()
+                    srcBitmap = dstBitmap
+                }
+            }
+        }
+
+        val finalBitmap = srcBitmap ?: return IconCompat.createWithResource(this, android.R.drawable.ic_dialog_info)
+
+        val finalIcon = IconCompat.createWithBitmap(finalBitmap)
+        cachedCircularIcon = finalIcon
+        return finalIcon
     }
     
     fun executeDownloadFromService(urlStr: String, flashFolder: File, onLog: (String) -> Unit) {
