@@ -150,7 +150,7 @@ class AdbSessionService : Service() {
         createNotificationChannel()
         
         // 1. 初始状态闪击启动前台服务
-        val initialText = "正在初始化 | ⏱️ 已运行: 00:00:00"
+        val initialText = "00:00:00"
         
         // 因为 minSdk >= 29，我们只需要专门针对 Android 14 (API 34) 以上进行安全常量绑定即可
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
@@ -282,7 +282,7 @@ class AdbSessionService : Service() {
         
         val connectedCount = kadbInstancePool.size
         val statusText = if (connectedCount > 0) "🟢 已连接: ${connectedCount}台设备" else "⏳ 等待设备接入"
-        val line2Text = "$statusText | ⏱️ 守护时长: $timeString"
+        val line2Text = "$statusText | ⏱️ 守护时长: $contentText"
         
         messagingStyle.addMessage(line1Text, System.currentTimeMillis() - 1000, anonymousSender)
         messagingStyle.addMessage(line2Text, System.currentTimeMillis(), anonymousSender)
