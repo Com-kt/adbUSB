@@ -267,6 +267,10 @@ class AdbSessionService : Service() {
             .setKey(personKey)
             .build()
             
+        val anonymousSender = Person.Builder()
+            .setName("")
+            .build()
+            
         val shortcut = ShortcutInfoCompat.Builder(this, shortcutId)
             .setShortLabel("ADB终端")
             .setIcon(avatarIcon)
@@ -279,7 +283,7 @@ class AdbSessionService : Service() {
             
         val messagingStyle = NotificationCompat.MessagingStyle(consoleUser)
             .setConversationTitle("核心控制台")
-            .addMessage(contentText, System.currentTimeMillis(), consoleUser)
+            .addMessage(contentText, System.currentTimeMillis(), anonymousSender)
 
         // 4. 构建最终的前台服务通知
         return NotificationCompat.Builder(this, CHANNEL_ID)
