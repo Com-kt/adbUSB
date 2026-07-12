@@ -20,6 +20,7 @@ import androidx.core.app.Person
 import androidx.core.app.RemoteInput
 import androidx.core.net.toUri
 import androidx.core.app.NotificationCompat
+import androidx.core.graphics.drawable.IconCompat
 import android.webkit.MimeTypeMap
 import android.annotation.SuppressLint
 import androidx.annotation.RequiresApi
@@ -239,8 +240,11 @@ class AdbSessionService : Service() {
         .addRemoteInput(remoteInput)
         .build()
         
+        val avatarIcon = IconCompat.createWithResource(this, android.R.drawable.ic_menu_report_image)
+        
         val consoleUser = Person.Builder()
             .setName("ADB 终端")
+            .setIcon(avatarIcon)
             .build()
             
         val messagingStyle = NotificationCompat.MessagingStyle(consoleUser)
@@ -250,6 +254,7 @@ class AdbSessionService : Service() {
         // 4. 构建最终的前台服务通知
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_dialog_info)
+            .setLargeIcon(avatarIcon.toIcon(this))
             .setStyle(messagingStyle)
         //    .setPriority(NotificationCompat.PRIORITY_MIN)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
