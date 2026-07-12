@@ -60,7 +60,7 @@ class AdbSessionService : Service() {
     private val CHANNEL_ID = "com.adb.kitty.compose.core_service_channel_v2"
     private val GROUP_ID = "com.adb.kitty.compose.core_service_group"
     private val MAX_LOG_COUNT = 1
-    private val notificationLogs = Collections.synchronizedList(mutableListOf<String>())
+    private val notificationLogs = mutableListOf<String>()
     
     companion object {
         private const val ACTION_REPLY_COMMAND = "com.adb.kitty.compose.ACTION_REPLY_COMMAND"
@@ -138,11 +138,11 @@ class AdbSessionService : Service() {
     fun logToNotification(log: String) {
         synchronized(notificationLogs) {
             if (notificationLogs.size >= MAX_LOG_COUNT) {
-                notificationLogs.removeAt(0) 
+                notificationLogs.removeAt(0)
             }
             notificationLogs.add(log)
         }
-        triggerTickerRefreshImmediate() 
+        triggerTickerRefreshImmediate()
     }
 
     override fun onCreate() {
@@ -281,13 +281,15 @@ class AdbSessionService : Service() {
             
         val messagingStyle = NotificationCompat.MessagingStyle(consoleUser)
             .setConversationTitle("核心控制台")
-    
-        synchronized(notificationLogs) {
-            notificationLogs.forEachIndexed { index, logText ->
-                messagingStyle.addMessage(logText, System.currentTimeMillis() + index, anonymousSender)
-            }
+            
+        val logsSnapshot = synchronized(notificationLogs) {
+            ArrayList(notificationLogs)
         }
-    
+        
+        logsSnapshot.forEachIndexed { index, logText ->
+            messagingStyle.addMessage(logText, System.currentTimeMillis() + index, anonymousSender)
+        }
+        
         messagingStyle.addMessage(contentText, System.currentTimeMillis() + 99, anonymousSender)
 
         // 4. 构建最终的前台服务通知
