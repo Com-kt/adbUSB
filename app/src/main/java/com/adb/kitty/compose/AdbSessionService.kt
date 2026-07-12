@@ -57,7 +57,7 @@ import java.lang.reflect.Method
 class AdbSessionService : Service() {
 
     private val NOTIFICATION_ID = 101
-    private val CHANNEL_ID = "com.adb.kitty.compose.core_service_channel_v2"
+    private val CHANNEL_ID = "com.adb.kitty.compose.core_service_channel_v1"
     private val GROUP_ID = "com.adb.kitty.compose.core_service_group"
     private val MAX_LOG_COUNT = 1
     private val notificationLogs = mutableListOf<String>()
@@ -180,13 +180,10 @@ class AdbSessionService : Service() {
         val inputText = remoteInputResults?.getCharSequence(KEY_REPLY_INPUT)?.toString()
 
         if (!inputText.isNullOrBlank()) {
-            // 1. 临时保存（未来可以改造成直接执行 adb shell 指令）
             lastCommand = inputText
             Log.d("AdbSessionService", "收到通知栏快捷输入: $inputText")
 
-            // 2. ⚡ 极其重要：收到输入后必须立即闪击刷新一下通知
-            // 否则通知栏上的发送按钮会陷入无限转圈（Loading）状态
-            triggerTickerRefreshImmediate()
+            logToNotification("📡 执行: $inputText")
         }
     }
     
@@ -203,17 +200,13 @@ class AdbSessionService : Service() {
     }
     
     private fun updateTickerNotification() {
-        val connectedCount = kadbInstancePool.size
-        val statusText = if (connectedCount > 0) "已连接: ${connectedCount}台" else "等待设备接入"
-        
         val hours = totalSeconds / 3600
         val minutes = (totalSeconds % 3600) / 60
         val seconds = totalSeconds % 60
         val timeString = String.format(Locale.US, "%02d:%02d:%02d", hours, minutes, seconds)
 
-        // 如果有输入过指令，就展示出来，没有就空着
-        val commandPart = lastCommand?.let { " | 📡 指令: $it" } ?: ""
-        updateNotification("$statusText$commandPart | ⏱️ 守护时长: $timeString")
+        // ✨ 核心修正 2：定时器只负责安心传递时间字符串，不再负责用“|”野蛮拼接
+        updateNotification(timeString)
     }
 
     private fun triggerTickerRefreshImmediate() {
@@ -257,10 +250,10 @@ class AdbSessionService : Service() {
         .addRemoteInput(remoteInput)
         .build()
         
-        val avatarIcon = IconCompat.createWithResource(this, R.mipmap.ic_service_icon)
+        val avatarIcon = getCircularIcon(R.mipmap.ic_service_icon)
         
         val consoleUser = Person.Builder()
-            .setName("指令控制台")
+            .setName("控制台")
             .setIcon(avatarIcon)
             .setKey(personKey)
             .build()
@@ -270,7 +263,7 @@ class AdbSessionService : Service() {
             .build()
             
         val shortcut = ShortcutInfoCompat.Builder(this, shortcutId)
-            .setShortLabel("指令控制台")
+            .setShortLabel("控制台")
             .setIcon(avatarIcon)
             .setIntent(Intent(this, AdbSessionService::class.java).apply { action = "LAUNCH_FROM_NOTIF" })
             .setPerson(consoleUser)
@@ -282,29 +275,28 @@ class AdbSessionService : Service() {
         val messagingStyle = NotificationCompat.MessagingStyle(consoleUser)
             .setConversationTitle("核心控制台")
             
-        val logsSnapshot = synchronized(notificationLogs) {
-            ArrayList(notificationLogs)
+        val lastLog = synchronized(notificationLogs) {
+            notificationLogs.lastOrNull()
         }
+        val line1Text = lastLog ?: "📡 暂无执行指令"
         
-        logsSnapshot.forEachIndexed { index, logText ->
-            messagingStyle.addMessage(logText, System.currentTimeMillis() + index, anonymousSender)
-        }
+        val connectedCount = kadbInstancePool.size
+        val statusText = if (connectedCount > 0) "🟢 已连接: ${connectedCount}台设备" else "⏳ 等待设备接入"
+        val line2Text = "$statusText | ⏱️ 守护时长: $timeString"
         
-        messagingStyle.addMessage(contentText, System.currentTimeMillis() + 99, anonymousSender)
+        messagingStyle.addMessage(line1Text, System.currentTimeMillis() - 1000, anonymousSender)
+        messagingStyle.addMessage(line2Text, System.currentTimeMillis(), anonymousSender)
 
-        // 4. 构建最终的前台服务通知
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_dialog_info)
             .setStyle(messagingStyle)
             .setShortcutId(shortcutId)
             .setCategory(NotificationCompat.CATEGORY_MESSAGE)
-        //    .setPriority(NotificationCompat.PRIORITY_MIN)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-         //   .setVisibility(NotificationCompat.VISIBILITY_SECRET)
             .setOngoing(true) 
             .setOnlyAlertOnce(true) 
-            .addAction(replyAction) // ✨ 将带有输入框的 Action 装载进通知
+            .addAction(replyAction)
             .build()
     }
 
@@ -314,7 +306,7 @@ class AdbSessionService : Service() {
     private fun createNotificationChannel() {
         val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         
-        val oldChannelId = "com.adb.kitty.compose.core_service_channel_v1"
+        val oldChannelId = "com.adb.kitty.compose.core_service_channel_v2"
         val existingChannel = manager.getNotificationChannel(oldChannelId)
         if (existingChannel != null) {
             manager.deleteNotificationChannel(oldChannelId)
@@ -325,9 +317,8 @@ class AdbSessionService : Service() {
         manager.createNotificationChannelGroup(channelGroup)
 
         val channel = NotificationChannel(
-            CHANNEL_ID, 
-            "核心前台服务", 
-        //    NotificationManager.IMPORTANCE_MIN
+            CHANNEL_ID,
+            "核心前台服务",
             NotificationManager.IMPORTANCE_DEFAULT
         ).apply {
             description = "此服务可以确保在退后台或返回桌面时连接不断开、网络不断开"
@@ -339,6 +330,32 @@ class AdbSessionService : Service() {
         }
         
         manager.createNotificationChannel(channel)
+    }
+    
+    private fun getCircularIcon(resId: Int): IconCompat {
+        val srcBitmap = BitmapFactory.decodeResource(resources, resId)
+    
+        val size = Math.min(srcBitmap.width, srcBitmap.height)
+        val dstBitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+    
+        val canvas = Canvas(dstBitmap)
+        val paint = Paint().apply {
+            isAntiAlias = true
+        }
+    
+        val radius = size / 2f
+        canvas.drawCircle(radius, radius, radius, paint)
+    
+        paint.xfermode = PorterDuffXfermode(PorterDuff.Mode.SRC_IN)
+    
+        val left = (srcBitmap.width - size) / 2
+        val top = (srcBitmap.height - size) / 2
+        val srcRect = Rect(left, top, left + size, top + size)
+        val dstRect = Rect(0, 0, size, size)
+        canvas.drawBitmap(srcBitmap, srcRect, dstRect, paint)
+    
+        srcBitmap.recycle()
+        return IconCompat.createWithBitmap(dstBitmap)
     }
     
     fun executeDownloadFromService(urlStr: String, flashFolder: File, onLog: (String) -> Unit) {
