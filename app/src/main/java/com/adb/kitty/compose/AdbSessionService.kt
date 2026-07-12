@@ -24,6 +24,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.content.pm.ShortcutInfoCompat
 import androidx.core.content.pm.ShortcutManagerCompat
 import androidx.core.graphics.drawable.IconCompat
+import androidx.core.graphics.createBitmap
 import android.webkit.MimeTypeMap
 import android.annotation.SuppressLint
 import androidx.annotation.RequiresApi
@@ -336,7 +337,7 @@ class AdbSessionService : Service() {
         val srcBitmap = BitmapFactory.decodeResource(resources, resId)
     
         val size = Math.min(srcBitmap.width, srcBitmap.height)
-        val dstBitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+        val dstBitmap = createBitmap(size, size)
     
         val canvas = Canvas(dstBitmap)
         val paint = Paint().apply {
