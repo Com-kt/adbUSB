@@ -40,6 +40,7 @@ import com.adb.kitty.compose.ui.theme.*
 import com.adb.kitty.compose.ui.viewmodel.*
 import com.adb.kitty.compose.ui.it.*
 import com.adb.kitty.compose.data.*
+import com.adb.kitty.compose.R
 
 import java.io.*
 import java.net.HttpURLConnection
@@ -58,6 +59,8 @@ class AdbSessionService : Service() {
     private val NOTIFICATION_ID = 101
     private val CHANNEL_ID = "com.adb.kitty.compose.core_service_channel_v2"
     private val GROUP_ID = "com.adb.kitty.compose.core_service_group"
+    private val MAX_LOG_COUNT = 1
+    private val notificationLogs = Collections.synchronizedList(mutableListOf<String>())
     
     companion object {
         private const val ACTION_REPLY_COMMAND = "com.adb.kitty.compose.ACTION_REPLY_COMMAND"
@@ -131,6 +134,16 @@ class AdbSessionService : Service() {
     }
     
     fun getConnectedDeviceIds(): List<String> = kadbInstancePool.keys().toList()
+    
+    fun logToNotification(log: String) {
+        synchronized(notificationLogs) {
+            if (notificationLogs.size >= MAX_LOG_COUNT) {
+                notificationLogs.removeAt(0) 
+            }
+            notificationLogs.add(log)
+        }
+        triggerTickerRefreshImmediate() 
+    }
 
     override fun onCreate() {
         super.onCreate()
@@ -222,10 +235,9 @@ class AdbSessionService : Service() {
         val personKey = "adb_person_key_001"
     
         val remoteInput = RemoteInput.Builder(KEY_REPLY_INPUT)
-            .setLabel("输入快捷命令 (如 adb shell...)") // 输入框 Hint 提示
+            .setLabel("输入需要发送的快捷指令")
             .build()
 
-        // 2. ✨ 创建直达自身 Service 的 PendingIntent
         val replyIntent = Intent(this, AdbSessionService::class.java).apply {
             action = ACTION_REPLY_COMMAND
         }
@@ -238,31 +250,17 @@ class AdbSessionService : Service() {
 
         // 3. ✨ 将输入框绑定到通知的 Action 按钮上
         val replyAction = NotificationCompat.Action.Builder(
-            android.R.drawable.ic_menu_send, // 图标样式
-            "运行指令",                       // 按钮文本
+            android.R.drawable.ic_menu_send,
+            "发送指令",
             replyPendingIntent
         )
         .addRemoteInput(remoteInput)
         .build()
         
-        val avatarBitmap = Bitmap.createBitmap(128, 128, Bitmap.Config.ARGB_8888)
-        val canvas = Canvas(avatarBitmap)
-        val paint = Paint().apply {
-            color = Color.parseColor("#00B0FF")
-            isAntiAlias = true
-        }
-        canvas.drawCircle(64f, 64f, 64f, paint)
-        paint.apply {
-            color = Color.WHITE
-            textSize = 64f
-            textAlign = Paint.Align.CENTER
-        }
-        canvas.drawText("A", 64f, 86f, paint)
-
-        val avatarIcon = IconCompat.createWithBitmap(avatarBitmap)
+        val avatarIcon = IconCompat.createWithResource(this, R.mipmap.ic_service_icon)
         
         val consoleUser = Person.Builder()
-            .setName("ADB 终端")
+            .setName("指令控制台")
             .setIcon(avatarIcon)
             .setKey(personKey)
             .build()
@@ -272,7 +270,7 @@ class AdbSessionService : Service() {
             .build()
             
         val shortcut = ShortcutInfoCompat.Builder(this, shortcutId)
-            .setShortLabel("ADB终端")
+            .setShortLabel("指令控制台")
             .setIcon(avatarIcon)
             .setIntent(Intent(this, AdbSessionService::class.java).apply { action = "LAUNCH_FROM_NOTIF" })
             .setPerson(consoleUser)
@@ -283,7 +281,14 @@ class AdbSessionService : Service() {
             
         val messagingStyle = NotificationCompat.MessagingStyle(consoleUser)
             .setConversationTitle("核心控制台")
-            .addMessage(contentText, System.currentTimeMillis(), anonymousSender)
+    
+        synchronized(notificationLogs) {
+            notificationLogs.forEachIndexed { index, logText ->
+                messagingStyle.addMessage(logText, System.currentTimeMillis() + index, anonymousSender)
+            }
+        }
+    
+        messagingStyle.addMessage(contentText, System.currentTimeMillis() + 99, anonymousSender)
 
         // 4. 构建最终的前台服务通知
         return NotificationCompat.Builder(this, CHANNEL_ID)
