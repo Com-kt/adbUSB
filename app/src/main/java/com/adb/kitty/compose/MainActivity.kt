@@ -151,20 +151,21 @@ class MainActivity : ComponentActivity() {
         override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
             val binder = service as AdbSessionService.AdbBinder
             adbService = binder.getService()
+            val cmdsService = binder.getService()
             isServiceBound = true
             appendLog("[系统] 前台物理守护进程并网成功。")
             viewModel.setAdbService(adbService)
-            adbService.onCommandReceivedListener = { cmd ->
+            cmdsService.onCommandReceivedListener = { cmd ->
                 cmdsServiceExec(cmd)
             }
         }
 
         override fun onServiceDisconnected(name: ComponentName?) {
+            adbService?.onCommandReceivedListener = null
             isServiceBound = false
             isBindingRequested = false
             adbService = null
             viewModel.setAdbService(null)
-            adbService?.onCommandReceivedListener = null
         }
     }
     
