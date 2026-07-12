@@ -289,7 +289,7 @@ class AdbSessionService : Service() {
         messagingStyle.addMessage(line2Text, System.currentTimeMillis(), anonymousSender)
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.ic_dialog_info)
+            .setSmallIcon(R.drawable.ic_small_kiss)
             .setStyle(messagingStyle)
             .setShortcutId(shortcutId)
             .setCategory(NotificationCompat.CATEGORY_MESSAGE)
