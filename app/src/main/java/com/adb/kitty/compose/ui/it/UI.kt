@@ -29,6 +29,7 @@ import android.text.method.*
 
 import androidx.core.view.*
 import androidx.core.content.*
+import androidx.core.graphics.createBitmap
 import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationManagerCompat
 /*******************************
