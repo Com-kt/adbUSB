@@ -17,6 +17,7 @@
     <string name="action_menu_rate_stop">Stop testing rate[root]</string>
     <string name="action_menu_sospl">enter adb cmd / fastboot cmd</string>
     <string name="action_menu_color">use system wallpaper colors</string>
+    <string name="action_menu_notification_img">Use a custom notification avatar</string>
     <string name="action_qr_okay">🛡️ QR code generated successfully</string>
     <string name="action_qr_store">Save to album</string>
     <string name="action_qr_close">closure</string>
@@ -25,4 +26,12 @@
     <string name="action_qr_osa">output to file</string>
     <string name="action_qr_osb">copy all</string>
     <string name="action_qr_osc">🔍 QR code analysis results</string>
+    <string name="action_service_aaa">console</string>
+    <string name="action_service_aab">Send cmd</string>
+    <string name="action_service_aac">Return interface</string>
+    <string name="action_service_aad">Enter the shortcut command to be sent</string>
+    <string name="action_service_aae">core console</string>
+    <string name="action_service_aaf">Core Service</string>
+    <string name="action_service_aag">Front desk core services</string>
+    <string name="action_service_aah">This service can ensure that the connection and network are not disconnected when exiting the background or returning to the desktop.</string>
 </resources>

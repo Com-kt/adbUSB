@@ -16,6 +16,7 @@
     <string name="action_menu_rate_stop">停止测试帧率[root]</string>
     <string name="action_menu_sospl">输入 adb 命令 / fastboot 命令</string>
     <string name="action_menu_color">使用系统壁纸颜色</string>
+    <string name="action_menu_notification_img">使用自定义通知大头像</string>
     <string name="action_qr_okay">🛡️ 二维码生成成功</string>
     <string name="action_qr_store">保存到相册</string>
     <string name="action_qr_close">关闭</string>
@@ -24,4 +25,12 @@
     <string name="action_qr_osa">输出到文件</string>
     <string name="action_qr_osb">复制全部</string>
     <string name="action_qr_osc">🔍 二维码解析结果</string>
+    <string name="action_service_aaa">控制台</string>
+    <string name="action_service_aab">发送指令</string>
+    <string name="action_service_aac">返回界面</string>
+    <string name="action_service_aad">输入需要发送的快捷指令</string>
+    <string name="action_service_aae">核心控制台</string>
+    <string name="action_service_aaf">核心服务</string>
+    <string name="action_service_aag">前台核心服务</string>
+    <string name="action_service_aah">此服务可以确保在退后台或返回桌面时连接不断开、网络不断开</string>
 </resources>

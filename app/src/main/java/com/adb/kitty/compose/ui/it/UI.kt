@@ -229,7 +229,9 @@ fun CenterAlignedTopAppBarExample(
                         ) {
                             DropdownMenuItem(
                                 text = {
-                                    Text("使用自定义通知头像")
+                                    Text(
+                                        stringResource(R.string.action_menu_notification_img)
+                                    )
                                 },
                                 leadingIcon = { Icon(Icons.Outlined.AccountCircle, null) },
                                 onClick = {

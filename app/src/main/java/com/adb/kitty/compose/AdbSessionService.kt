@@ -236,7 +236,7 @@ class AdbSessionService : Service() {
         val personKey = "adb_person_key_001"
     
         val remoteInput = RemoteInput.Builder(KEY_REPLY_INPUT)
-            .setLabel("输入需要发送的快捷指令")
+            .setLabel(R.string.action_service_aad)
             .build()
 
         val replyIntent = Intent(this, AdbSessionService::class.java).apply {
@@ -249,19 +249,35 @@ class AdbSessionService : Service() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE // Android 12+ 必须为 MUTABLE
         )
 
-        // 3. ✨ 将输入框绑定到通知的 Action 按钮上
         val replyAction = NotificationCompat.Action.Builder(
             android.R.drawable.ic_menu_send,
-            "发送指令",
+            R.string.action_service_aab,
             replyPendingIntent
         )
         .addRemoteInput(remoteInput)
         .build()
         
+        val openIntent = Intent(this, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        }
+        
+        val openPendingIntent = PendingIntent.getActivity(
+            this,
+            1,
+            openIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        
+        val openAppAction = NotificationCompat.Action.Builder(
+            android.R.drawable.ic_menu_view,
+            R.string.action_service_aac,
+            openPendingIntent
+        ).build()
+        
         val avatarIcon = getCircularIcon()
         
         val consoleUser = Person.Builder()
-            .setName("控制台")
+            .setName(R.string.action_service_aaa)
             .setIcon(avatarIcon)
             .setKey(personKey)
             .build()
@@ -271,7 +287,7 @@ class AdbSessionService : Service() {
             .build()
             
         val shortcut = ShortcutInfoCompat.Builder(this, shortcutId)
-            .setShortLabel("控制台")
+            .setShortLabel(R.string.action_service_aaa)
             .setIcon(avatarIcon)
             .setIntent(Intent(this, AdbSessionService::class.java).apply { action = "LAUNCH_FROM_NOTIF" })
             .setPerson(consoleUser)
@@ -281,7 +297,7 @@ class AdbSessionService : Service() {
         ShortcutManagerCompat.pushDynamicShortcut(this, shortcut)
             
         val messagingStyle = NotificationCompat.MessagingStyle(consoleUser)
-            .setConversationTitle("核心控制台")
+            .setConversationTitle(R.string.action_service_aae)
             
         val lastLog = synchronized(notificationLogs) {
             notificationLogs.lastOrNull()
@@ -305,6 +321,7 @@ class AdbSessionService : Service() {
             .setOngoing(true) 
             .setOnlyAlertOnce(true) 
             .addAction(replyAction)
+            .addAction(openAppAction)
             .build()
     }
 
@@ -314,22 +331,22 @@ class AdbSessionService : Service() {
     private fun createNotificationChannel() {
         val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         
-        val oldChannelId = "com.adb.kitty.compose.core_service_channel_v2"
+        val oldChannelId = "adb_kitty_channel"
         val existingChannel = manager.getNotificationChannel(oldChannelId)
         if (existingChannel != null) {
             manager.deleteNotificationChannel(oldChannelId)
         }
         
-        val groupName = "应用核心服务"
+        val groupName = R.string.action_service_aaf
         val channelGroup = NotificationChannelGroup(GROUP_ID, groupName)
         manager.createNotificationChannelGroup(channelGroup)
 
         val channel = NotificationChannel(
             CHANNEL_ID,
-            "核心前台服务",
+            R.string.action_service_aag,
             NotificationManager.IMPORTANCE_DEFAULT
         ).apply {
-            description = "此服务可以确保在退后台或返回桌面时连接不断开、网络不断开"
+            description = R.string.action_service_aah
             group = GROUP_ID
             setShowBadge(false)
             enableLights(false)

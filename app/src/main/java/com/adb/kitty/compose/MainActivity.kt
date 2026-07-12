@@ -777,6 +777,7 @@ class MainActivity : ComponentActivity() {
             }
         } else {
             if (!isAdbAuthorized && !cmd.startsWith("adb pair") && !cmd.startsWith("adb connect")) {
+                appendLog("[发送] ADB >> $cmd")
                 appendLog("[警告] 无法发送该命令，暂不支持走应用自身权限，请连接 adbd 之后再尝试发送")
                 return
             }
