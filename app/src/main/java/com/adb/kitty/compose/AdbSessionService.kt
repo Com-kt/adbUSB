@@ -70,6 +70,7 @@ class AdbSessionService : Service() {
     
     private var lastCommand: String? = null
     private var cachedCircularIcon: IconCompat? = null
+    var onCommandReceivedListener: ((String) -> Unit)? = null
 
     private val kadbInstancePool = ConcurrentHashMap<String, Kadb>()
     
@@ -183,9 +184,14 @@ class AdbSessionService : Service() {
 
         if (!inputText.isNullOrBlank()) {
             lastCommand = inputText
-            Log.d("AdbSessionService", "收到通知栏快捷输入: $inputText")
+            
+            serviceScope.launch(Dispatchers.IO) {
+                withContext(Dispatchers.Main) {
+                    onCommandReceivedListener?.invoke(inputText)
+                }
+            }
 
-            logToNotification("📡 执行: $inputText")
+            logToNotification("📡 已发送: $inputText")
         }
     }
     

@@ -154,6 +154,9 @@ class MainActivity : ComponentActivity() {
             isServiceBound = true
             appendLog("[系统] 前台物理守护进程并网成功。")
             viewModel.setAdbService(adbService)
+            adbService.onCommandReceivedListener = { cmd ->
+                cmdsServiceExec(cmd)
+            }
         }
 
         override fun onServiceDisconnected(name: ComponentName?) {
@@ -161,11 +164,16 @@ class MainActivity : ComponentActivity() {
             isBindingRequested = false
             adbService = null
             viewModel.setAdbService(null)
+            adbService?.onCommandReceivedListener = null
         }
     }
     
     fun reloadServiceAvatar() {
         adbService?.reloadAvatar()
+    }
+    
+    fun cmdsServiceExec(cmd: String) {
+        dispatchCommandRoute(cmd)
     }
 
     // 2. 桥接方法：将 Activity 内的所有日志无缝灌入 ViewModel
