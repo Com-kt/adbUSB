@@ -236,7 +236,7 @@ class AdbSessionService : Service() {
         val personKey = "adb_person_key_001"
     
         val remoteInput = RemoteInput.Builder(KEY_REPLY_INPUT)
-            .setLabel(R.string.action_service_aad)
+            .setLabel(getString(R.string.action_service_aad))
             .build()
 
         val replyIntent = Intent(this, AdbSessionService::class.java).apply {
@@ -251,7 +251,7 @@ class AdbSessionService : Service() {
 
         val replyAction = NotificationCompat.Action.Builder(
             android.R.drawable.ic_menu_send,
-            R.string.action_service_aab,
+            getString(R.string.action_service_aab),
             replyPendingIntent
         )
         .addRemoteInput(remoteInput)
@@ -270,14 +270,14 @@ class AdbSessionService : Service() {
         
         val openAppAction = NotificationCompat.Action.Builder(
             android.R.drawable.ic_menu_view,
-            R.string.action_service_aac,
+            getString(R.string.action_service_aac),
             openPendingIntent
         ).build()
         
         val avatarIcon = getCircularIcon()
         
         val consoleUser = Person.Builder()
-            .setName(R.string.action_service_aaa)
+            .setName(getString(R.string.action_service_aaa))
             .setIcon(avatarIcon)
             .setKey(personKey)
             .build()
@@ -287,7 +287,7 @@ class AdbSessionService : Service() {
             .build()
             
         val shortcut = ShortcutInfoCompat.Builder(this, shortcutId)
-            .setShortLabel(R.string.action_service_aaa)
+            .setShortLabel(getString(R.string.action_service_aaa))
             .setIcon(avatarIcon)
             .setIntent(Intent(this, AdbSessionService::class.java).apply { action = "LAUNCH_FROM_NOTIF" })
             .setPerson(consoleUser)
@@ -297,7 +297,7 @@ class AdbSessionService : Service() {
         ShortcutManagerCompat.pushDynamicShortcut(this, shortcut)
             
         val messagingStyle = NotificationCompat.MessagingStyle(consoleUser)
-            .setConversationTitle(R.string.action_service_aae)
+            .setConversationTitle(getString(R.string.action_service_aae))
             
         val lastLog = synchronized(notificationLogs) {
             notificationLogs.lastOrNull()
@@ -337,16 +337,16 @@ class AdbSessionService : Service() {
             manager.deleteNotificationChannel(oldChannelId)
         }
         
-        val groupName = R.string.action_service_aaf
+        val groupName = getString(R.string.action_service_aaf)
         val channelGroup = NotificationChannelGroup(GROUP_ID, groupName)
         manager.createNotificationChannelGroup(channelGroup)
 
         val channel = NotificationChannel(
             CHANNEL_ID,
-            R.string.action_service_aag,
+            getString(R.string.action_service_aag),
             NotificationManager.IMPORTANCE_DEFAULT
         ).apply {
-            description = R.string.action_service_aah
+            description = getString(R.string.action_service_aah)
             group = GROUP_ID
             setShowBadge(false)
             enableLights(false)
