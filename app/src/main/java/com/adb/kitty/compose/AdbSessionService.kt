@@ -1,6 +1,7 @@
 package com.adb.kitty.compose
 
 import android.util.Log
+import android.graphics.*
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationChannelGroup
@@ -20,6 +21,8 @@ import androidx.core.app.Person
 import androidx.core.app.RemoteInput
 import androidx.core.net.toUri
 import androidx.core.app.NotificationCompat
+import androidx.core.content.pm.ShortcutInfoCompat
+import androidx.core.content.pm.ShortcutManagerCompat
 import androidx.core.graphics.drawable.IconCompat
 import android.webkit.MimeTypeMap
 import android.annotation.SuppressLint
@@ -53,7 +56,7 @@ import java.lang.reflect.Method
 class AdbSessionService : Service() {
 
     private val NOTIFICATION_ID = 101
-    private val CHANNEL_ID = "com.adb.kitty.compose.core_service_channel_v1"
+    private val CHANNEL_ID = "com.adb.kitty.compose.core_service_channel_v2"
     private val GROUP_ID = "com.adb.kitty.compose.core_service_group"
     
     companion object {
@@ -215,7 +218,9 @@ class AdbSessionService : Service() {
      * 🏗️ 生产通知对象的工厂方法
      */
     private fun buildNotification(contentText: String): Notification {
-        // 1. ✨ 创建输入框实例
+        val shortcutId = "adb_conversation_shortcut_id"
+        val personKey = "adb_person_key_001"
+    
         val remoteInput = RemoteInput.Builder(KEY_REPLY_INPUT)
             .setLabel("输入快捷命令 (如 adb shell...)") // 输入框 Hint 提示
             .build()
@@ -240,12 +245,37 @@ class AdbSessionService : Service() {
         .addRemoteInput(remoteInput)
         .build()
         
-        val avatarIcon = IconCompat.createWithResource(this, android.R.drawable.ic_menu_report_image)
+        val avatarBitmap = Bitmap.createBitmap(128, 128, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(avatarBitmap)
+        val paint = Paint().apply {
+            color = Color.parseColor("#00B0FF")
+            isAntiAlias = true
+        }
+        canvas.drawCircle(64f, 64f, 64f, paint)
+        paint.apply {
+            color = Color.WHITE
+            textSize = 64f
+            textAlign = Paint.Align.CENTER
+        }
+        canvas.drawText("A", 64f, 86f, paint)
+
+        val avatarIcon = IconCompat.createWithBitmap(avatarBitmap)
         
         val consoleUser = Person.Builder()
             .setName("ADB 终端")
             .setIcon(avatarIcon)
+            .setKey(personKey)
             .build()
+            
+        val shortcut = ShortcutInfoCompat.Builder(this, shortcutId)
+            .setShortLabel("ADB终端")
+            .setIcon(avatarIcon)
+            .setIntent(Intent(this, AdbSessionService::class.java).apply { action = "LAUNCH_FROM_NOTIF" })
+            .setPerson(consoleUser)
+            .setLongLived(true) 
+            .build()
+        
+        ShortcutManagerCompat.pushDynamicShortcut(this, shortcut)
             
         val messagingStyle = NotificationCompat.MessagingStyle(consoleUser)
             .setConversationTitle("核心控制台")
@@ -254,8 +284,9 @@ class AdbSessionService : Service() {
         // 4. 构建最终的前台服务通知
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_dialog_info)
-            .setLargeIcon(avatarIcon.toIcon(this))
             .setStyle(messagingStyle)
+            .setShortcutId(shortcutId)
+            .setCategory(NotificationCompat.CATEGORY_MESSAGE)
         //    .setPriority(NotificationCompat.PRIORITY_MIN)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
@@ -272,7 +303,7 @@ class AdbSessionService : Service() {
     private fun createNotificationChannel() {
         val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         
-        val oldChannelId = "com.adb.kitty.compose.core_service_channel_v2"
+        val oldChannelId = "com.adb.kitty.compose.core_service_channel_v1"
         val existingChannel = manager.getNotificationChannel(oldChannelId)
         if (existingChannel != null) {
             manager.deleteNotificationChannel(oldChannelId)
