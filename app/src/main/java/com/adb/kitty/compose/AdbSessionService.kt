@@ -52,7 +52,7 @@ import java.lang.reflect.Method
 class AdbSessionService : Service() {
 
     private val NOTIFICATION_ID = 101
-    private val CHANNEL_ID = "com.adb.kitty.compose.core_service_channel"
+    private val CHANNEL_ID = "com.adb.kitty.compose.core_service_channel_v2"
     private val GROUP_ID = "com.adb.kitty.compose.core_service_group"
     
     companion object {
@@ -244,8 +244,10 @@ class AdbSessionService : Service() {
             .setContentTitle("正在运行前台核心服务")
             .setContentText(contentText)
             .setSmallIcon(android.R.drawable.ic_dialog_info)
-            .setPriority(NotificationCompat.PRIORITY_MIN)
-            .setVisibility(NotificationCompat.VISIBILITY_SECRET)
+        //    .setPriority(NotificationCompat.PRIORITY_MIN)
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+         //   .setVisibility(NotificationCompat.VISIBILITY_SECRET)
             .setOngoing(true) 
             .setOnlyAlertOnce(true) 
             .addAction(replyAction) // ✨ 将带有输入框的 Action 装载进通知
@@ -258,7 +260,7 @@ class AdbSessionService : Service() {
     private fun createNotificationChannel() {
         val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         
-        val oldChannelId = "adb_kitty_channel"
+        val oldChannelId = "com.adb.kitty.compose.core_service_channel"
         val existingChannel = manager.getNotificationChannel(oldChannelId)
         if (existingChannel != null) {
             manager.deleteNotificationChannel(oldChannelId)
@@ -271,7 +273,8 @@ class AdbSessionService : Service() {
         val channel = NotificationChannel(
             CHANNEL_ID, 
             "核心前台服务", 
-            NotificationManager.IMPORTANCE_MIN
+        //    NotificationManager.IMPORTANCE_MIN
+            NotificationManager.IMPORTANCE_DEFAULT
         ).apply {
             description = "此服务可以确保在退后台或返回桌面时连接不断开、网络不断开"
             group = GROUP_ID
