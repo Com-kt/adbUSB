@@ -51,6 +51,13 @@ class AdbSessionService : Service() {
     private val NOTIFICATION_ID = 101
     private val CHANNEL_ID = "com.adb.kitty.compose.core_service_channel"
     private val GROUP_ID = "com.adb.kitty.compose.core_service_group"
+    
+    companion object {
+        private const val ACTION_REPLY_COMMAND = "com.adb.kitty.compose.ACTION_REPLY_COMMAND"
+        private const val KEY_REPLY_INPUT = "key_reply_input"
+    }
+    
+    private var lastCommand: String? = null
 
     private val kadbInstancePool = ConcurrentHashMap<String, Kadb>()
     
@@ -140,32 +147,61 @@ class AdbSessionService : Service() {
         // 2. 开启 3 秒高频静默刷新定时器
         startNotificationTicker()
     }
+    
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (intent?.action == ACTION_REPLY_COMMAND) {
+            handleNotificationInput(intent)
+        }
+        return START_STICKY
+    }
 
-    /**
-     * ⏳ 3 秒高频定时轮询器
-     */
+    private fun handleNotificationInput(intent: Intent) {
+        val remoteInputResults = RemoteInput.getResultsFromIntent(intent)
+        val inputText = remoteInputResults?.getCharSequence(KEY_REPLY_INPUT)?.toString()
+
+        if (!inputText.isNullOrBlank()) {
+            // 1. 临时保存（未来可以改造成直接执行 adb shell 指令）
+            lastCommand = inputText
+            Log.d("AdbSessionService", "收到通知栏快捷输入: $inputText")
+
+            // 2. ⚡ 极其重要：收到输入后必须立即闪击刷新一下通知
+            // 否则通知栏上的发送按钮会陷入无限转圈（Loading）状态
+            triggerTickerRefreshImmediate()
+        }
+    }
+    
+    private var totalSeconds = 0
     private fun startNotificationTicker() {
         refreshJob?.cancel()
         refreshJob = serviceScope.launch {
-            var totalSeconds = 0
             while (isActive) {
-                val connectedCount = kadbInstancePool.size
-                val statusText = if (connectedCount > 0) "已连接: ${connectedCount}台" else "等待设备接入"
-                val hours = totalSeconds / 3600
-                val minutes = (totalSeconds % 3600) / 60
-                val seconds = totalSeconds % 60
-                val timeString = String.format(Locale.US, "%02d:%02d:%02d", hours, minutes, seconds)
-
-                updateNotification("$statusText | ⏱️ 守护时长: $timeString")
+                updateTickerNotification()
                 delay(3000)
                 totalSeconds += 3
             }
         }
     }
+    
+    private fun updateTickerNotification() {
+        val connectedCount = kadbInstancePool.size
+        val statusText = if (connectedCount > 0) "已连接: ${connectedCount}台" else "等待设备接入"
+        
+        val hours = totalSeconds / 3600
+        val minutes = (totalSeconds % 3600) / 60
+        val seconds = totalSeconds % 60
+        val timeString = String.format(Locale.US, "%02d:%02d:%02d", hours, minutes, seconds)
 
-    /**
-     * 🔄 动态替换通知栏内容
-     */
+        // 如果有输入过指令，就展示出来，没有就空着
+        val commandPart = lastCommand?.let { " | 📡 指令: $it" } ?: ""
+        updateNotification("$statusText$commandPart | ⏱️ 守护时长: $timeString")
+    }
+
+    private fun triggerTickerRefreshImmediate() {
+        serviceScope.launch {
+            updateTickerNotification()
+        }
+    }
+    
     private fun updateNotification(contentText: String) {
         val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         manager.notify(NOTIFICATION_ID, buildNotification(contentText))
@@ -175,14 +211,41 @@ class AdbSessionService : Service() {
      * 🏗️ 生产通知对象的工厂方法
      */
     private fun buildNotification(contentText: String): Notification {
+        // 1. ✨ 创建输入框实例
+        val remoteInput = RemoteInput.Builder(KEY_REPLY_INPUT)
+            .setLabel("输入快捷命令 (如 adb shell...)") // 输入框 Hint 提示
+            .build()
+
+        // 2. ✨ 创建直达自身 Service 的 PendingIntent
+        val replyIntent = Intent(this, AdbSessionService::class.java).apply {
+            action = ACTION_REPLY_COMMAND
+        }
+        val replyPendingIntent = PendingIntent.getService(
+            this,
+            0,
+            replyIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE // Android 12+ 必须为 MUTABLE
+        )
+
+        // 3. ✨ 将输入框绑定到通知的 Action 按钮上
+        val replyAction = NotificationCompat.Action.Builder(
+            android.R.drawable.ic_menu_send, // 图标样式
+            "运行指令",                       // 按钮文本
+            replyPendingIntent
+        )
+        .addRemoteInput(remoteInput)
+        .build()
+
+        // 4. 构建最终的前台服务通知
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("正在运行前台核心服务")
             .setContentText(contentText)
             .setSmallIcon(android.R.drawable.ic_dialog_info)
             .setPriority(NotificationCompat.PRIORITY_MIN)
             .setVisibility(NotificationCompat.VISIBILITY_SECRET)
-            .setOngoing(true) // 强力防误划清除
-            .setOnlyAlertOnce(true) // 极其重要：杜绝高频刷新带来的手机异常震动或声音
+            .setOngoing(true) 
+            .setOnlyAlertOnce(true) 
+            .addAction(replyAction) // ✨ 将带有输入框的 Action 装载进通知
             .build()
     }
 
@@ -195,26 +258,20 @@ class AdbSessionService : Service() {
         val oldChannelId = "adb_kitty_channel"
         val existingChannel = manager.getNotificationChannel(oldChannelId)
         if (existingChannel != null) {
-            Log.i("Unknown", "检测到旧的通知渠道 [$oldChannelId] 依然存在，正在删除")
             manager.deleteNotificationChannel(oldChannelId)
-        } else {
-            Log.d("Unknown", "旧通知渠道 [$oldChannelId] 已不存在或已被清理，跳过删除")
         }
         
         val groupName = "应用核心服务"
         val channelGroup = NotificationChannelGroup(GROUP_ID, groupName)
         manager.createNotificationChannelGroup(channelGroup)
-        // 因为 minSdk >= 29，百分之百支持 NotificationChannel，直接畅快创建
+
         val channel = NotificationChannel(
             CHANNEL_ID, 
             "核心前台服务", 
             NotificationManager.IMPORTANCE_MIN
         ).apply {
             description = "此服务可以确保在退后台或返回桌面时连接不断开、网络不断开"
-            
             group = GROUP_ID
-            
-            // 确保渠道本身彻底静默
             setShowBadge(false)
             enableLights(false)
             enableVibration(false)
