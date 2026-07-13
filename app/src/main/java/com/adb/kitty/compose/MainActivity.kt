@@ -686,7 +686,7 @@ class MainActivity : ComponentActivity() {
                                 withContext(Dispatchers.Main) {
                                     appendLog(currentLine)
                                 }
-                            } catch (e: IOException) {
+                            } catch (e: java.io.IOException) {
                                 withContext(Dispatchers.Main) {
                                     appendLog("[系统] 进程管道流已关闭（进程已被用户手动终止）")
                                 }
