@@ -44,7 +44,7 @@ class LocalShellService : Service() {
             val builder = if (useRoot || cmd.startsWith("su")) {
                 val baseSuCmd = if (cmd.contains(" -c ")) cmd.substringBefore(" -c ") else cmd
                 val args = parseCommandLine(baseSuCmd.ifBlank { "su" })
-                
+            
                 if (useRoot && !args.contains("su")) {
                     ProcessBuilder("su")
                 } else {
@@ -63,7 +63,9 @@ class LocalShellService : Service() {
 
             val realExecutionCmd = when {
                 cmd.contains(" -c ") -> {
-                    cmd.substringAfter(" -c ").removeSurrounding("\"", "\"").removeSurrounding("'", "'")
+                    cmd.substringAfter(" -c ").trim { 
+                        it == '\'' || it == '"' || it.isWhitespace() || it.code == 160 
+                    }
                 }
                 cmd == "su" || cmd.startsWith("su ") -> {
                     "id" 
