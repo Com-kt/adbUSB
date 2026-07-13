@@ -102,6 +102,18 @@
     <uses-feature 
           android:name="android.hardware.sensor.hifi_sensors"
           android:required="false" />
+    <!-- 步态检测 -->
+    <uses-feature 
+          android:name="android.hardware.sensor.stepdetector"
+          android:required="false" />
+    <!-- 计步器 -->
+    <uses-feature 
+          android:name="android.hardware.sensor.stepcounter"
+          android:required="false" />
+    <!-- 心率传感器 -->
+    <uses-feature 
+          android:name="android.hardware.sensor.heartrate"
+          android:required="false" />
     <!-- 加速度传感器 -->
     <uses-feature 
           android:name="android.hardware.sensor.accelerometer"
@@ -179,6 +191,28 @@
           android:name="android.hardware.camera.flash"
           android:required="false" />
     
+    <!-- 允许应用程序修改全局音频设置 -->
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+    <!-- 允许识别身体活动 -->
+    <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" />
+    <!-- 读取日历活动和详情 -->
+    <uses-permission android:name="android.permission.READ_CALENDAR" />
+    <!-- 在使用期间可访问身体传感器数据，如心率 -->
+    <uses-permission android:name="android.permission.BODY_SENSORS" />
+    <!-- 读取同步统计信息 -->
+    <uses-permission android:name="android.permission.READ_SYNC_STATS" />
+    <!-- 读取同步设置 -->
+    <uses-permission android:name="android.permission.READ_SYNC_SETTINGS" />
+    <!-- 允许应用程序读取或写入系统设置 -->
+    <uses-permission 
+          android:name="android.permission.WRITE_SETTINGS"
+          tools:ignore="ProtectedPermissions" />
+    <!-- 允许应用程序读取或写入安全系统设置 -->
+    <uses-permission 
+          android:name="android.permission.WRITE_SECURE_SETTINGS"
+          tools:ignore="ProtectedPermissions" />
+    <!-- 悬浮窗 -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <!-- 配置并连接 WiFi 显示器 -->
     <uses-permission
         android:name="android.permission.CONFIGURE_WIFI_DISPLAY"
