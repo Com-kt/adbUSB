@@ -264,7 +264,11 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
     private val _appCommands = listOf(
         AppCommand("尝试设置selinux为宽容模式, 该扩展指令由app提供", "usb-selinux"),
         AppCommand("调用本地 Shell , 该指令由app提供", "neko "),
+        AppCommand("查询su域 id , 该指令由app提供", "neko su"),
         AppCommand("以root身份调用本地 Shell , 该指令由app提供", "neko su -c "),
+        AppCommand("以system身份调用本地 Shell , 该指令由app提供", "neko su system -c "),
+        AppCommand("以adb身份调用本地 Shell , 该指令由app提供", "neko su adb -c "),
+        AppCommand("以shell身份调用本地 Shell , 该指令由app提供", "neko su shell -c "),
         AppCommand("以root身份+全局挂载空间调用本地 Shell , 该指令由app提供", "neko su -M -c "),
         AppCommand("查看su版本信息 , 该指令由app提供", "neko su -v"),
         AppCommand("查看su帮助 , 该指令由app提供", "neko su -h"),
