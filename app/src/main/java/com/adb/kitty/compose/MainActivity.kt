@@ -793,33 +793,6 @@ class MainActivity : ComponentActivity() {
         }
     }
     
-    fun checkAndRequestStoragePermission(activity: Activity) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            if (!Environment.isExternalStorageManager()) {
-                try {
-                    val intent = Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION).apply {
-                        data = Uri.parse("package:${activity.packageName}")
-                    }
-                    activity.startActivity(intent)
-                } catch (e: Exception) {
-                    val intent = Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION)
-                    activity.startActivity(intent)
-                }
-            }
-        } else {
-            val permissions = arrayOf(
-                Manifest.permission.READ_EXTERNAL_STORAGE,
-                Manifest.permission.WRITE_EXTERNAL_STORAGE
-            )
-            val hasPermission = permissions.all {
-                ContextCompat.checkSelfPermission(activity, it) == PackageManager.PERMISSION_GRANTED
-            }
-            if (!hasPermission) {
-                ActivityCompat.requestPermissions(activity, permissions, 1024)
-            }
-        }
-    }
-    
     private fun handlePermissionDeniedSituation() {
         appendLog("[错误] ❌ 通知权限被拦截/拒绝！")
         appendLog("[警告] ⚠️ 前台服务失去通知将导致服务被系统瞬间抹杀。")
