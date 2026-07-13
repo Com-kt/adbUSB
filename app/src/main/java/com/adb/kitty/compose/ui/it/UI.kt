@@ -241,7 +241,6 @@ fun CenterAlignedTopAppBarExample(
                                     )
                                 }
                             )
-                            HorizontalDivider()
                             DropdownMenuItem(
                                 text = {
                                     Text(
