@@ -745,7 +745,7 @@ class MainActivity : ComponentActivity() {
             }
         } else {
             if (!isAdbAuthorized && !cmd.startsWith("adb pair") && !cmd.startsWith("adb connect")) {
-                appendLog("[发送] ADB >> $cmd\n[警告] 暂不支持应用自身权限，请连接 adbd 后重试")
+                appendLog("[发送] ADB >> $cmd\n[警告] 默认走 adbd 通道，请更换为 neko 指令，走应用自身权限")
                 return
             }
             lifecycleScope.launch(Dispatchers.IO) {

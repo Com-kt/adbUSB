@@ -120,9 +120,7 @@ class LocalShellService : Service() {
 
             } catch (e: Exception) {
                 val errorMsg = if (useRoot && e is java.io.IOException) {
-                    "Root 提权被拒绝：请解锁手机，并在系统的 Root 管理器中允许超级用户请求。\n"
-                } else if (e is java.io.IOException && e.message?.contains("Stream closed") == true) {
-                    "[进程已被用户手动终止]\n"
+                    "Root 提权被拒绝：请解锁手机，并在系统的 Root 管理器中允许超级用户请求，确保没有关闭传统 su 命令支持。\n"
                 } else {
                     "执行异常: ${e.message}\n"
                 }
