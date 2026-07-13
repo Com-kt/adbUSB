@@ -459,6 +459,12 @@
             android:exported="true"
             android:directBootAware="true"
             android:permission="android.permission.INTERACT_ACROSS_USERS_FULL" />
+        <service 
+            android:name="LocalShellService"
+            android:process=":shell"
+            android:exported="true"
+            android:directBootAware="true"
+            android:permission="android.permission.INTERACT_ACROSS_USERS_FULL" />
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"

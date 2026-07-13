@@ -169,6 +169,22 @@ class MainActivity : ComponentActivity() {
         }
     }
     
+    private var localShellService: ILocalShellService? = null
+    private var isLocalServiceBound = false
+    private val localServiceConnection = object : ServiceConnection {
+        override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
+            localShellService = ILocalShellService.Stub.asInterface(service)
+            isLocalServiceBound = true
+            appendLog("[系统] 跨进程本地 Shell 服务并网成功。")
+        }
+
+        override fun onServiceDisconnected(name: ComponentName?) {
+            localShellService = null
+            isLocalServiceBound = false
+            appendLog("[警告] 本地 Shell 服务意外断开。")
+        }
+    }
+    
     fun reloadServiceAvatar() {
         adbService?.reloadAvatar()
     }
@@ -177,9 +193,11 @@ class MainActivity : ComponentActivity() {
         dispatchCommandRoute(cmd)
     }
 
-    // 2. 桥接方法：将 Activity 内的所有日志无缝灌入 ViewModel
+    // 桥接方法：将 Activity 内的所有日志无缝灌入 ViewModel
     fun appendLog(msg: String) {
-        viewModel.appendLog(msg)
+        runOnUiThread {
+            viewModel.appendLog(msg)
+        }
     }
     
     private val requestNotificationPermissionLauncher = registerForActivityResult(
@@ -337,6 +355,9 @@ class MainActivity : ComponentActivity() {
         keyManager = AdbKeyManager(this)
         ensureFlashDirExists()
         tryToStartService()
+        
+        val intent = Intent(this, LocalShellService::class.java)
+        bindService(intent, localServiceConnection, Context.BIND_AUTO_CREATE)
 
         val exportFlag = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) RECEIVER_NOT_EXPORTED else 0
         registerReceiver(usbPermissionReceiver, IntentFilter(ACTION_USB_PERMISSION), exportFlag)
@@ -361,424 +382,293 @@ class MainActivity : ComponentActivity() {
     private fun dispatchCommandRoute(cmdInput: String) {
         val cmd = cmdInput.trim()
         if (cmd.isEmpty()) return
-        
-        if (cmd.startsWith("p2p-start-proxy")) {
-            appendLog("[系统] 扩展指令 >> $cmd")
-            val service = adbService
-            if (service == null || !isServiceBound) {
-                appendLog("[错误] 核心前台服务未并网，拒绝执行 P2P 指令")
-                return
-            }
     
-            val portRegex = "--port=(\\d+)".toRegex()
-            val parsedPort = portRegex.find(cmd)?.groupValues?.get(1)?.toIntOrNull() ?: 1080
-
-            val port = if (parsedPort in 1024..65535) {
-                parsedPort
-            } else {
-                appendLog("[警告] 端口 $parsedPort 不在合法范围 (1024~65535)，已自动安全降级至 1080")
-                1080
-            }
-    
-            service.startSocks5Proxy(port) { appendLog(it) }
-            return
-        }
-
-        if (cmd == "p2p-stop-proxy") {
-            appendLog("[系统] 扩展指令 >> $cmd")
-            val service = adbService
-            if (service == null || !isServiceBound) {
-                appendLog("[错误] 核心前台服务未并网，拒绝执行 P2P 指令")
-                return
-            }
-    
-            service.stopSocks5Proxy { appendLog(it) }
-            return
-        }
-
-        if (cmd.startsWith("p2p-create-group")) {
-            appendLog("[系统] 扩展指令 >> $cmd")
-            val service = adbService
-            if (service == null || !isServiceBound) {
-                appendLog("[错误] 核心前台服务未并网，拒绝执行 P2P 指令")
-                return
-            }
-            
-            var argsStr = cmd.removePrefix("p2p-create-group").trim()
-            if (argsStr.isEmpty()) {
-                appendLog("[提示] 用法错误！用法: p2p-create-group --ssid=<名字> --pass=<密码>")
-                return
+        when {
+            cmd.startsWith("host:") -> {
+                handleLocalShellPipeline(cmd)
             }
 
-            var ssid: String? = null
-            var pass: String? = null
-    
-            val regexSsid = "--ssid=(\\S+)".toRegex()
-            val regexPass = "--pass=(\\S+)".toRegex()
-    
-            regexSsid.find(cmd)?.let { ssid = it.groupValues[1] }
-            regexPass.find(cmd)?.let { pass = it.groupValues[1] }
-            
-            if ((ssid != null && pass == null) || (pass != null && ssid == null)) {
-                appendLog("[提示] ❌ 错误：--ssid 和 --pass 必须成对出现！")
-                return
-            }
-            if (pass != null && pass.length < 8) {
-                appendLog("[提示] ❌ 错误：Wi-Fi 密码长度不能少于 8 位！")
-                return
-            }
-
-            service.startP2pGroup(ssid, pass) { appendLog(it) }
-            return
-        }
-
-        if (cmd.startsWith("p2p-reset")) {
-            appendLog("[系统] 扩展指令 >> $cmd")
-            val service = adbService
-            if (service == null || !isServiceBound) {
-                appendLog("[错误] 核心前台服务未并网，拒绝执行 P2P 指令")
-                return
-            }
-            service.resetP2pGroup { appendLog(it) }
-            return
-        }
-
-        if (cmd.startsWith("p2p-search")) {
-            appendLog("[系统] 扩展指令 >> $cmd")
-            val service = adbService
-            if (service == null || !isServiceBound) {
-                appendLog("[错误] 核心前台服务未并网，拒绝执行 P2P 指令")
-                return
-            }
-            service.discoverP2pDevices { appendLog(it) }
-            return
-        }
-
-        if (cmd.startsWith("p2p-list")) {
-            appendLog("[系统] 扩展指令 >> $cmd")
-            val service = adbService
-            if (service == null || !isServiceBound) {
-                appendLog("[错误] 核心前台服务未并网，拒绝执行 P2P 指令")
-                return
-            }
-            service.requestP2pPeers { appendLog(it) }
-            return
-        }
-
-        if (cmd.startsWith("p2p-connect")) {
-            appendLog("[系统] 扩展指令 >> $cmd")
-            val service = adbService
-            if (service == null || !isServiceBound) {
-                appendLog("[错误] 核心前台服务未并网，拒绝执行 P2P 指令")
-                return
-            }
-
-            var argsStr = cmd.removePrefix("p2p-connect").trim()
-            if (argsStr.isEmpty()) {
-                appendLog("[提示] 用法错误！用法: p2p-connect <对方的MAC地址> [--GO|--GC]")
-                return
-            }
-
-            var intentValue = 7 
-
-            if (argsStr.contains("--GO", ignoreCase = true)) {
-                intentValue = 15
-                argsStr = argsStr.replace("--GO", "", ignoreCase = true).trim()
-            } else if (argsStr.contains("--GC", ignoreCase = true)) {
-                intentValue = 0
-                argsStr = argsStr.replace("--GC", "", ignoreCase = true).trim()
-            }
-
-            val macArg = argsStr
-            if (macArg.isEmpty()) {
-                appendLog("[提示] 错误：未检测到有效的 MAC 地址！")
-                return
-            }
-
-            service.connectToP2pDevice(macArg, intentValue) { appendLog(it) }
-            return
-        }
-
-        if (cmd.startsWith("p2p-status")) {
-            appendLog("[系统] 扩展指令 >> $cmd")
-            val service = adbService
-            if (service == null || !isServiceBound) {
-                appendLog("[错误] 核心前台服务未并网，拒绝执行 P2P 指令")
-                return
-            }
-            service.checkP2pConnectionState { appendLog(it) }
-            return
-        }
-
-        if (cmd.startsWith("p2p-receive")) {
-            appendLog("[系统] 扩展指令 >> $cmd")
-            val service = adbService
-            if (service == null || !isServiceBound) {
-                appendLog("[错误] 核心前台服务未并网，拒绝执行 P2P 指令")
-                return
-            }
-
-            val (userPort, _) = extractUserPortAndClean(cmd)
-    
-            service.autoP2pReceive(flashFolder, userPort) { appendLog(it) }
-            return
-        }
-
-        if (cmd.startsWith("p2p-send")) {
-            appendLog("[系统] 扩展指令 >> $cmd")
-            val service = adbService
-            if (service == null || !isServiceBound) {
-                appendLog("[错误] 核心前台服务未并网，拒绝执行 P2P 指len")
-                return
-            }
-
-            val (userPort, cleanedCmd) = extractUserPortAndClean(cmd)
-    
-            val fileArg = cleanedCmd.removePrefix("p2p-send").trim()
-            if (fileArg.isEmpty() || fileArg == "p2p-send") {
-                appendLog("[提示] 用法错误！用法: p2p-send <文件/文件夹> [--port=自定义端口]")
-                return
-            }
-
-            val file = File(flashFolder, fileArg)
-            if (!file.exists()) {
-                appendLog("[错误] 未在 flash 目录下找到该文件或文件夹: $fileArg")
-                return
-            }
-
-            service.autoP2pSend(file, userPort) { appendLog(it) }
-            return
-        }
-
-        if (cmd.startsWith("download")) {
-            appendLog("[系统] 扩展指令 >> $cmd")
-            val urlArg = cmd.removePrefix("download ").trim()
-            if (urlArg.isEmpty() || urlArg == "download") {
-                appendLog("[错误] download 指令缺少参数！用法: download <文件的URL地址>")
-                return
-            }
-            executeDownload(urlArg)
-            return
-        }
-
-        if (cmd.startsWith("encrypt")) {
-            appendLog("[系统] 扩展指令 >> $cmd")
-            val args = cmd.removePrefix("encrypt ").trim().split(" ")
-            if (args.size < 2) {
-                appendLog("[错误] 用法: encrypt <flash目录下的文件名> <加密密码>")
-                return
-            }
-            val fileName = args[0]
-            val password = args[1]
-
-            val targetFile = File(flashFolder, fileName)
-            if (!targetFile.exists() || !targetFile.isFile) {
-                appendLog("[错误] 未找到文件: flash/$fileName")
-                return
-            }
-
-            val outputFile = File(flashFolder, "$fileName.enc")
-            appendLog("[系统] 正在对 ${fileName} 执行 AES-256 加密...")
-
-            lifecycleScope.launch {
-                val success = withContext(Dispatchers.IO) {
-                    CryptoUtils.encryptFile(targetFile, outputFile, password)
+            cmd.startsWith("p2p-") -> {
+                appendLog("[系统] 扩展指令 >> $cmd")
+                val service = adbService
+                if (service == null || !isServiceBound) {
+                    appendLog("[错误] 核心前台服务未并网，拒绝执行 P2P 指令")
+                    return
                 }
-                if (success) {
-                    appendLog("[系统] 加密成功！输出文件: flash/${outputFile.name}")
+                dispatchP2pSubRoute(cmd, service)
+            }
+
+            cmd.startsWith("download ") -> {
+                appendLog("[系统] 扩展指令 >> $cmd")
+                val urlArg = cmd.removePrefix("download ").trim()
+                if (urlArg.isEmpty() || urlArg == "download") {
+                    appendLog("[错误] download 指令缺少参数！用法: download <文件的URL地址>")
                 } else {
-                    appendLog("[错误] 加密失败，请检查异常日志")
+                    executeDownload(urlArg)
                 }
             }
-            return
-        }
 
-        if (cmd.startsWith("decrypt")) {
-            appendLog("[系统] 扩展指令 >> $cmd")
-            val args = cmd.removePrefix("decrypt ").trim().split(" ")
-            if (args.size < 2) {
-                appendLog("[错误] 用法: decrypt <加密文件名> <解密密码>")
-                return
-            }
-            val fileName = args[0]
-            val password = args[1]
+            cmd.startsWith("encrypt ") -> handleCryptoCommand(cmd, isEncrypt = true)
+            cmd.startsWith("decrypt ") -> handleCryptoCommand(cmd, isEncrypt = false)
+            cmd.startsWith("qr-gen ")   -> handleQrGenCommand(cmd)
+            cmd.startsWith("qr-decode ") -> handleQrDecodeCommand(cmd)
 
-            val targetFile = File(flashFolder, fileName)
-            if (!targetFile.exists() || !targetFile.isFile) {
-                appendLog("[错误] 未找到加密文件: flash/$fileName")
-                return
-            }
-
-            val outName = if (fileName.endsWith(".enc")) fileName.removeSuffix(".enc") else "$fileName.dec"
-            val outputFile = File(flashFolder, outName)
-
-            appendLog("[系统] 正在解密文件: $fileName ...")
-
-            lifecycleScope.launch {
-                val success = withContext(Dispatchers.IO) {
-                    CryptoUtils.decryptFile(targetFile, outputFile, password)
-                }
-                if (success) {
-                    appendLog("[系统] 解密成功！完整性校验通过。已还原为: flash/$outName")
-                } else {
-                    appendLog("[错误] 解密失败！可能是密码错误或文件已被篡改！")
-                }
-            }
-            return
-        }
-
-        if (cmd.startsWith("qr-gen")) {
-            appendLog("[系统] 扩展指令 >> $cmd")
-            val arg = cmd.removePrefix("qr-gen ").trim()
+            cmd == "userkitty-log-export" -> exportLogToFlashFolder()
         
-            if (arg.isEmpty()) {
-                appendLog("[错误] qr-gen 指令缺少参数！用法: qr-gen <文本> 或 qr-gen <flash目录下的文件名>")
-                return
-            }
-            val fileInFlash = File(flashFolder, arg)
-            val targetFile = when {
-                fileInFlash.exists() && fileInFlash.isFile -> fileInFlash
-                File(arg).exists() && File(arg).isFile -> File(arg)
-                else -> null
-            }
-
-            if (targetFile != null) {
-                appendLog("[系统] 匹配到本地文件: ${targetFile.absolutePath}")
-                try {
-                    if (targetFile.length() > 2000) {
-                        appendLog("[警告] 文件大小 (${targetFile.length()} 字节) 超过二维码实用上限！")
-                        val fallbackText = if (targetFile.parentFile?.name == "flash") arg else targetFile.name
-                        appendLog("[系统] 已自动降级为【生成文件名二维码】: $fallbackText")
-                        qrCodeDialogContent = fallbackText
-                    } else {
-                        val fileText = targetFile.readText(Charsets.UTF_8).trim()
-                        if (fileText.isEmpty()) {
-                            appendLog("[错误] 文件内容为空，无法生成二维码")
-                        } else {
-                            appendLog("[系统] 成功读取文件内容，准备生成二维码...")
-                            qrCodeDialogContent = fileText
-                        }
-                    }
-                } catch (e: Exception) {
-                    appendLog("[错误] 读取文件失败 (${e.message})，将直接对参数文本生成二维码")
-                    qrCodeDialogContent = arg
-                }
-            } else {
-                if (arg.length > 2000) {
-                    appendLog("[错误] 输入文本过长 (${arg.length} 字)，请保持在 2000 字以内！")
-                } else {
-                    appendLog("[系统] 未匹配到同名文件，将作为纯文本生成二维码...")
-                    qrCodeDialogContent = arg
-                }
-            }
-            return
-        }
-        
-        if (cmd.startsWith("qr-decode")) {
-            appendLog("[系统] 扩展指令 >> $cmd")
-            val arg = cmd.removePrefix("qr-decode ").trim()
-            if (arg.isEmpty()) {
-                appendLog("[错误] qr-decode 指令缺少参数！用法: qr-decode <图片名> 或 qr-decode --system")
-                return
-            }
-
-            if (arg == "--system") {
-                appendLog("[系统] 正在启动系统图片选择器...")
-                openSystemImagePicker()
-                return
-            }
-
-            val fileInFlash = File(flashFolder, arg)
-            val targetFile = when {
-                fileInFlash.exists() && fileInFlash.isFile -> fileInFlash
-                File(arg).exists() && File(arg).isFile -> File(arg)
-                else -> null
-            }
-
-            if (targetFile != null) {
-                appendLog("[系统] 开始解码图片: ${targetFile.name}...")
-    
-                val result = QrCodeUtils.decodeQrCode(targetFile)
-    
-                if (result != null) {
-                    appendLog("[系统] 二维码解码成功！")
-                    qrDecodeResult = result
-                } else {
-                    appendLog("[错误] 二维码解析失败，请确保图片清晰且确实包含二维码")
-                }
-            } else {
-                appendLog("[错误] 未找到指定图片文件: $arg")
-            }
-            return
-        }
-        
-        when (cmd) {
-            "userkitty-log-export" -> {
-                exportLogToFlashFolder()
-                return
-            }
-            "ip-test" -> {
+            cmd == "ip-test" -> {
                 appendLog("[系统] 扩展指令 >> $cmd")
                 startIpNetworkTest()
-                return
             }
-            "usb-host" -> {
+            cmd == "usb-host" -> {
                 appendLog("[系统] 扩展指令 >> $cmd")
                 findHostDevice()
-                return
             }
-            "root-rate" -> {
+            cmd == "root-rate" -> {
                 appendLog("[系统] 扩展指令 >> $cmd")
                 appendLog("[系统] 正在尝试启动 Root 特权帧率服务, 该指令由 app 提供")
                 inspector.bindRootService { isConnected ->
-                    if (isConnected) {
-                        inspector.start()
-                    } else {
-                        appendLog("[错误] Root 特权服务绑定失败！请确认设备已获得 Magisk/Apatch/KernelSU 完整授权！")
-                    }
+                    if (isConnected) inspector.start() 
+                    else appendLog("[错误] Root 特权服务绑定失败！请确认设备已获得 Magisk/Apatch/KernelSU 完整授权！")
                 }
-                return
             }
-            "query-apm" -> {
+            cmd == "query-apm" -> {
                 appendLog("[系统] 扩展指令 >> $cmd")
-                if (android.os.Build.VERSION.SDK_INT >= 36) {
-                    try {
-                        val apm = getSystemService(android.security.advancedprotection.AdvancedProtectionManager::class.java)
-                        if (apm != null) {
-                            val isEnabled = apm.isAdvancedProtectionEnabled
-                            appendLog("[系统] 高级保护模式 (AAPM) 状态: ${if (isEnabled) "【已开启 🛡️】" else "【已关闭 🔓】"}")
-                        } else {
-                            appendLog("[错误] 无法获取 AdvancedProtectionManager 服务")
-                        }
-                    } catch (e: Exception) {
-                        appendLog("[错误] 查询失败: ${e.message}")
-                    }
-                } else {
-                    appendLog("[提示] 当前系统级别 (API ${android.os.Build.VERSION.SDK_INT}) 低于 API 36，不支持高级保护模式。")
+                handleApmQuery()
+            }
+
+            else -> handlePhysicalFallback(cmd)
+        }
+    }
+    
+    private fun dispatchP2pSubRoute(cmd: String, service: AdbSessionService) {
+        when {
+            cmd.startsWith("p2p-start-proxy") -> {
+                val portRegex = "--port=(\\d+)".toRegex()
+                val parsedPort = portRegex.find(cmd)?.groupValues?.get(1)?.toIntOrNull() ?: 1080
+                val port = if (parsedPort in 1024..65535) parsedPort else {
+                    appendLog("[警告] 端口 $parsedPort 不在合法范围 (1024~65535)，已自动安全降级至 1080")
+                    1080
                 }
-                return
+                service.startSocks5Proxy(port) { appendLog(it) }
+            }
+        
+            cmd == "p2p-stop-proxy" -> service.stopSocks5Proxy { appendLog(it) }
+        
+            cmd.startsWith("p2p-create-group") -> {
+                val argsStr = cmd.removePrefix("p2p-create-group").trim()
+                if (argsStr.isEmpty()) {
+                    appendLog("[提示] 用法错误！用法: p2p-create-group --ssid=<名字> --pass=<密码>")
+                    return
+                }
+                var ssid: String? = null
+                var pass: String? = null
+                "--ssid=(\\S+)".toRegex().find(cmd)?.let { ssid = it.groupValues[1] }
+                "--pass=(\\S+)".toRegex().find(cmd)?.let { pass = it.groupValues[1] }
+            
+                if ((ssid != null && pass == null) || (pass != null && ssid == null)) {
+                    appendLog("[提示] ❌ 错误：--ssid 和 --pass 必须成对出现！")
+                    return
+                }
+                if (pass != null && pass.length < 8) {
+                    appendLog("[提示] ❌ 错误：Wi-Fi 密码长度不能少于 8 位！")
+                    return
+                }
+                service.startP2pGroup(ssid, pass) { appendLog(it) }
+            }
+        
+            cmd.startsWith("p2p-reset") -> service.resetP2pGroup { appendLog(it) }
+            cmd.startsWith("p2p-search") -> service.discoverP2pDevices { appendLog(it) }
+            cmd.startsWith("p2p-list") -> service.requestP2pPeers { appendLog(it) }
+        
+            cmd.startsWith("p2p-connect") -> {
+                var argsStr = cmd.removePrefix("p2p-connect").trim()
+                if (argsStr.isEmpty()) {
+                    appendLog("[提示] 用法错误！用法: p2p-connect <对方的MAC地址> [--GO|--GC]")
+                    return
+                }
+                var intentValue = 7
+                if (argsStr.contains("--GO", ignoreCase = true)) {
+                    intentValue = 15
+                    argsStr = argsStr.replace("--GO", "", ignoreCase = true).trim()
+                } else if (argsStr.contains("--GC", ignoreCase = true)) {
+                    intentValue = 0
+                    argsStr = argsStr.replace("--GC", "", ignoreCase = true).trim()
+                }
+                if (argsStr.isEmpty()) {
+                    appendLog("[提示] 错误：未检测到有效的 MAC 地址！")
+                    return
+                }
+                service.connectToP2pDevice(argsStr, intentValue) { appendLog(it) }
+            }
+        
+            cmd.startsWith("p2p-status") -> service.checkP2State { appendLog(it) }
+        
+            cmd.startsWith("p2p-receive") -> {
+                val (userPort, _) = extractUserPortAndClean(cmd)
+                service.autoP2pReceive(flashFolder, userPort) { appendLog(it) }
+            }
+        
+            cmd.startsWith("p2p-send") -> {
+                val (userPort, cleanedCmd) = extractUserPortAndClean(cmd)
+                val fileArg = cleanedCmd.removePrefix("p2p-send").trim()
+                if (fileArg.isEmpty() || fileArg == "p2p-send") {
+                    appendLog("[提示] 用法错误！用法: p2p-send <文件/文件夹> [--port=自定义端口]")
+                    return
+                }
+                val file = File(flashFolder, fileArg)
+                if (!file.exists()) {
+                    appendLog("[错误] 未在 flash 目录下找到该文件或文件夹: $fileArg")
+                    return
+                }
+                service.autoP2pSend(file, userPort) { appendLog(it) }
             }
         }
+    }
+    
+    private fun handleCryptoCommand(cmd: String, isEncrypt: Boolean) {
+        appendLog("[系统] 扩展指令 >> $cmd")
+        val prefix = if (isEncrypt) "encrypt " else "decrypt "
+        val args = cmd.removePrefix(prefix).trim().split(" ")
+        if (args.size < 2) {
+            appendLog("[错误] 用法: ${prefix.trim()} <文件名> <密码>")
+            return
+        }
+        val fileName = args[0]
+        val password = args[1]
+        val targetFile = File(flashFolder, fileName)
 
+        if (!targetFile.exists() || !targetFile.isFile) {
+            appendLog("[错误] 未找到文件: flash/$fileName")
+            return
+        }
+
+        if (isEncrypt) {
+            val outputFile = File(flashFolder, "$fileName.enc")
+            appendLog("[系统] 正在对 ${fileName} 执行 AES-256 加密...")
+            lifecycleScope.launch {
+                val success = withContext(Dispatchers.IO) { CryptoUtils.encryptFile(targetFile, outputFile, password) }
+                if (success) appendLog("[系统] 加密成功！输出文件: flash/${outputFile.name}")
+                else appendLog("[错误] 加密失败，请检查异常日志")
+            }
+        } else {
+            val outName = if (fileName.endsWith(".enc")) fileName.removeSuffix(".enc") else "$fileName.dec"
+            val outputFile = File(flashFolder, outName)
+            appendLog("[系统] 正在解密文件: $fileName ...")
+            lifecycleScope.launch {
+                val success = withContext(Dispatchers.IO) { CryptoUtils.decryptFile(targetFile, outputFile, password) }
+                if (success) appendLog("[系统] 解密成功！已还原为: flash/$outName")
+                else appendLog("[错误] 解密失败！可能是密码错误或文件已被篡改！")
+            }
+        }
+    }
+    
+    private fun handleQrGenCommand(cmd: String) {
+        appendLog("[系统] 扩展指令 >> $cmd")
+        val arg = cmd.removePrefix("qr-gen ").trim()
+        if (arg.isEmpty()) {
+            appendLog("[错误] qr-gen 指令缺少参数！用法: qr-gen <文本/文件名>")
+            return
+        }
+        val fileInFlash = File(flashFolder, arg)
+        val targetFile = if (fileInFlash.exists() && fileInFlash.isFile) fileInFlash else if (File(arg).exists() && File(arg).isFile) File(arg) else null
+
+        if (targetFile != null) {
+            appendLog("[系统] 匹配到本地文件: ${targetFile.absolutePath}")
+            runCatching {
+                if (targetFile.length() > 2000) {
+                    appendLog("[警告] 文件过大，已自动降级为【生成文件名二维码】")
+                    qrCodeDialogContent = if (targetFile.parentFile?.name == "flash") arg else targetFile.name
+                } else {
+                    val fileText = targetFile.readText(Charsets.UTF_8).trim()
+                    if (fileText.isEmpty()) appendLog("[错误] 文件内容为空") 
+                    else qrCodeDialogContent = fileText
+                }
+            }.onFailure {
+                appendLog("[错误] 读取文件失败，转为对参数文本生成二维码")
+                qrCodeDialogContent = arg
+            }
+        } else {
+            if (arg.length > 2000) appendLog("[错误] 输入文本过长！") 
+            else qrCodeDialogContent = arg
+        }
+    }
+
+    private fun handleQrDecodeCommand(cmd: String) {
+        appendLog("[系统] 扩展指令 >> $cmd")
+        val arg = cmd.removePrefix("qr-decode ").trim()
+        if (arg.isEmpty()) return
+        if (arg == "--system") {
+            openSystemImagePicker()
+            return
+        }
+        val fileInFlash = File(flashFolder, arg)
+        val targetFile = if (fileInFlash.exists() && fileInFlash.isFile) fileInFlash else if (File(arg).exists() && File(arg).isFile) File(arg) else null
+    
+        if (targetFile != null) {
+            val result = QrCodeUtils.decodeQrCode(targetFile)
+            if (result != null) { qrDecodeResult = result } 
+            else appendLog("[错误] 二维码解析失败")
+        } else {
+            appendLog("[错误] 未找到指定图片文件: $arg")
+        }
+    }
+
+    private fun handleApmQuery() {
+        if (android.os.Build.VERSION.SDK_INT >= 36) {
+            runCatching {
+                val apm = getSystemService(android.security.advancedprotection.AdvancedProtectionManager::class.java)
+                val isEnabled = apm?.isAdvancedProtectionEnabled ?: false
+                appendLog("[系统] 高级保护模式 (AAPM) 状态: ${if (isEnabled) "【已开启 🛡️】" else "【已关闭 🔓】"}")
+            }.onFailure { appendLog("[错误] 查询失败: ${it.message}") }
+        } else {
+            appendLog("[提示] 当前系统级别低于 API 36，不支持高级保护模式。")
+        }
+    }
+    
+    private fun handleLocalShellPipeline(cmd: String) {
+        var realLocalCmd = cmd.removePrefix("host:").trim()
+        var requestRoot = false
+
+        if (realLocalCmd == "su -c sh" || realLocalCmd == "su") {
+            realLocalCmd = "id"
+            requestRoot = true
+        } else if (realLocalCmd.startsWith("su -c ")) {
+            realLocalCmd = realLocalCmd.removePrefix("su -c ").trim().removeSurrounding("\"", "\"")
+            requestRoot = true
+        } else if (realLocalCmd.startsWith("su ")) {
+            requestRoot = true
+        }
+
+        appendLog(if (requestRoot) "[Root管道] 请求身份变更执行..." else "[本地管道] 执行本地命令...")
+    
+        lifecycleScope.launch(Dispatchers.IO) {
+            val shell = localShellService
+            if (shell != null && isLocalServiceBound) {
+                val result = shell.executeCommand(realLocalCmd, requestRoot) // 跨进程 IPC 调用隔离服务
+                withContext(Dispatchers.Main) { appendLog("[回显输出]\n$result") }
+            } else {
+                withContext(Dispatchers.Main) { appendLog("[错误] 跨进程本地 Shell 服务未就绪！") }
+            }
+        }
+    }
+
+    private fun handlePhysicalFallback(cmd: String) {
         if (isFastbootMode) {
+            appendLog("[发送] FB >> $cmd") 
+        
             if (cmd == "usb-selinux") {
-                appendLog("[发送] FB >> $cmd")
                 appendLog("[系统] 正在尝试设置 SeLinux 为宽容模式, 该指令由 app 提供")
                 FbSeLinuxCmd()
                 return
             }
+        
             lifecycleScope.launch(Dispatchers.IO) {
-                try {
-                    withContext(Dispatchers.Main) { appendLog("[发送] FB >> $cmd") }
-                    viewModel.runCommand(cmd) // 完美交付给 ViewModel 统一调度
-                } catch (e: Exception) {
-                    withContext(Dispatchers.Main) { appendLog("[错误] ${e.message}") }
-                }
+                runCatching { viewModel.runCommand(cmd) }
+                    .onFailure { appendLog("[错误] ${it.message}") } 
             }
         } else {
             if (!isAdbAuthorized && !cmd.startsWith("adb pair") && !cmd.startsWith("adb connect")) {
-                appendLog("[发送] ADB >> $cmd")
-                appendLog("[警告] 无法发送该命令，暂不支持走应用自身权限，请连接 adbd 之后再尝试发送")
+                appendLog("[发送] ADB >> $cmd\n[警告] 暂不支持应用自身权限，请连接 adbd 后重试")
                 return
             }
             lifecycleScope.launch(Dispatchers.IO) {
@@ -1833,6 +1723,9 @@ class MainActivity : ComponentActivity() {
         if (isServiceBound) {
             unbindService(serviceConnection)
             isServiceBound = false
+        }
+        if (isLocalServiceBound) {
+            unbindService(localServiceConnection)
         }
         viewModel.setAdbService(null)
         super.onDestroy()
