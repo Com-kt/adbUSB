@@ -430,6 +430,18 @@ fun CenterAlignedTopAppBarExample(
                                     activity.stopCurrentCommand()
                                 }
                             )
+                            DropdownMenuItem(
+                                text = {
+                                    Text(
+                                        stringResource(R.string.action_menu_neko_shell_stop)
+                                    )
+                                },
+                                leadingIcon = { Icon(Icons.Outlined.Cancel, null) },
+                                onClick = {
+                                    showMenu = false
+                                    activity.onUserClickStopCommand()
+                                }
+                            )
                         }
                     }
                 },
@@ -755,7 +767,10 @@ private fun determineLogColor(
         line.contains("🔴") || 
         line.contains("FAIL") || 
         line.contains("Exception") || 
+        line.contains("exception") || 
         line.contains("Error") || 
+        line.contains("error") || 
+        line.contains("fatal") || 
         line.contains("Fatal")
     ) {
         return errorColor
@@ -767,8 +782,9 @@ private fun determineLogColor(
         line.contains("超时") || 
         line.contains("未知") || 
         line.contains("TIMEOUT") || 
-        line.contains("Unknown") || 
+        line.contains("unknown") || 
         line.contains("Warn") || 
+        line.contains("warn") || 
         line.contains("Warning") || 
         line.contains("Timeout")
     ) {
@@ -780,6 +796,7 @@ private fun determineLogColor(
     if (line.contains("成功") || 
         line.contains("🟢") || 
         line.contains("Success") || 
+        line.contains("success") || 
         line.contains("OKAY") || 
         line.contains("OK")
     ) {
@@ -792,6 +809,7 @@ private fun determineLogColor(
         line.contains("信息") || 
         line.contains("INFO") || 
         line.contains("Info") || 
+        line.contains("info") || 
         line.contains("Hint")
     ) {
         return infoColor
@@ -799,6 +817,8 @@ private fun determineLogColor(
 
     // 优先级第五：【调试 / Debug】
     if (line.indexOf(" D/", 0) in 0 until maxScanLen || 
+        line.contains("debug") || 
+        line.contains("调试") || 
         line.contains("Debug")
     ) {
         return debugColor

@@ -179,6 +179,8 @@
           android:name="android.hardware.camera.flash"
           android:required="false" />
     
+    <!-- 配置并连接 WiFi 显示器 -->
+    <uses-permission android:name="android.permission.CONFIGURE_WIFI_DISPLAY" />
     <!-- 使用情况访问权限 -->
     <uses-permission
         android:name="android.permission.PACKAGE_USAGE_STATS"
@@ -336,6 +338,10 @@
     <uses-permission android:name="android.permission.RESTART_PACKAGES" />
     <!-- 禁用键盘锁 -->
     <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
+    <!-- 检测屏幕截屏 -->
+    <uses-permission android:name="android.permission.DETECT_SCREEN_CAPTURE" />
+    <!-- 检测屏幕录屏 -->
+    <uses-permission android:name="android.permission.DETECT_SCREEN_RECORDING" />
     <queries>
         <package android:name="com.adb.kitty.compose" />
         <package android:name="com.android.ipsec" />

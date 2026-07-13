@@ -661,15 +661,70 @@ class MainActivity : ComponentActivity() {
             requestRoot = true
         }
 
-        appendLog(if (requestRoot) "[Root管道] 请求身份变更执行..." else "[本地管道] 执行本地命令...")
-    
+        appendLog(if (requestRoot) "[Root管道] 请求身份变更执行实时流..." else "[本地管道] 开始执行流式命令...")
+
         lifecycleScope.launch(Dispatchers.IO) {
             val shell = localShellService
             if (shell != null && isLocalServiceBound) {
-                val result = shell.executeCommand(realLocalCmd, requestRoot) // 跨进程 IPC 调用隔离服务
-                withContext(Dispatchers.Main) { appendLog("[回显输出]\n$result") }
+                var pfd: ParcelFileDescriptor? = null
+                var reader: BufferedReader? = null
+            
+                try {
+                    pfd = shell.executeCommandStream(realLocalCmd, requestRoot)
+                
+                    if (pfd != null) {
+                        val inputStream = ParcelFileDescriptor.AutoCloseInputStream(pfd)
+                        reader = BufferedReader(InputStreamReader(inputStream, "UTF-8"))
+
+                        var line: String?
+                        while (isActive) {
+                            try {
+                                line = reader.readLine()
+                                if (line == null) break
+                            
+                                val currentLine = line
+                                withContext(Dispatchers.Main) {
+                                    appendLog(currentLine)
+                                }
+                            } catch (e: IOException) {
+                                withContext(Dispatchers.Main) {
+                                    appendLog("[系统] 进程管道流已关闭（进程已被用户手动终止）")
+                                }
+                                break
+                            }
+                        }
+                    } else {
+                        withContext(Dispatchers.Main) {
+                            appendLog("[错误] 无法建立管道连接！")
+                        }
+                    }
+                } catch (e: Exception) {
+                    withContext(Dispatchers.Main) {
+                        appendLog("[错误] 执行异常: ${e.message}")
+                    }
+                } finally {
+                    runCatching { reader?.close() }
+                    runCatching { pfd?.close() }
+                }
             } else {
-                withContext(Dispatchers.Main) { appendLog("[错误] 跨进程本地 Shell 服务未就绪！") }
+                withContext(Dispatchers.Main) {
+                    appendLog("[错误] 跨进程本地 Shell 服务未就绪！")
+                }
+            }
+        }
+    }
+
+    fun onUserClickStopCommand() {
+        lifecycleScope.launch(Dispatchers.IO) {
+            val shell = localShellService
+            if (shell != null && isLocalServiceBound) {
+                runCatching {
+                    shell.terminateCurrentCommand()
+                }.onFailure { e ->
+                    withContext(Dispatchers.Main) {
+                        appendLog("[错误] 终止命令失败: ${e.message}")
+                    }
+                }
             }
         }
     }

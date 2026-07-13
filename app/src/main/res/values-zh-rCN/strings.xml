@@ -10,6 +10,7 @@
     <string name="action_menu_help">使用说明</string>
     <string name="action_menu_log_export">打印已输出的日志</string>
     <string name="action_menu_shell_stop">终止当前 Shell 进程</string>
+    <string name="action_menu_neko_shell_stop">终止当前本地 Shell 会话</string>
     <string name="action_menu_turbo">玄学内核提频</string>
     <string name="action_menu_turbo_stop">还原内核频率</string>
     <string name="action_menu_rate">开始测试帧率[root]</string>
