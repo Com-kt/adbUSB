@@ -384,7 +384,7 @@ class MainActivity : ComponentActivity() {
         if (cmd.isEmpty()) return
     
         when {
-            cmd.startsWith("host:") -> {
+            cmd.startsWith("neko ") -> {
                 handleLocalShellPipeline(cmd)
             }
 
@@ -626,7 +626,8 @@ class MainActivity : ComponentActivity() {
     }
     
     private fun handleLocalShellPipeline(cmd: String) {
-        var realLocalCmd = cmd.removePrefix("host:").trim()
+        appendLog("[系统] Shell >> $cmd")
+        var realLocalCmd = cmd.removePrefix("neko ").trim()
         var requestRoot = false
 
         if (realLocalCmd == "su -c sh" || realLocalCmd == "su") {

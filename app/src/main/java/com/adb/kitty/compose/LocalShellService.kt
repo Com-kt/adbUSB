@@ -2,6 +2,7 @@ package com.adb.kitty.compose
 
 import android.app.Service
 import android.content.Intent
+import android.os.Environment
 import android.os.IBinder
 import java.io.BufferedReader
 import java.io.DataOutputStream
@@ -16,21 +17,22 @@ import com.adb.kitty.compose.R
 
 class LocalShellService : Service() {
 
-    private var currentWorkingDirectory = File("/sdcard/")
+    private var currentWorkingDirectory = Environment.getExternalStorageDirectory()
 
     private val binder = object : ILocalShellService.Stub() {
         override fun executeCommand(cmd: String, useRoot: Boolean): String {
-            return synchronized(this@LocalShellService) {
-                performLocalShell(cmd.trim(), useRoot)
-            }
+            return performLocalShell(cmd.trim(), useRoot)
         }
     }
 
     override fun onBind(intent: Intent?): IBinder = binder
 
     private fun performLocalShell(cmd: String, useRoot: Boolean): String {
-        if (cmd == "cd" || cmd.startsWith("cd ")) {
-            return handleCdCommand(cmd)
+        val cwdSnapshot = synchronized(this) {
+            if (cmd == "cd" || cmd.startsWith("cd ")) {
+                return handleCdCommand(cmd)
+            }
+            currentWorkingDirectory
         }
 
         val resultBuilder = StringBuilder()
@@ -39,26 +41,38 @@ class LocalShellService : Service() {
         var reader: BufferedReader? = null
 
         try {
-            val builder = if (cmd.startsWith("su ") || cmd == "su" || useRoot) {
-                val finalCmd = if (useRoot && !cmd.startsWith("su")) "su -c $cmd" else cmd
-                ProcessBuilder(parseCommandLine(finalCmd))
+            val builder = if (useRoot || cmd.startsWith("su")) {
+                val baseSuCmd = if (cmd.contains(" -c ")) cmd.substringBefore(" -c ") else cmd
+                val args = parseCommandLine(baseSuCmd.ifBlank { "su" })
+                
+                if (useRoot && !args.contains("su")) {
+                    ProcessBuilder("su")
+                } else {
+                    ProcessBuilder(args)
+                }
             } else {
                 ProcessBuilder("sh")
             }
 
             builder.redirectErrorStream(true)
-            
             builder.environment().putAll(System.getenv())
-            
-            builder.directory(currentWorkingDirectory)
+            builder.directory(cwdSnapshot)
 
             process = builder.start()
             os = DataOutputStream(process.outputStream)
 
-            if (!cmd.contains("-c")) {
-                os.writeBytes("$cmd\n")
+            val realExecutionCmd = when {
+                cmd.contains(" -c ") -> {
+                    cmd.substringAfter(" -c ").removeSurrounding("\"", "\"").removeSurrounding("'", "'")
+                }
+                cmd == "su" || cmd.startsWith("su ") -> {
+                    "id" 
+                }
+                else -> cmd
             }
-            os.writeBytes("exit\n")
+
+            os.writeBytes("$realExecutionCmd\n")
+            os.writeBytes("exit\n") 
             os.flush()
 
             reader = BufferedReader(InputStreamReader(process.inputStream, "UTF-8"))
@@ -72,7 +86,7 @@ class LocalShellService : Service() {
 
         } catch (e: Exception) {
             if (useRoot && e is java.io.IOException) {
-                resultBuilder.append("Root 提权失败：请检查手机是否 Root 或确认已授予 Root 权限。")
+                resultBuilder.append("Root 提权被拒绝：请解锁手机，并在系统的 Root 管理器中允许超级用户请求。")
             } else {
                 resultBuilder.append("执行异常: ${e.message}")
             }
@@ -87,7 +101,7 @@ class LocalShellService : Service() {
 
     private fun handleCdCommand(cmd: String): String {
         val targetPath = if (cmd == "cd") {
-            "/sdcard/"
+            Environment.getExternalStorageDirectory().absolutePath
         } else {
             cmd.removePrefix("cd ").trim().removeSurrounding("\"", "\"")
         }
