@@ -714,7 +714,7 @@ class MainActivity : ComponentActivity() {
             } else {
                 runCatching {
                     val intent = Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION).apply {
-                        data = Uri.parse("package:$packageName")
+                        data = "package:$packageName".toUri()
                     }
                     allFilesPermissionLauncher.launch(intent)
                 }
