@@ -501,7 +501,7 @@ class MainActivity : ComponentActivity() {
                 service.connectToP2pDevice(argsStr, intentValue) { appendLog(it) }
             }
         
-            cmd.startsWith("p2p-status") -> service.checkP2State { appendLog(it) }
+            cmd.startsWith("p2p-status") -> service.checkP2pConnectionState { appendLog(it) }
         
             cmd.startsWith("p2p-receive") -> {
                 val (userPort, _) = extractUserPortAndClean(cmd)
