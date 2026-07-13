@@ -319,6 +319,18 @@ fun CenterAlignedTopAppBarExample(
                                     activity.handleWifiConnectionFlow()
                                 }
                             )
+                            DropdownMenuItem(
+                                text = {
+                                    Text(
+                                        stringResource(R.string.action_menu_storage)
+                                    )
+                                },
+                                leadingIcon = { Icon(Icons.Outlined.Refresh, null) },
+                                onClick = {
+                                    showMenu = false
+                                    activity.triggerStoragePermissionCheck()
+                                }
+                            )
                             HorizontalDivider()
                             DropdownMenuItem(
                                 text = {

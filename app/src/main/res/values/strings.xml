@@ -17,6 +17,7 @@
     <string name="action_menu_rate_stop">Stop testing rate[root]</string>
     <string name="action_menu_sospl">enter adb cmd / fastboot cmd</string>
     <string name="action_menu_color">use system wallpaper colors</string>
+    <string name="action_menu_storage">Request file read and write permissions</string>
     <string name="action_menu_notification_img">Use a custom notification avatar</string>
     <string name="action_qr_okay">🛡️ QR code generated successfully</string>
     <string name="action_qr_store">Save to album</string>

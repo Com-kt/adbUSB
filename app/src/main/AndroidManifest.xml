@@ -46,6 +46,14 @@
     <uses-feature 
           android:name="android.hardware.microphone"
           android:required="false" />
+    <!-- 蓝牙 -->
+    <uses-feature 
+          android:name="android.hardware.bluetooth"
+          android:required="false" />
+    <!-- BLE -->
+    <uses-feature 
+          android:name="android.hardware.bluetooth_le"
+          android:required="false" />
     <!-- 传感器 -->
     <uses-feature 
           android:name="android.hardware.sensor"
@@ -176,9 +184,13 @@
         android:name="android.permission.PACKAGE_USAGE_STATS"
         tools:ignore="ProtectedPermissions" />
     <!-- 修改或删除您共享存储空间中的内容 -->
-    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+    <uses-permission
+        android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+        android:maxSdkVersion="29" />
     <!-- 读取您共享存储空间中的内容 -->
-    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+    <uses-permission
+        android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="29" />
     <!-- 所有文件访问权限 -->
     <uses-permission
         android:name="android.permission.MANAGE_EXTERNAL_STORAGE"
@@ -187,6 +199,14 @@
     <uses-permission android:name="android.permission.CAMERA" />
     <!-- 录音 -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <!-- 使用蓝牙设备 -->
+    <uses-permission android:name="android.permission.BLUETOOTH" />
+    <!-- 配对蓝牙设备 -->
+    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
+    <!-- 连接蓝牙设备 -->
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+    <!-- 扫描蓝牙设备 -->
+    <uses-permission android:name="android.permission.BLUETOOTH_SCAN" />
     <!-- Android 16+ 查询高级保护模式状态 -->
     <uses-permission android:name="android.permission.QUERY_ADVANCED_PROTECTION_MODE" />
     <!-- 读取共享存储空间中的图片文件 -->
@@ -403,6 +423,7 @@
         android:hardwareAccelerated="true"
         android:networkSecurityConfig="@xml/network_security_config"
         android:enableOnBackInvokedCallback="true"
+        android:requestLegacyExternalStorage="true"
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher"
         android:banner="@drawable/tv_banner"

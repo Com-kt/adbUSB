@@ -226,6 +226,27 @@ class MainActivity : ComponentActivity() {
             appendLog("[警告] 权限被拒绝，无法自动扫描 Wi-Fi SSID")
         }
     }
+    
+    private val allFilesPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { _ ->
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && Environment.isExternalStorageManager()) {
+            appendLog("[INFO] Android 11+ 所有文件访问权限已授权")
+        } else {
+            appendLog("[警告] Android 11+ 所有文件访问权限未授权")
+        }
+    }
+
+    private val legacyStorageLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissionsMap ->
+        val isAllGranted = permissionsMap.values.all { it }
+        if (isAllGranted) {
+            appendLog("[INFO] Android 10 文件读写权限已授权")
+        } else {
+            appendLog("[警告] Android 10 文件读写权限未授权")
+        }
+    }
 
     private val usbPermissionReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
@@ -686,6 +707,35 @@ class MainActivity : ComponentActivity() {
         }
     }
     
+    fun triggerStoragePermissionCheck() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            if (Environment.isExternalStorageManager()) {
+                appendLog("[INFO] Android 11+ 所有文件读写权限已就绪")
+            } else {
+                runCatching {
+                    val intent = Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION).apply {
+                        data = Uri.parse("package:$packageName")
+                    }
+                    allFilesPermissionLauncher.launch(intent)
+                }
+            }
+        } else {
+            val permissions = arrayOf(
+                Manifest.permission.READ_EXTERNAL_STORAGE,
+                Manifest.permission.WRITE_EXTERNAL_STORAGE
+            )
+            val hasPermission = permissions.all {
+                ContextCompat.checkSelfPermission(this, it) == PackageManager.PERMISSION_GRANTED
+            }
+
+            if (hasPermission) {
+                appendLog("[INFO] Android 10 文件读写权限已就绪")
+            } else {
+                legacyStorageLauncher.launch(permissions)
+            }
+        }
+    }
+    
     fun extractUserPortAndClean(cmdStr: String): kotlin.Pair<Int?, String> {
         val portRegex = "--port=(\\d+)".toRegex()
         val matchResult = portRegex.find(cmdStr)
@@ -739,6 +789,33 @@ class MainActivity : ComponentActivity() {
                 startAndBindAdbService()
             } else {
                 handlePermissionDeniedSituation()
+            }
+        }
+    }
+    
+    fun checkAndRequestStoragePermission(activity: Activity) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            if (!Environment.isExternalStorageManager()) {
+                try {
+                    val intent = Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION).apply {
+                        data = Uri.parse("package:${activity.packageName}")
+                    }
+                    activity.startActivity(intent)
+                } catch (e: Exception) {
+                    val intent = Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION)
+                    activity.startActivity(intent)
+                }
+            }
+        } else {
+            val permissions = arrayOf(
+                Manifest.permission.READ_EXTERNAL_STORAGE,
+                Manifest.permission.WRITE_EXTERNAL_STORAGE
+            )
+            val hasPermission = permissions.all {
+                ContextCompat.checkSelfPermission(activity, it) == PackageManager.PERMISSION_GRANTED
+            }
+            if (!hasPermission) {
+                ActivityCompat.requestPermissions(activity, permissions, 1024)
             }
         }
     }
