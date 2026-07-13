@@ -172,7 +172,9 @@
           android:required="false" />
     
     <!-- 使用情况访问权限 -->
-    <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS"/>
+    <uses-permission
+        android:name="android.permission.PACKAGE_USAGE_STATS"
+        tools:ignore="ProtectedPermissions" />
     <!-- 修改或删除您共享存储空间中的内容 -->
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
     <!-- 读取您共享存储空间中的内容 -->
