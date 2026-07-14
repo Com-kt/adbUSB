@@ -21,7 +21,7 @@ import androidx.annotation.Keep
  * [适用环境]: minSdk >= 29 (Android 10+)
  */
 @Keep
-@Suppress("WrongConstant")
+@SuppressLint("WrongConstant")
 suspend fun extractAudioToMusicDirectory(
     context: Context,
     videoUri: Uri,
