@@ -6,6 +6,7 @@ import android.content.pm.*
 import android.graphics.*
 import android.animation.*
 import android.provider.*
+import android.media.*
 import android.app.PendingIntent
 
 import android.os.*
@@ -58,6 +59,7 @@ import android.os.*
 import androidx.annotation.*
 import androidx.activity.*
 import androidx.activity.compose.*
+import androidx.activity.result.*
 import androidx.activity.result.contract.*
 import androidx.lifecycle.*
 import androidx.lifecycle.compose.*
@@ -247,6 +249,35 @@ class MainActivity : ComponentActivity() {
             appendLog("[警告] Android 10 文件读写权限未授权")
         }
     }
+    
+    private var pendingAudioBaseName: String = ""
+
+    private val pickVideoLauncher = registerForActivityResult(
+        ActivityResultContracts.PickVisualMedia()
+    ) { uri ->
+        if (uri != null) {
+            appendLog("[系统] 已成功选取视频，正在分析轨道并提取音频...")
+        
+            lifecycleScope.launch {
+                val resultUri = extractAudioToMusicDirectory(
+                    context = this@MainActivity,
+                    videoUri = uri,
+                    baseFileName = pendingAudioBaseName,
+                    onProgress = { progress ->
+                        val percent = (progress * 100).toInt()
+                    }
+                )
+
+                if (resultUri != null) {
+                    appendLog("[成功] 音频提取完成！已安全保存至系统的【音乐(Music)/NekoExtractor】目录")
+                } else {
+                    appendLog("[错误] 音频提取失败！可能视频中不包含有效的音频流，或多媒体架构初始化异常。")
+                }
+            }
+        } else {
+            appendLog("[系统] 用户取消了视频选取。")
+        }
+    }
 
     private val usbPermissionReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
@@ -407,6 +438,21 @@ class MainActivity : ComponentActivity() {
         when {
             cmd.startsWith("neko ") -> {
                 handleLocalShellPipeline(cmd)
+            }
+            
+            cmd.startsWith("extract-audio ") -> {
+                appendLog("[系统] 扩展指令 >> $cmd")
+                
+                val nameArg = cmd.removePrefix("extract-audio ").trim()
+                pendingAudioBaseName = nameArg.ifEmpty {
+                    "NekoAudio_${System.currentTimeMillis()}"
+                }
+
+                appendLog("[系统] 正在唤醒系统的媒体选择器…")
+                
+                pickVideoLauncher.launch(
+                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.VideoOnly)
+                )
             }
 
             cmd.startsWith("p2p-") -> {
