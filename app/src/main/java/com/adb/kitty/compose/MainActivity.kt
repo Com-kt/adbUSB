@@ -440,10 +440,10 @@ class MainActivity : ComponentActivity() {
                 handleLocalShellPipeline(cmd)
             }
             
-            cmd.startsWith("extract-audio ") -> {
+            cmd.startsWith("neko-audio") -> {
                 appendLog("[系统] 扩展指令 >> $cmd")
                 
-                val nameArg = cmd.removePrefix("extract-audio ").trim()
+                val nameArg = cmd.removePrefix("neko-audio").trim()
                 pendingAudioBaseName = nameArg.ifEmpty {
                     "NekoAudio_${System.currentTimeMillis()}"
                 }
