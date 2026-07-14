@@ -13,11 +13,14 @@ import android.provider.MediaStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.nio.ByteBuffer
+import androidx.annotation.Keep
 
 /**
  * 从选取的视频 Uri 中提取音频，并安全保存到系统公共音乐（Music）目录下
  * [适用环境]: minSdk >= 29 (Android 10+)
  */
+@Keep
+@Suppress("WrongConstant")
 suspend fun extractAudioToMusicDirectory(
     context: Context,
     videoUri: Uri,
