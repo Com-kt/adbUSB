@@ -13,6 +13,7 @@ import android.provider.MediaStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.nio.ByteBuffer
+import android.annotation.SuppressLint
 import androidx.annotation.Keep
 
 /**
