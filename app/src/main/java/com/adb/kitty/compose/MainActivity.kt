@@ -275,7 +275,7 @@ class MainActivity : ComponentActivity() {
                 }
             }
         } else {
-            appendLog("[系统] 用户取消了视频选取。")
+            appendLog("[警告] 用户取消了视频选取。")
         }
     }
 
