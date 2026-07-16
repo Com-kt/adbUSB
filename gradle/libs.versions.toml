@@ -2,8 +2,7 @@
 # https://docs.gradle.org/current/userguide/version_catalogs.html#sec::toml-dependencies-format
 [versions]
 agp = "9.3.0-rc02"
-kotlin = "2.4.0"
-ksp = "2.3.9"
+kotlin = "2.4.10"
 
 kotlinxCoroutines = "1.11.0"
 annotation = "1.10.0"
@@ -116,4 +115,3 @@ android-application = { id = "com.android.application", version.ref = "agp" }
 android-library = { id = "com.android.library", version.ref = "agp" }
 kotlin = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 compose-compiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
-ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }

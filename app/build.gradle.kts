@@ -17,7 +17,6 @@ import com.android.build.api.variant.ApplicationAndroidComponentsExtension
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.compose.compiler)
-    alias(libs.plugins.ksp)
 }
 
 val propCompileSdk = providers.gradleProperty("COMPILE_SDK").get().toInt()
@@ -46,7 +45,6 @@ abstract class GenerateKotlinMetadataTask : DefaultTask() {
 
     @get:Input abstract val agpVersion: Property<String>
     @get:Input abstract val kotlinVersion: Property<String>
-    @get:Input abstract val kspVersion: Property<String>
     @get:Input abstract val kotlinxCoroutinesVersion: Property<String>
     @get:Input abstract val composeBomVersion: Property<String>
     @get:Input abstract val kadbVersion: Property<String>
@@ -91,7 +89,6 @@ abstract class GenerateKotlinMetadataTask : DefaultTask() {
             "isCompatibilityMetadataVariantEnabled": ${compatibilityMetadataVariantEnabled.get()},
             "isKPMEnabled": ${kpmEnabled.get()},
             "androidGradlePluginVersion": "${agpVersion.get()}",
-            "kspPluginVersion": "${kspVersion.get()}",
             "kotlinxCoroutinesVersion": "${kotlinxCoroutinesVersion.get()}",
             "androidxLifecycleVersion": "${lifecycleVersion.get()}",
             "androidxMaterial3Version": "${androidxMaterial3Version.get()}",
@@ -133,7 +130,6 @@ val injectKotlinMetadataToRoot = tasks.register<GenerateKotlinMetadataTask>("inj
 
     agpVersion.set(providers.provider { libs.versions.agp.get() })
     kotlinVersion.set(providers.provider { libs.versions.kotlin.get() })
-    kspVersion.set(providers.provider { libs.versions.ksp.get() })
     kotlinxCoroutinesVersion.set(providers.provider { libs.versions.kotlinxCoroutines.get() })
     composeBomVersion.set(providers.provider { libs.versions.compose.bom.get() })
     kadbVersion.set(providers.provider { libs.versions.kadb.get() })
