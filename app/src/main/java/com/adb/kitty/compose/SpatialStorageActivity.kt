@@ -16,6 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.xr.compose.spatial.Subspace
+import androidx.xr.compose.subspace.SpatialBox
 import androidx.xr.compose.subspace.SpatialGltfModel
 import androidx.xr.compose.subspace.SpatialGltfModelStatus
 import androidx.xr.compose.subspace.SpatialGltfModelSource
@@ -42,36 +43,38 @@ fun StorageModelScreen() {
     val modelUri = remember {
         val targetFile = File(context.filesDir, "models/car.glb")
         if (!targetFile.exists()) {
-            Toast.makeText(context, "3D file not found inside storage!", Toast.LENGTH_LONG).show()
+            Toast.makeText(context, "3D file (.glb) not found in storage!", Toast.LENGTH_LONG).show()
         }
         Uri.fromFile(targetFile)
     }
 
     val modelState = rememberSpatialGltfModelState(
-        modelSource = SpatialGltfModelSource.fromUri(modelUri)
+        source = SpatialGltfModelSource.fromUri(modelUri)
     )
 
-    SpatialGltfModel(
-        state = modelState,
-        modifier = SubspaceModifier
-    )
+    SpatialBox(modifier = SubspaceModifier) {
+        SpatialGltfModel(
+            state = modelState,
+            modifier = SubspaceModifier
+        )
 
-    when (modelState.status) {
-        is SpatialGltfModelStatus.Loading -> {
-            SpatialPanel(modifier = SubspaceModifier) {
-                Box(modifier = Modifier.padding(16.dp)) {
-                    CircularProgressIndicator()
+        when (modelState.status) {
+            is SpatialGltfModelStatus.Loading -> {
+                SpatialPanel(modifier = SubspaceModifier) {
+                    Box(modifier = Modifier.padding(16.dp)) {
+                        CircularProgressIndicator()
+                    }
                 }
             }
-        }
-        is SpatialGltfModelStatus.Failed -> {
-            SpatialPanel(modifier = SubspaceModifier) {
-                Text(
-                    text = "Failed to load 3D Model file from storage.",
-                    modifier = Modifier.padding(16.dp)
-                )
+            is SpatialGltfModelStatus.Failed -> {
+                SpatialPanel(modifier = SubspaceModifier) {
+                    Text(
+                        text = "Failed to load 3D Model file from storage.",
+                        modifier = Modifier.padding(16.dp)
+                    )
+                }
             }
+            else -> { /* 加载成功后，模型将自动根据骨骼数据渲染到空间中 */ }
         }
-        else -> { /* 加载成功，模型会自动在空间中显示 */ }
     }
 }
