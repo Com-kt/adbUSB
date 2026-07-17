@@ -36,4 +36,7 @@
     <string name="action_service_aaf">Core Service</string>
     <string name="action_service_aag">Front desk core services</string>
     <string name="action_service_aah">This service can ensure that the connection and network are not disconnected when exiting the background or returning to the desktop.</string>
+    
+    <string name="activity_xr_id">xr</string>
+    <string name="activity_xr_name">Compose XR</string>
 </resources>

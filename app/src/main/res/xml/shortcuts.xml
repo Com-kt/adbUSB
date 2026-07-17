@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+  <shortcut
+    android:shortcutId="xr"
+    android:enabled="true"
+    android:icon="@drawable/ic_xr"
+    android:shortcutShortLabel="@string/activity_xr_id"
+    android:shortcutLongLabel="@string/activity_xr_name">
+    <intent
+      android:action="android.intent.action.VIEW"
+      android:targetPackage="com.adb.kitty.compose"
+      android:targetClass="SpatialStorageActivity" />
+    <categories android:name="android.shortcut.conversation" />
+    <capability-binding android:key="actions.intent.CREATE_MESSAGE" />
+  </shortcut>
+</shortcuts>
