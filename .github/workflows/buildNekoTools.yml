@@ -48,14 +48,14 @@ jobs:
       - name: Upload Debug APKs
         uses: actions/upload-artifact@v7
         with:
-          name: sudo-debug-apks
+          name: sudo-debug
           path: sudo/build/outputs/apk/debug/*
           archive: true
 
       - name: Upload Release APKs
         uses: actions/upload-artifact@v7
         with:
-          name: sudo-release-apks
+          name: sudo-release
           path: sudo/build/outputs/apk/release/*
           archive: true
           
