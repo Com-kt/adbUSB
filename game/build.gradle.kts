@@ -23,7 +23,7 @@ val envNewKeyAlias = System.getenv("RELEASE_KEY_ALIAS") ?: ""
 val envNewKeyPassword = System.getenv("RELEASE_KEY_PASSWORD") ?: ""
 
 android {
-    namespace = "com.kitty.compose.xr"
+    namespace = "com.kitty.compose.game"
     compileSdk = propCompileSdk
     buildToolsVersion = "$propBuildTools"
     
@@ -40,7 +40,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.kitty.compose.xr"
+        applicationId = "com.kitty.compose.game"
         minSdk = propGameMinSdk
         targetSdk = propTargetSdk
         versionCode = propVersionCode
