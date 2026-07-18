@@ -55,7 +55,6 @@ abstract class GenerateKotlinMetadataTask : DefaultTask() {
     @get:Input abstract val nayukiQRVersion: Property<String>
     @get:Input abstract val zxingCodeVersion: Property<String>
     @get:Input abstract val androidxMaterial3Version: Property<String>
-    @get:Input abstract val xrComposeVersion: Property<String>
     
     @get:Input abstract val sourceCompatibility: Property<String>
     @get:Input abstract val targetCompatibility: Property<String>
@@ -93,7 +92,6 @@ abstract class GenerateKotlinMetadataTask : DefaultTask() {
             "kotlinxCoroutinesVersion": "${kotlinxCoroutinesVersion.get()}",
             "androidxLifecycleVersion": "${lifecycleVersion.get()}",
             "androidxMaterial3Version": "${androidxMaterial3Version.get()}",
-            "xrComposeVersion": "${xrComposeVersion.get()}",
             "composeBomVersion": "${composeBomVersion.get()}",
             "composeCompilerVersion": "${kotlinVersion.get()}",
             "kotlinLanguageVersion": "${kotlinLanguageVersion.get()}",
@@ -142,7 +140,6 @@ val injectKotlinMetadataToRoot = tasks.register<GenerateKotlinMetadataTask>("inj
     nayukiQRVersion.set(providers.provider { libs.versions.nayukiQR.get() })
     zxingCodeVersion.set(providers.provider { libs.versions.zxing.get() })
     androidxMaterial3Version.set(providers.provider { libs.versions.material3.get() })
-    xrComposeVersion.set(providers.provider { libs.versions.xrCompose.get() })
 
     sourceCompatibility.set(providers.provider { android.compileOptions.sourceCompatibility.toString() })
     targetCompatibility.set(providers.provider { android.compileOptions.targetCompatibility.toString() })

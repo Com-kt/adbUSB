@@ -16,7 +16,13 @@ libsuVersion = "6.0.0"
 lifecycle = "2.11.0"
 
 material3 = "1.5.0-alpha24"
-xrCompose = "1.0.0-alpha15"
+
+xrCompose = "1.0.0-alpha16"
+arcoreXr = "1.0.0-alpha15"
+material3Xr = "1.0.0-alpha17"
+runtimeXr = "1.0.0-alpha15"
+glimmerXr = "1.0.0-alpha15"
+scenecoreXr = "1.0.0-alpha16"
 
 kadb = "2.1.3"
 zxing = "3.5.4"
@@ -72,11 +78,33 @@ androidx-compose-foundation-layout = { group = "androidx.compose.foundation", na
 androidx-compose-animation = { group = "androidx.compose.animation", name = "animation"}
 androidx-compose-animation-core = { group = "androidx.compose.animation", name = "animation-core"}
 androidx-ui-graphics = { group = "androidx.compose.ui", name = "ui-graphics" }
+
+# Compose XR
 androidx-compose-xr = { group = "androidx.xr.compose", name = "compose", version.ref = "xrCompose" }
 androidx-compose-xr-test = { group = "androidx.xr.compose", name = "compose-testing", version.ref = "xrCompose" }
+androidx-arcore-xr = { group = "androidx.xr.arcore", name = "arcore", version.ref = "arcoreXr" }
+androidx-material3-xr = { group = "androidx.xr.compose.material3", name = "material3", version.ref = "material3Xr" }
+androidx-runtime-xr = { group = "androidx.xr.runtime", name = "runtime", version.ref = "runtimeXr" }
+androidx-runtime-xr-test = { group = "androidx.xr.runtime", name = "runtime-testing", version.ref = "runtimeXr" }
+androidx-glimmer-xr = { group = "androidx.xr.glimmer", name = "glimmer", version.ref = "glimmerXr" }
+androidx-scenecore-xr = { group = "androidx.xr.scenecore", name = "scenecore", version.ref = "scenecoreXr" }
+androidx-scenecore-xr-test = { group = "androidx.xr.scenecore", name = "scenecore-testing", version.ref = "scenecoreXr" }
 
 [bundles]
 # 捆绑式引入
+compose-xr = [
+    "androidx-compose-xr",
+    "androidx-runtime-xr",
+    "androidx-glimmer-xr",
+    "androidx-scenecore-xr",
+    "androidx-material3-xr",
+    "androidx-arcore-xr"
+]
+compose-xr-debug = [
+    "androidx-compose-xr-test",
+    "androidx-runtime-xr-test",
+    "androidx-scenecore-xr-test"
+]
 compose = [
     "androidx-compose-ui",
     "androidx-ui-graphics",
@@ -86,8 +114,7 @@ compose = [
     "androidx-compose-foundation",
     "androidx-compose-foundation-layout",
     "androidx-compose-animation",
-    "androidx-compose-animation-core",
-    "androidx-compose-xr"
+    "androidx-compose-animation-core"
 ]
 compose-lifecycle = [
     "androidx-lifecycle-livedata-ktx",
@@ -100,8 +127,7 @@ compose-lifecycle = [
 compose-debug = [
     "androidx-compose-ui-tooling",
     "androidx-compose-ui-tooling-preview",
-    "androidx-compose-ui-test-manifest",
-    "androidx-compose-xr-test"
+    "androidx-compose-ui-test-manifest"
 ]
 coroutines-runtime = [
     "kotlinx-coroutines-core-jvm",

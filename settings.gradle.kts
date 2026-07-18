@@ -28,4 +28,4 @@ dependencyResolutionManagement {
 rootProject.name = "usbFlash"
 
 include(":app")
-include(":sudo")
+include(":xr")

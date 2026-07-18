@@ -1,4 +1,4 @@
-package com.adb.kitty.compose
+package com.kitty.compose.xr
 
 import android.content.Context
 import android.net.Uri

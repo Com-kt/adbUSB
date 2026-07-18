@@ -7,10 +7,11 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
     alias(libs.plugins.android.application)
+    alias(libs.plugins.compose.compiler)
 }
 
 val propCompileSdk = providers.gradleProperty("COMPILE_SDK").get().toInt()
-val propSudoMinSdk = providers.gradleProperty("SUDO_MIN_SDK").get().toInt()
+val propXrMinSdk = providers.gradleProperty("XR_MIN_SDK").get().toInt()
 val propTargetSdk = providers.gradleProperty("TARGET_SDK").get().toInt()
 val buildDate = SimpleDateFormat("yyyyMMdd").format(Date())
 val versionPrefix = providers.gradleProperty("VERSION_PREFIX").get()
@@ -22,7 +23,7 @@ val envNewKeyAlias = System.getenv("RELEASE_KEY_ALIAS") ?: ""
 val envNewKeyPassword = System.getenv("RELEASE_KEY_PASSWORD") ?: ""
 
 android {
-    namespace = "com.neko.service.tools"
+    namespace = "com.kitty.compose.xr"
     compileSdk = propCompileSdk
     buildToolsVersion = "$propBuildTools"
     
@@ -39,8 +40,8 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.neko.service.tools"
-        minSdk = propSudoMinSdk
+        applicationId = "com.kitty.compose.xr"
+        minSdk = propXrMinSdk
         targetSdk = propTargetSdk
         versionCode = propVersionCode
         versionName = "$versionPrefix-$buildDate"
@@ -88,11 +89,12 @@ android {
     buildFeatures {
         aidl = true
         buildConfig = true
+        compose = true
+        prefab = true
     }
     
     lint {
         checkDependencies = false
-        abortOnError = false
     }
     
     dependenciesInfo {
@@ -105,4 +107,12 @@ dependencies {
     implementation(libs.bundles.coroutines.runtime)
     implementation(libs.androidx.annotation)
     implementation(libs.androidx.annotation.experimental)
+    implementation(libs.androidx.core.ktx)
+    implementation(platform(libs.androidx.compose.bom))
+    implementation(libs.androidx.compose.ui)
+    implementation(libs.androidx.activity.compose)
+    implementation(libs.androidx.ui.graphics)
+    implementation(libs.bundles.compose.xr)
+    debugImplementation(libs.androidx.compose.ui.tooling.preview)
+    debugImplementation(libs.bundles.compose.xr.debug)
 }

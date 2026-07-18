@@ -29,10 +29,10 @@ jobs:
 
       - name: Decode Both Keystores
         run: |
-          echo "${{ secrets.SIGNING_KEY_BASE64 }}" | base64 --decode > sudo/new_full_ec_key.jks
+          echo "${{ secrets.SIGNING_KEY_BASE64 }}" | base64 --decode > xr/new_full_ec_key.jks
 
       - name: Build Debug, Release and Bundle
-        run: ./gradlew :sudo:assembleDebug :sudo:assembleRelease -i -w --stacktrace --warning-mode all 2>&1 | tee build.log
+        run: ./gradlew :xr:lint :xr:assembleDebug :xr:assembleRelease -i -w --stacktrace --warning-mode all 2>&1 | tee build.log
         env:
           RELEASE_STORE_PASSWORD: ${{ secrets.KEY_STORE_PASSWORD }}
           RELEASE_KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
@@ -45,17 +45,31 @@ jobs:
           path: build.log
           archive: false
           
+      - name: Upload Lint Report HTML
+        uses: actions/upload-artifact@v7
+        with:
+          name: lint-reports-html
+          path: xr/build/reports/lint-results-debug.html
+          archive: false
+          
+      - name: Upload Lint Report
+        uses: actions/upload-artifact@v7
+        with:
+          name: lint-reports
+          path: xr/build/reports/*
+          archive: true
+          
       - name: Upload Debug APKs
         uses: actions/upload-artifact@v7
         with:
-          name: sudo-debug
-          path: sudo/build/outputs/apk/debug/*
+          name: xr-debug-apk
+          path: xr/build/outputs/apk/debug/*
           archive: true
 
       - name: Upload Release APKs
         uses: actions/upload-artifact@v7
         with:
-          name: sudo-release
-          path: sudo/build/outputs/apk/release/*
+          name: xr-release-apk
+          path: xr/build/outputs/apk/release/*
           archive: true
           
