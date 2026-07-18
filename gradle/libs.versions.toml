@@ -16,6 +16,7 @@ libsuVersion = "6.0.0"
 lifecycle = "2.11.0"
 
 material3 = "1.5.0-alpha24"
+sceneview = "4.22.0"
 
 kadb = "2.1.3"
 zxing = "3.5.4"
@@ -72,7 +73,7 @@ androidx-compose-animation = { group = "androidx.compose.animation", name = "ani
 androidx-compose-animation-core = { group = "androidx.compose.animation", name = "animation-core"}
 androidx-ui-graphics = { group = "androidx.compose.ui", name = "ui-graphics" }
 
-android-sceneview = { group = "io.github.sceneview", name = "sceneview", version.ref = "4.22.0" }
+android-sceneview = { group = "io.github.sceneview", name = "sceneview", version.ref = "sceneview" }
 
 [bundles]
 # 捆绑式引入
