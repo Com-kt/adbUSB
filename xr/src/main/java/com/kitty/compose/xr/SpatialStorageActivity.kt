@@ -1,37 +1,32 @@
 package com.kitty.compose.xr
 
-import android.content.Context
 import android.net.Uri
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import androidx.xr.compose.spatial.Subspace
-import androidx.xr.compose.subspace.SpatialBox
-import androidx.xr.compose.subspace.SpatialGltfModel
-import androidx.xr.compose.subspace.SpatialGltfModelStatus
-import androidx.xr.compose.subspace.SpatialGltfModelSource
-import androidx.xr.compose.subspace.SpatialPanel
-import androidx.xr.compose.subspace.layout.SubspaceModifier
-import androidx.xr.compose.subspace.rememberSpatialGltfModelState
+import io.github.sceneview.node.ModelNode
+import io.github.sceneview.rememberEngine
+import io.github.sceneview.rememberModelLoader
+import io.github.sceneview.rememberNodes
+import io.github.sceneview.Scene
 import java.io.File
 
 class SpatialStorageActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            Subspace {
-                StorageModelScreen()
-            }
+            StorageModelScreen()
         }
     }
 }
@@ -39,45 +34,65 @@ class SpatialStorageActivity : ComponentActivity() {
 @Composable
 fun StorageModelScreen() {
     val context = LocalContext.current
-    
+    var isLoading by remember { mutableStateOf(true) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+
+    // Initialize Filament Engine and Asset Loaders
+    val engine = rememberEngine()
+    val modelLoader = rememberModelLoader(engine)
+    val childNodes = rememberNodes()
+
+    // 1. Locate the file in internal storage
     val targetFile = remember { File(context.filesDir, "models/car.glb") }
-    val fileExists = remember(targetFile) { targetFile.exists() }
 
-    val isSpatialUiEnabled = androidx.xr.compose.spatial.LocalSpatialCapabilities.current.isSpatialUiEnabled
-
-    val modelUri = remember(targetFile) { Uri.fromFile(targetFile) }
-    val modelState = rememberSpatialGltfModelState(source = SpatialGltfModelSource.fromUri(modelUri))
-
-    if (!isSpatialUiEnabled) {
-        Box(modifier = Modifier.padding(32.dp)) {
-            Text("⚠️ 设备不支持 3D 渲染，或者应用当前被系统强制处于 2D 平面兼容模式下。\n请检查 Manifest 中的 PROPERTY_XR_ACTIVITY_START_MODE 配置！")
+    LaunchedEffect(targetFile) {
+        if (!targetFile.exists()) {
+            errorMessage = "❌ File not found at:\n${targetFile.absolutePath}"
+            isLoading = false
+            return@LaunchedEffect
         }
-    } 
-    else if (!fileExists) {
-        SpatialPanel(modifier = SubspaceModifier.position(SpatialVector3D(0f, 0f, -1.0f))) {
+
+        try {
+            // 2. Load the 3D model into a scene node asynchronously
+            val modelNode = ModelNode(
+                modelInstance = modelLoader.createModelInstance(
+                    assetFileLocation = targetFile.absolutePath
+                ),
+                scaleToUnits = 1.0f // Scales the model down/up to fit 1 unit size
+            ).apply {
+                isEditable = true // Enables user drag, rotation, and scaling gestures
+            }
+            
+            childNodes.add(modelNode)
+            isLoading = false
+        } catch (e: Exception) {
+            errorMessage = "❌ Failed to parse .glb structure: ${e.localizedMessage}"
+            isLoading = false
+        }
+    }
+
+    // 3. Render the 3D viewport canvas
+    Box(modifier = Modifier.fillMaxSize()) {
+        if (errorMessage == null) {
+            Scene(
+                modifier = Modifier.fillMaxSize(),
+                engine = engine,
+                childNodes = childNodes,
+                isInteractive = true // Allows the user to swipe and spin the 3D asset
+            )
+        }
+
+        // Overlay status states on top of the 3D Viewport
+        if (isLoading) {
+            CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+        }
+
+        errorMessage?.let { error ->
             Text(
-                text = "❌ 文件未找到！请确保您的模型已存入该路径：\n${targetFile.absolutePath}",
-                modifier = Modifier.padding(16.dp),
+                text = error,
+                modifier = Modifier.align(Alignment.Center).padding(24.dp),
                 color = androidx.compose.ui.graphics.Color.Red
             )
-        }
-    } 
-    else {
-        SpatialBox(modifier = SubspaceModifier) {
-            SpatialGltfModel(
-                state = modelState,
-                modifier = SubspaceModifier.position(SpatialVector3D(0f, 0f, -1.5f))
-            )
-
-            if (modelState.status is SpatialGltfModelStatus.Loading) {
-                SpatialPanel(modifier = SubspaceModifier.position(SpatialVector3D(0f, 0f, -1.2f))) {
-                    CircularProgressIndicator(modifier = Modifier.padding(16.dp))
-                }
-            } else if (modelState.status is SpatialGltfModelStatus.Failed) {
-                SpatialPanel(modifier = SubspaceModifier.position(SpatialVector3D(0f, 0f, -1.2f))) {
-                    Text("❌ 3D 文件存在，但 SDK 解析模型内部结构失败（请确保是标准.glb格式）。", modifier = Modifier.padding(16.dp))
-                }
-            }
         }
     }
 }
