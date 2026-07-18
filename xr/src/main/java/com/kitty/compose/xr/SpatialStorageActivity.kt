@@ -15,6 +15,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import io.github.sceneview.Scene
 import io.github.sceneview.node.ModelNode
+import io.github.sceneview.rememberEngine
+import io.github.sceneview.rememberModelLoader
+import io.github.sceneview.rememberModelInstance
 import java.io.File
 
 class SpatialStorageActivity : ComponentActivity() {
@@ -29,39 +32,43 @@ class SpatialStorageActivity : ComponentActivity() {
 @Composable
 fun StorageModelScreen() {
     val context = LocalContext.current
-    var isLoading by remember { mutableStateOf(true) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
-    // 1. Point to your local file path inside the app sandbox
+    val engine = rememberEngine()
+    val modelLoader = rememberModelLoader(engine = engine)
+
     val targetFile = remember { File(context.filesDir, "models/car.glb") }
 
-    // Lifecycle check to make sure the binary model exists before feeding it to the view
+    val modelInstance by rememberModelInstance(
+        modelLoader = modelLoader,
+        fileLocation = targetFile.absolutePath,
+        onError = { exception ->
+            errorMessage = "❌ Model parse failed:\n${exception.localizedMessage}"
+        }
+    )
+
     LaunchedEffect(targetFile) {
         if (!targetFile.exists()) {
             errorMessage = "❌ File not found at:\n${targetFile.absolutePath}"
         }
-        // Sceneview loads the file directly asynchronously inside the composable tree
-        isLoading = false 
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
         if (errorMessage == null) {
-            // 2. Clear out manual engine setup. Scene handles everything implicitly in 4.x
             Scene(
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier.fillMaxSize(),
+                engine = engine
             ) {
-                // 3. True 4.22.0 Syntax: Nodes are declarative child components!
-                if (!isLoading) {
+                modelInstance?.let { instance ->
                     ModelNode(
-                        modelFileLocation = targetFile.absolutePath, // Pass the path string directly
-                        scaleToUnits = 1.0f // Auto-normalizes size mapping
+                        modelInstance = instance,
+                        scaleToUnits = 1.0f
                     )
                 }
             }
         }
 
-        // Overlay status indicators over the 3D canvas viewport
-        if (isLoading) {
+        if (modelInstance == null && errorMessage == null) {
             CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
         }
 
