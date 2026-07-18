@@ -29,10 +29,10 @@ jobs:
 
       - name: Decode Both Keystores
         run: |
-          echo "${{ secrets.SIGNING_KEY_BASE64 }}" | base64 --decode > xr/new_full_ec_key.jks
+          echo "${{ secrets.SIGNING_KEY_BASE64 }}" | base64 --decode > game/new_full_ec_key.jks
 
       - name: Build Debug, Release and Bundle
-        run: ./gradlew :xr:lint :xr:assembleDebug :xr:assembleRelease -i -w --stacktrace --warning-mode all 2>&1 | tee build.log
+        run: ./gradlew :game:lint :game:assembleDebug :game:assembleRelease -i -w --stacktrace --warning-mode all 2>&1 | tee build.log
         env:
           RELEASE_STORE_PASSWORD: ${{ secrets.KEY_STORE_PASSWORD }}
           RELEASE_KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
@@ -49,27 +49,27 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: lint-reports-html
-          path: xr/build/reports/lint-results-debug.html
+          path: game/build/reports/lint-results-debug.html
           archive: false
           
       - name: Upload Lint Report
         uses: actions/upload-artifact@v7
         with:
           name: lint-reports
-          path: xr/build/reports/*
+          path: game/build/reports/*
           archive: true
           
       - name: Upload Debug APKs
         uses: actions/upload-artifact@v7
         with:
-          name: xr-debug-apk
-          path: xr/build/outputs/apk/debug/*
+          name: game-debug-apk
+          path: game/build/outputs/apk/debug/*
           archive: true
 
       - name: Upload Release APKs
         uses: actions/upload-artifact@v7
         with:
-          name: xr-release-apk
-          path: xr/build/outputs/apk/release/*
+          name: game-release-apk
+          path: game/build/outputs/apk/release/*
           archive: true
           

@@ -106,7 +106,7 @@
     <!-- 禁用键盘锁 -->
     <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
     <application
-        android:process=":xr"
+        android:process=":game"
         android:directBootAware="true"
         android:usesNonSdkApi="true"
         android:resizeableActivity="true"
@@ -132,7 +132,7 @@
         </activity-alias>
         <activity 
             android:name="SpatialStorageActivity"
-            android:process=":xr"
+            android:process=":game"
             android:directBootAware="true"
             android:hardwareAccelerated="true"
             android:launchMode="singleInstancePerTask"
@@ -141,7 +141,7 @@
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"
-            android:process=":xr"
+            android:process=":game"
             android:exported="false"
             android:grantUriPermissions="true">
             <meta-data

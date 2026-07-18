@@ -11,7 +11,7 @@ plugins {
 }
 
 val propCompileSdk = providers.gradleProperty("COMPILE_SDK").get().toInt()
-val propXrMinSdk = providers.gradleProperty("XR_MIN_SDK").get().toInt()
+val propGameMinSdk = providers.gradleProperty("GAME_MIN_SDK").get().toInt()
 val propTargetSdk = providers.gradleProperty("TARGET_SDK").get().toInt()
 val buildDate = SimpleDateFormat("yyyyMMdd").format(Date())
 val versionPrefix = providers.gradleProperty("VERSION_PREFIX").get()
@@ -41,7 +41,7 @@ android {
 
     defaultConfig {
         applicationId = "com.kitty.compose.xr"
-        minSdk = propXrMinSdk
+        minSdk = propGameMinSdk
         targetSdk = propTargetSdk
         versionCode = propVersionCode
         versionName = "$versionPrefix-$buildDate"
@@ -113,5 +113,4 @@ dependencies {
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.ui.graphics)
     implementation(libs.androidx.compose.material3)
-    implementation(libs.android.sceneview)
 }
