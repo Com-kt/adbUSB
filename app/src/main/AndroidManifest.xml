@@ -2,6 +2,11 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
     android:installLocation="auto">
+    <!-- Vulkan -->
+    <uses-feature
+          android:name="android.hardware.vulkan.version"
+          android:required="false"
+          android:version="0x00403000" />
     <!-- OpenGL ES -->
     <uses-feature 
           android:glEsVersion="0x00030002"
