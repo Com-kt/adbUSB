@@ -7,7 +7,9 @@
 
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, "VulkanSharpen", __VA_ARGS__)
 
+const uint32_t kSharpenShaderCode[] = 
 #include "sharpen_spv.h"
+;
 
 uint32_t findMemoryType(VkPhysicalDevice gpu, uint32_t typeFilter, VkMemoryPropertyFlags properties) {
     VkPhysicalDeviceMemoryProperties memProperties;
@@ -144,7 +146,7 @@ Java_com_adb_kitty_compose_data_NativeLibs_sharpenBitmapNative(
 
     VkComputePipelineCreateInfo pipelineInfo{VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO};
     pipelineInfo.stage.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-    pipelineInfo.stage.stage = VK_STAGE_COMPUTE_BIT;
+    pipelineInfo.stage.stage = VK_SHADER_STAGE_COMPUTE_BIT;
     pipelineInfo.stage.module = shaderModule;
     pipelineInfo.stage.pName = "main";
     pipelineInfo.layout = pipelineLayout;

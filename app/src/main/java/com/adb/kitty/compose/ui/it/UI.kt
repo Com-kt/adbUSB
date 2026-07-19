@@ -271,6 +271,9 @@ fun CenterAlignedTopAppBarExample(
                                     showSharpen = true
                                 }
                             )
+                            if (showSharpen) {
+                                VulkanSharpenScreen()
+                            }
                             HorizontalDivider()
                             DropdownMenuItem(
                                 text = {
@@ -463,9 +466,6 @@ fun CenterAlignedTopAppBarExample(
                 scrollBehavior = scrollBehavior,
             )
         },
-        if (showSharpen) {
-            VulkanSharpenScreen()
-        }
     ) { innerPadding ->
         Column(modifier = Modifier.padding(innerPadding).padding(16.dp).fillMaxSize()) {
             
