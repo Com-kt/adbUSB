@@ -13,6 +13,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import com.google.android.filament.LightManager
 import io.github.sceneview.SceneView
 import io.github.sceneview.node.ModelNode
 import io.github.sceneview.node.LightNode
@@ -72,7 +73,7 @@ fun LocalGlbModelViewerV4(modelFile: File, modifier: Modifier = Modifier) {
                 )
             }
 
-            LightNode()
+            LightNode(type = LightManager.Type.DIRECTIONAL)
         }
     }
 }
