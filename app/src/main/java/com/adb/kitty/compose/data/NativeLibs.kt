@@ -3,6 +3,7 @@ package com.adb.kitty.compose.data
 import android.content.*
 import android.os.*
 import android.util.*
+import android.graphics.Bitmap
 
 import java.io.*
 import java.nio.*
@@ -44,6 +45,7 @@ object NativeLibs {
     }
     external fun UserString(): String
     external fun V3Signature(apkPath: String): Boolean
+    external fun sharpenBitmapNative(inputBitmap: Bitmap, outputBitmap: Bitmap)
     
 }
 

@@ -255,6 +255,20 @@ fun CenterAlignedTopAppBarExample(
                                     showMenu = false
                                 }
                             )
+                            DropdownMenuItem(
+                                text = {
+                                    Text(
+                                        stringResource(R.string.action_menu_color)
+                                    )
+                                },
+                                leadingIcon = { 
+                                    Icon(Icons.Outlined.Palette, null) 
+                                },
+                                onClick = {
+                                    showMenu = false
+                                    VulkanSharpenScreen()
+                                }
+                            )
                             HorizontalDivider()
                             DropdownMenuItem(
                                 text = {
