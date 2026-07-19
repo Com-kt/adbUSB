@@ -45,7 +45,6 @@ object NativeLibs {
     }
     external fun UserString(): String
     external fun V3Signature(apkPath: String): Boolean
-    external fun sharpenBitmapNative(inputBitmap: Bitmap, outputBitmap: Bitmap)
     
 }
 

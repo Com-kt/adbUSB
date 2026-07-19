@@ -127,8 +127,6 @@ fun CenterAlignedTopAppBarExample(
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     
-    var showSharpen by remember { mutableStateOf(false) }
-    
     val pickMediaLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia()
     ) { uri ->
@@ -257,23 +255,6 @@ fun CenterAlignedTopAppBarExample(
                                     showMenu = false
                                 }
                             )
-                            DropdownMenuItem(
-                                text = {
-                                    Text(
-                                        stringResource(R.string.action_menu_color)
-                                    )
-                                },
-                                leadingIcon = { 
-                                    Icon(Icons.Outlined.Palette, null) 
-                                },
-                                onClick = {
-                                    showMenu = false
-                                    showSharpen = true
-                                }
-                            )
-                            if (showSharpen) {
-                                VulkanSharpenScreen()
-                            }
                             HorizontalDivider()
                             DropdownMenuItem(
                                 text = {
