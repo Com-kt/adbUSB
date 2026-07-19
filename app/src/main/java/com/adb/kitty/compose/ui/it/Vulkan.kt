@@ -44,10 +44,7 @@ fun VulkanSharpenScreen() {
     var bitmapState by remember { mutableStateOf<Bitmap?>(null) }
     var isProcessed by remember { mutableStateOf(false) }
     var showBottomSheet by remember { mutableStateOf(false) }
-    val sheetState = rememberBottomSheetState(
-        initialValue = SheetValue.Hidden,
-        skipHiddenState = false
-    )
+    val sheetState = rememberModalBottomSheetState()
 
     val pickMediaLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia()
