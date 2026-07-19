@@ -18,10 +18,7 @@ import io.github.sceneview.node.ModelNode
 import io.github.sceneview.rememberEngine
 import io.github.sceneview.rememberModelLoader
 import io.github.sceneview.rememberModelInstance
-import io.github.sceneview.rememberEnvironmentLoader
-import io.github.sceneview.rememberEnvironment
 import io.github.sceneview.rememberCameraManipulator
-import io.github.sceneview.environment.createEnvironment
 import java.io.File
 
 class SpatialStorageActivity : ComponentActivity() {
@@ -49,7 +46,6 @@ class SpatialStorageActivity : ComponentActivity() {
 fun LocalGlbModelViewerV4(modelFile: File, modifier: Modifier = Modifier) {
     val engine = rememberEngine()
     val modelLoader = rememberModelLoader(engine)
-    val environmentLoader = rememberEnvironmentLoader(engine)
 
     if (!modelFile.exists()) {
         Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -63,9 +59,6 @@ fun LocalGlbModelViewerV4(modelFile: File, modifier: Modifier = Modifier) {
             modifier = Modifier.fillMaxSize(),
             engine = engine,
             modelLoader = modelLoader,
-            environment = rememberEnvironment(environmentLoader) {
-                createEnvironment(environmentLoader)
-            },
             cameraManipulator = rememberCameraManipulator()
         ) {
             val modelInstance = rememberModelInstance(modelLoader, modelFile.absolutePath)
