@@ -16,9 +16,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import io.github.sceneview.Scene
 import io.github.sceneview.node.ModelNode
+import io.github.sceneview.node.Node
 import io.github.sceneview.rememberEngine
 import io.github.sceneview.rememberModelLoader
-import io.github.sceneview.rememberNodes
 import java.io.File
 
 class SpatialStorageActivity : ComponentActivity() {
@@ -38,11 +38,9 @@ class SpatialStorageActivity : ComponentActivity() {
         setContent {
             MaterialTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
-                    // 获取私有文件路径：data/data/com.kitty.compose.game/files/models/character.glb
                     val targetGlbFile = remember {
                         File(applicationContext.filesDir, "models/character.glb")
                     }
-
                     LocalGlbModelViewerV4(modelFile = targetGlbFile)
                 }
             }
@@ -57,7 +55,8 @@ fun LocalGlbModelViewerV4(modelFile: File, modifier: Modifier = Modifier) {
 
     val engine = rememberEngine()
     val modelLoader = rememberModelLoader(engine)
-    val childNodes = rememberNodes()
+    
+    val sceneNodes = remember { mutableStateListOf<Node>() }
 
     LaunchedEffect(modelFile) {
         if (!modelFile.exists()) {
@@ -70,13 +69,20 @@ fun LocalGlbModelViewerV4(modelFile: File, modifier: Modifier = Modifier) {
             isLoading = true
             errorMessage = null
 
-            val modelNode = modelLoader.createModelNode(file = modelFile).apply {
-                centerModel(scaleToUnits = 1.0f)
-                
-                isEditable = true
+            val modelInstance = modelLoader.createInstance(modelFile) 
+                ?: throw Exception("无法解析 GLB 模型数据")
+
+            val modelNode = ModelNode(
+                engine = engine,
+                modelInstance = modelInstance
+            ).apply {
+                isPositionEditable = false
+                isRotationEditable = true
+                isScaleEditable = true
             }
 
-            childNodes.add(modelNode)
+            sceneNodes.clear()
+            sceneNodes.add(modelNode)
             isLoading = false
         } catch (e: Exception) {
             e.printStackTrace()
@@ -91,7 +97,7 @@ fun LocalGlbModelViewerV4(modelFile: File, modifier: Modifier = Modifier) {
                 modifier = Modifier.fillMaxSize(),
                 engine = engine,
                 modelLoader = modelLoader,
-                childNodes = childNodes
+                nodes = sceneNodes
             )
         }
 
