@@ -2,7 +2,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
     android:installLocation="auto">
-    <!-- Vulkan -->
+    <!-- Vulkan 1.3 for Android 13+ -->
     <uses-feature
           android:name="android.hardware.vulkan.version"
           android:required="false"
@@ -11,7 +11,7 @@
     <uses-feature 
           android:glEsVersion="0x00030002"
           android:required="false" />
-    <!-- OpenGL ES 硬件功能 -->
+    <!-- AEP -->
     <uses-feature 
           android:name="android.hardware.opengles.aep"
           android:required="false" />
