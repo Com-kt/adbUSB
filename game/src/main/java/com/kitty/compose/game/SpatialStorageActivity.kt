@@ -7,6 +7,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -17,9 +18,11 @@ import io.github.sceneview.SceneView
 import io.github.sceneview.node.ModelNode
 import io.github.sceneview.rememberEngine
 import io.github.sceneview.rememberModelLoader
-import io.github.sceneview.rememberModelInstance
 import io.github.sceneview.rememberCameraManipulator
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.io.File
+import java.nio.ByteBuffer
 
 class SpatialStorageActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -54,21 +57,47 @@ fun LocalGlbModelViewerV4(modelFile: File, modifier: Modifier = Modifier) {
         return
     }
 
-    Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        SceneView(
-            modifier = Modifier.fillMaxSize(),
-            engine = engine,
-            modelLoader = modelLoader,
-            cameraManipulator = rememberCameraManipulator()
-        ) {
-            val modelInstance = rememberModelInstance(modelLoader, modelFile.absolutePath)
+    val directBufferState = produceState<ByteBuffer?>(initialValue = null, modelFile) {
+        withContext(Dispatchers.IO) {
+            try {
+                val fileBytes = modelFile.readBytes()
+                val buffer = ByteBuffer.allocateDirect(fileBytes.size).apply {
+                    put(fileBytes)
+                    flip()
+                }
+                value = buffer
+            } catch (e: Exception) {
+                e.printStackTrace()
+                value = null
+            }
+        }
+    }
 
-            if (modelInstance != null) {
-                ModelNode(
-                    modelInstance = modelInstance,
-                    scaleToUnits = 1.0f,
-                    autoAnimate = true
-                )
+    val directBuffer = directBufferState.value
+
+    Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        if (directBuffer == null) {
+            CircularProgressIndicator()
+        } else {
+            SceneView(
+                modifier = Modifier.fillMaxSize(),
+                engine = engine,
+                modelLoader = modelLoader,
+                cameraManipulator = rememberCameraManipulator()
+            ) {
+                val modelInstance = remember(directBuffer) {
+                    modelLoader.createInstance(directBuffer)
+                }
+
+                if (modelInstance != null) {
+                    ModelNode(
+                        modelInstance = modelInstance,
+                        scaleToUnits = 1.0f,
+                        autoAnimate = true
+                    )
+                } else {
+                    Text(text = "❌ 内存缓冲区模型实例化失败，请检查 GLB 格式是否完整")
+                }
             }
         }
     }
