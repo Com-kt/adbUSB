@@ -44,7 +44,9 @@ fun VulkanSharpenScreen() {
     var bitmapState by remember { mutableStateOf<Bitmap?>(null) }
     var isProcessed by remember { mutableStateOf(false) }
     var showBottomSheet by remember { mutableStateOf(false) }
-    val sheetState = rememberModalBottomSheetState()
+
+    @Suppress("DEPRECATION")
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     val pickMediaLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia()
@@ -113,6 +115,7 @@ fun VulkanSharpenScreen() {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .wrapContentHeight()
                     .padding(start = 24.dp, end = 24.dp, bottom = 48.dp, top = 12.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
