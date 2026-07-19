@@ -17,6 +17,7 @@ import android.graphics.BitmapFactory
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.result.PickVisualMediaRequest
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -85,9 +86,7 @@ fun VulkanSharpenScreen() {
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                     modifier = Modifier.clickable {
                         pickMediaLauncher.launch(
-                            ActivityResultContracts.PickVisualMedia.Request(
-                                ActivityResultContracts.PickVisualMedia.ImageOnly
-                            )
+                            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
                         )
                     }
                 ) {
@@ -167,9 +166,7 @@ fun VulkanSharpenScreen() {
                         coroutineScope.launch { sheetState.hide() }.invokeOnCompletion {
                             showBottomSheet = false
                             pickMediaLauncher.launch(
-                                ActivityResultContracts.PickVisualMedia.Request(
-                                    ActivityResultContracts.PickVisualMedia.ImageOnly
-                                )
+                                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
                             )
                         }
                     }

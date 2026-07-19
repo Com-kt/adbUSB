@@ -127,6 +127,8 @@ fun CenterAlignedTopAppBarExample(
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     
+    var showSharpen by remember { mutableStateOf(false) }
+    
     val pickMediaLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia()
     ) { uri ->
@@ -266,7 +268,7 @@ fun CenterAlignedTopAppBarExample(
                                 },
                                 onClick = {
                                     showMenu = false
-                                    VulkanSharpenScreen()
+                                    showSharpen = true
                                 }
                             )
                             HorizontalDivider()
@@ -461,6 +463,9 @@ fun CenterAlignedTopAppBarExample(
                 scrollBehavior = scrollBehavior,
             )
         },
+        if (showSharpen) {
+            VulkanSharpenScreen()
+        }
     ) { innerPadding ->
         Column(modifier = Modifier.padding(innerPadding).padding(16.dp).fillMaxSize()) {
             
