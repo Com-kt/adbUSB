@@ -131,7 +131,7 @@ fun VulkanSharpenScreen() {
                                 currentBmp.width, currentBmp.height, Bitmap.Config.ARGB_8888
                             )
                             withContext(Dispatchers.Default) {
-                                ImageProcessor.sharpenBitmapNative(currentBmp, sharpBmp)
+                                NativeLibs.sharpenBitmapNative(currentBmp, sharpBmp)
                             }
                             bitmapState = sharpBmp
                             isProcessed = true
