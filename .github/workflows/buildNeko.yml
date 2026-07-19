@@ -1,10 +1,10 @@
-name: Android Compose CI
+name: Android CI
 
 on:
   push:
-    branches: [ "compose" ]
+    branches: [ "neko" ]
   pull_request:
-    branches: [ "compose" ]
+    branches: [ "neko" ]
 
 permissions:
   contents: write
