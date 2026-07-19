@@ -24,10 +24,11 @@ jobs:
           distribution: 'temurin'
           cache: 'gradle'
           
-      - name: Install Shaderc (glslc)
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y shaderc
+      - name: Setup Vulkan SDK (glslc)
+        uses: humbletim/setup-vulkan-sdk@v1
+        with:
+          vulkan-query-version: 'latest'
+          vulkan-components: Glslc
 
       - name: Setup CMake
         uses: jwlawson/actions-setup-cmake@v2
