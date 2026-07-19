@@ -16,7 +16,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import io.github.sceneview.Scene
 import io.github.sceneview.node.ModelNode
-import io.github.sceneview.node.Node
 import io.github.sceneview.rememberEngine
 import io.github.sceneview.rememberModelLoader
 import java.io.File
@@ -56,7 +55,7 @@ fun LocalGlbModelViewerV4(modelFile: File, modifier: Modifier = Modifier) {
     val engine = rememberEngine()
     val modelLoader = rememberModelLoader(engine)
     
-    val sceneNodes = remember { mutableStateListOf<Node>() }
+    var targetModelNode by remember { mutableStateOf<ModelNode?>(null) }
 
     LaunchedEffect(modelFile) {
         if (!modelFile.exists()) {
@@ -69,20 +68,19 @@ fun LocalGlbModelViewerV4(modelFile: File, modifier: Modifier = Modifier) {
             isLoading = true
             errorMessage = null
 
-            val modelInstance = modelLoader.createInstance(modelFile) 
-                ?: throw Exception("无法解析 GLB 模型数据")
+            val filamentAsset = modelLoader.createAsset(modelFile)
+                ?: throw Exception("无法解析 GLB 核心数据资产")
 
-            val modelNode = ModelNode(
-                engine = engine,
-                modelInstance = modelInstance
-            ).apply {
+            val modelInstance = modelLoader.createInstance(filamentAsset) 
+                ?: throw Exception("无法实例化当前模型")
+
+            val modelNode = ModelNode(modelInstance).apply {
                 isPositionEditable = false
                 isRotationEditable = true
                 isScaleEditable = true
             }
 
-            sceneNodes.clear()
-            sceneNodes.add(modelNode)
+            targetModelNode = modelNode
             isLoading = false
         } catch (e: Exception) {
             e.printStackTrace()
@@ -97,7 +95,14 @@ fun LocalGlbModelViewerV4(modelFile: File, modifier: Modifier = Modifier) {
                 modifier = Modifier.fillMaxSize(),
                 engine = engine,
                 modelLoader = modelLoader,
-                nodes = sceneNodes
+                onViewUpdated = { sceneView ->
+                    targetModelNode?.let { node ->
+                        if (!sceneView.childNodes.contains(node)) {
+                            sceneView.childNodes.clear()
+                            sceneView.addChildNode(node)
+                        }
+                    }
+                }
             )
         }
 
