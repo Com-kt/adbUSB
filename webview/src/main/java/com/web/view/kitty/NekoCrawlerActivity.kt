@@ -60,7 +60,7 @@ sealed class LogEntry {
 }
 
 enum class WebAgentMode(val title: String, val ua: String) {
-    MOBILE("手机标准版", "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Mobile Safari/537.36"),
+    MOBILE("手机标准版", "Mozilla/5.0 (Linux; Android 16; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Mobile Safari/537.36"),
     PC_WINDOWS("电脑版 Windows", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36"),
     PC_MAC("电脑版 Mac", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36"),
     PC_LINUX("电脑版 Linux", "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36")
@@ -205,6 +205,9 @@ class NekoCrawlerActivity : ComponentActivity() {
                                         settings.useWideViewPort = true
                                         settings.loadWithOverviewMode = true
                                         
+                                        settings.javaScriptCanOpenWindowsAutomatically = false
+                                        settings.setSupportMultipleWindows(false)
+                                        
                                         addJavascriptInterface(object {
                                             @JavascriptInterface
                                             fun postData(json: String) {
@@ -280,14 +283,15 @@ class NekoCrawlerActivity : ComponentActivity() {
 
                                             override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
                                                 val url = request?.url?.toString() ?: return false
-                                                if (url.startsWith("http://") || url.startsWith("https://")) return false
-                                                try {
-                                                    val intent = Intent(Intent.ACTION_VIEW, url.toUri()).apply { flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP }
-                                                    context.startActivity(intent)
-                                                    runOnUiThread { appendTextLog("【系统】已尝试激活外部深层重定向。") }
-                                                } catch (e: Exception) {
-                                                    runOnUiThread { appendTextLog("【提示】唤起外部链接失败，已拦截动作。") }
+                                                
+                                                if (url.startsWith("http://") || url.startsWith("https://")) {
+                                                    return false
                                                 }
+                                                
+                                                runOnUiThread {
+                                                    appendTextLog("【安全拦截】检测到网页试图拉起外部 App，已成功拦截！协议: ${url.substringBefore(":")}://", Color(0xFFFF4500))
+                                                }
+                                                
                                                 return true
                                             }
                                         }
