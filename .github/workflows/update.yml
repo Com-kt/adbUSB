@@ -77,12 +77,12 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: webview-r8
-          path: app/build/outputs/mapping/release/*
+          path: webview/build/outputs/mapping/release/*
           archive: true
           
       - name: Upload R8 HTML
         uses: actions/upload-artifact@v7
         with:
           name: webview-r8-html
-          path: app/build/outputs/mapping/release/configanalyzer.html
+          path: webview/build/outputs/mapping/release/configanalyzer.html
           archive: false

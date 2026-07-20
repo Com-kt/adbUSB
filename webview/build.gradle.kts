@@ -132,6 +132,7 @@ dependencies {
     implementation(libs.androidx.annotation)
     implementation(libs.androidx.webkit)
     implementation(libs.androidx.webgpu)
+    implementation(libs.coil.compose)
     implementation(libs.androidx.annotation.experimental)
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.bundles.compose)
