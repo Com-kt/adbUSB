@@ -461,12 +461,12 @@ class MainActivity : ComponentActivity() {
                 val packageName = if (parts.size > 1) parts[1].trim() else ""
 
                 if (content.isEmpty()) {
-                    appendLog("[错误] 分享的内容不能为空！")
+                    appendLog("[错误] 内容或链接不能为空！")
                     return
                 }
 
-                appendLog("[系统] 正在构建 Intent 分享管道...")
-                executeIntentShare(this, content, packageName)
+                appendLog("[系统] 正在构建智能 Intent 执行管道...")
+                executeSmartIntent(this, content, packageName)
             }
             
             cmd.startsWith("neko-audio") -> {
@@ -536,24 +536,42 @@ class MainActivity : ComponentActivity() {
         }
     }
     
-    private fun executeIntentShare(activityContext: ComponentActivity, content: String, packageName: String) {
+    private fun executeSmartIntent(activityContext: ComponentActivity, content: String, packageName: String) {
         try {
-            val shareIntent = Intent().apply {
-                action = Intent.ACTION_SEND
-                type = "text/plain"
-                putExtra(Intent.EXTRA_TEXT, content)
-                if (packageName.isNotEmpty()) {
-                    setPackage(packageName)
+            val isUrl = content.startsWith("http://") || content.startsWith("https://")
+
+            val intent = if (isUrl) {
+                Intent(Intent.ACTION_VIEW, Uri.parse(content)).apply {
+                    if (packageName.isNotEmpty()) {
+                        setPackage(packageName)
+                    }
+                }
+            } else {
+                Intent().apply {
+                    action = Intent.ACTION_SEND
+                    type = "text/plain"
+                    putExtra(Intent.EXTRA_TEXT, content)
+                    if (packageName.isNotEmpty()) {
+                        setPackage(packageName)
+                    }
                 }
             }
-            val chooser = Intent.createChooser(shareIntent, "Neko Intent 分享")
-            activityContext.startActivity(chooser)
-            appendLog("[系统] Intent 指令发送成功。")
+
+            if (packageName.isNotEmpty()) {
+                activityContext.startActivity(intent)
+                appendLog("[系统] Intent 指令已精准发送至: $packageName")
+            } else {
+                val chooserTitle = if (isUrl) "选择要打开的应用" else "Neko Intent 分享"
+                val chooser = Intent.createChooser(intent, chooserTitle)
+                activityContext.startActivity(chooser)
+                appendLog("[系统] 已经成功唤起应用选择面板。")
+            }
+
         } catch (e: Exception) {
-            appendLog("[错误] 无法定向分享到该包名，请检查应用是否存在！")
+            appendLog("[错误] 执行失败！请检查链接格式或确认目标应用已安装。")
         }
     }
-    
+
     private fun dispatchP2pSubRoute(cmd: String, service: AdbSessionService) {
         when {
             cmd.startsWith("p2p-start-proxy") -> {

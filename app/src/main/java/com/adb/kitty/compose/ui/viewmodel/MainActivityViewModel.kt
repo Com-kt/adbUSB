@@ -300,7 +300,8 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
         AppCommand("Wi-Fi P2P 开启Socks5代理，跨平台兼容, 该扩展指令由app提供", "p2p-start-proxy"),
         AppCommand("Wi-Fi P2P 停止Socks5代理，跨平台兼容, 该扩展指令由app提供", "p2p-stop-proxy"),
         AppCommand("Wi-Fi P2P 开启自定义端口的Socks5代理，跨平台兼容, 该扩展指令由app提供", "p2p-start-proxy --port="),
-        AppCommand("从视频中提取音频, 该指令由app提供", "neko-audio ")
+        AppCommand("从视频中提取音频, 该指令由app提供", "neko-audio "),
+        AppCommand("intent 跳转, 该指令由app提供", "neko-intent ")
     )
     
     private val _adbCommands = listOf(
