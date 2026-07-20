@@ -39,12 +39,12 @@ class NekoCrawlerActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge(
             statusBarStyle = SystemBarStyle.auto(
-                android.graphics.Color.Transparent.toArgb(), 
-                android.graphics.Color.Transparent.toArgb()
+                android.graphics.Color.TRANSPARENT, 
+                android.graphics.Color.TRANSPARENT
             ),
             navigationBarStyle = SystemBarStyle.auto(
-                android.graphics.Color.Transparent.toArgb(), 
-                android.graphics.Color.Transparent.toArgb()
+                android.graphics.Color.TRANSPARENT, 
+                android.graphics.Color.TRANSPARENT
             )
         )
         setContent {
