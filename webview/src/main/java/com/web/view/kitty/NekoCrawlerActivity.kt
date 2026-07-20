@@ -7,8 +7,8 @@ import android.app.DownloadManager
 import android.content.Context
 import android.content.Intent
 import android.net.ConnectivityManager
-import android.net.Uri
 import android.os.Bundle
+import android.os.Environment
 import android.webkit.JavascriptInterface
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
@@ -49,13 +49,9 @@ import kotlin.concurrent.thread
 
 sealed class LogEntry {
     abstract val time: String
-    
     data class Text(override val time: String, val message: String, val color: Color = Color(0xFF00FF00)) : LogEntry()
-
     data class ImageGallery(override val time: String, val urls: List<String>) : LogEntry()
-
     data class VideoList(override val time: String, val urls: List<String>) : LogEntry()
-
     data class FileList(override val time: String, val urls: List<String>) : LogEntry()
 }
 
@@ -91,7 +87,6 @@ class NekoCrawlerActivity : ComponentActivity() {
                                 "嗅探当前公网IP": "正在探测..."
                             };
 
-                            // 嗅探图片（兼容懒加载）
                             document.querySelectorAll('img').forEach(img => {
                                 let src = img.src || img.getAttribute('data-src') || img.getAttribute('data-original');
                                 if (src && src.startsWith('http') && !assets["图片列表"].includes(src)) {
@@ -99,7 +94,6 @@ class NekoCrawlerActivity : ComponentActivity() {
                                 }
                             });
 
-                            // 嗅探视频
                             document.querySelectorAll('video, video source').forEach(vid => {
                                 let src = vid.src;
                                 if (src && src.startsWith('http') && !assets["视频及流媒体"].includes(src)) {
@@ -107,7 +101,6 @@ class NekoCrawlerActivity : ComponentActivity() {
                                 }
                             });
 
-                            // 过滤敏感后缀文件
                             let fileSuffixes = ['.pdf', '.zip', '.rar', '.apk', '.docx', '.xlsx', '.mp3'];
                             document.querySelectorAll('a').forEach(a => {
                                 let href = a.href;
@@ -118,7 +111,6 @@ class NekoCrawlerActivity : ComponentActivity() {
                                 }
                             });
 
-                            // 反查公网IP
                             try {
                                 let res = await fetch('https://api.ipify.org?format=json');
                                 let json = await res.json();
@@ -148,6 +140,24 @@ class NekoCrawlerActivity : ComponentActivity() {
                     coroutineScope.launch { if (logs.isNotEmpty()) listState.animateScrollToItem(logs.size - 1) }
                 }
 
+                val androidContext = LocalContext.current
+                fun downloadMediaAsset(url: String, prefix: String) {
+                    try {
+                        val cleanFileName = url.substringAfterLast("/").substringBefore("?").ifBlank { "neko_${System.currentTimeMillis()}" }
+                        val request = DownloadManager.Request(url.toUri()).apply {
+                            setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+                            setTitle("$prefix: $cleanFileName")
+                            allowScanningByMediaScanner()
+                            setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, cleanFileName)
+                        }
+                        val dm = androidContext.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+                        dm.enqueue(request)
+                        Toast.makeText(androidContext, "已加入后台下载队列", Toast.LENGTH_SHORT).show()
+                    } catch (e: Exception) {
+                        Toast.makeText(androidContext, "下载触发失败: ${e.message}", Toast.LENGTH_SHORT).show()
+                    }
+                }
+
                 var webViewInstance by remember { mutableStateOf<WebView?>(null) }
                 var isPageLoading by remember { mutableStateOf(false) }
 
@@ -163,7 +173,7 @@ class NekoCrawlerActivity : ComponentActivity() {
                                         finish()
                                     }
                                 }) {
-                                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
+                                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
                                 }
                             }
                         )
@@ -189,7 +199,7 @@ class NekoCrawlerActivity : ComponentActivity() {
                                             agentMenuExpanded = false
                                             webViewInstance?.settings?.userAgentString = mode.ua
                                             webViewInstance?.reload()
-                                            appendTextLog("【系统】已切换为 Chrome 150 [${mode.title}] 并重载网页...")
+                                            appendTextLog("【系统】已切换为 [${mode.title}] 并重载网页...")
                                         }
                                     )
                                 }
@@ -211,6 +221,10 @@ class NekoCrawlerActivity : ComponentActivity() {
                                         settings.useWideViewPort = true
                                         settings.loadWithOverviewMode = true
                                         
+                                        settings.setSupportZoom(true)
+                                        settings.builtInZoomControls = true
+                                        settings.displayZoomControls = false 
+
                                         settings.javaScriptCanOpenWindowsAutomatically = false
                                         settings.setSupportMultipleWindows(false)
                                         
@@ -289,16 +303,13 @@ class NekoCrawlerActivity : ComponentActivity() {
 
                                             override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
                                                 val url = request?.url?.toString() ?: return false
-                                                
                                                 if (url.startsWith("http://") || url.startsWith("https://")) {
-                                                    return false
+                                                    return false 
                                                 }
-                                                
-                                                runOnUiThread {
-                                                    appendTextLog("【安全拦截】检测到网页试图拉起外部 App，已成功拦截！协议: ${url.substringBefore(":")}://", Color(0xFFFF4500))
+                                                runOnUiThread { 
+                                                    appendTextLog("【🚨 强力拦截】已成功阻止网页拉起外部 App（协议: ${url.substringBefore(":")}）！", Color(0xFFFF4500)) 
                                                 }
-                                                
-                                                return true
+                                                return true 
                                             }
                                         }
                                         loadUrl(targetUrl)
@@ -326,7 +337,6 @@ class NekoCrawlerActivity : ComponentActivity() {
 
                         Text("实时多模态资产看板：", style = MaterialTheme.typography.titleSmall)
                         
-                        val androidContext = LocalContext.current
                         LazyColumn(
                             state = listState,
                             modifier = Modifier.fillMaxWidth().weight(1f).background(Color(0xFF1E1E1E)).padding(8.dp),
@@ -339,19 +349,33 @@ class NekoCrawlerActivity : ComponentActivity() {
                                     }
                                     is LogEntry.ImageGallery -> {
                                         Column {
-                                            Text(text = "${item.time} 📸 抓取到图片阵列预览 (${item.urls.size}张):", style = MaterialTheme.typography.bodySmall, color = Color.Yellow)
+                                            Text(text = "${item.time} 📸 抓取到图片阵列 (${item.urls.size}张) [点击图片直接保存]:", style = MaterialTheme.typography.bodySmall, color = Color.Yellow)
                                             Spacer(modifier = Modifier.height(4.dp))
                                             LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                                                 items(item.urls) { url ->
-                                                    AsyncImage(
-                                                        model = url,
-                                                        contentDescription = "爬虫图片",
-                                                        modifier = Modifier.size(80.dp).border(1.dp, Color.Gray).clickable {
-                                                            val intent = Intent(Intent.ACTION_VIEW, url.toUri())
-                                                            androidContext.startActivity(intent)
-                                                        },
-                                                        contentScale = ContentScale.Crop
-                                                    )
+                                                    Box(
+                                                        modifier = Modifier
+                                                            .size(85.dp)
+                                                            .border(1.dp, Color.Gray)
+                                                            .clickable {
+                                                                downloadMediaAsset(url, "保存抓取图片")
+                                                            }
+                                                    ) {
+                                                        AsyncImage(
+                                                            model = url,
+                                                            contentDescription = "爬虫图片",
+                                                            modifier = Modifier.fillMaxSize(),
+                                                            contentScale = ContentScale.Crop
+                                                        )
+                                                        Box(
+                                                            modifier = Modifier
+                                                                .align(Alignment.BottomEnd)
+                                                                .background(Color.Black.copy(alpha = 0.7f))
+                                                                .padding(horizontal = 4.dp, vertical = 2.dp)
+                                                        ) {
+                                                            Text("💾保存", style = MaterialTheme.typography.labelSmall, color = Color.White)
+                                                        }
+                                                    }
                                                 }
                                             }
                                         }
@@ -361,17 +385,48 @@ class NekoCrawlerActivity : ComponentActivity() {
                                             Text(text = "${item.time} 🎬 嗅探到在线流媒体/视频 (${item.urls.size}个):", style = MaterialTheme.typography.bodySmall, color = Color(0xFFFF69B4))
                                             item.urls.forEach { url ->
                                                 Card(
-                                                    modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp).clickable {
-                                                        try {
-                                                            val intent = Intent(Intent.ACTION_VIEW).apply { setDataAndType(url.toUri(), "video/*") }
-                                                            androidContext.startActivity(intent)
-                                                        } catch (e: Exception) {
-                                                            Toast.makeText(androidContext, "找不到合适的视频播放器", Toast.LENGTH_SHORT).show()
-                                                        }
-                                                    },
-                                                    colors = CardDefaults.cardColors(containerColor = Color(0.dp.value.toInt()))
+                                                    modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+                                                    colors = CardDefaults.cardColors(containerColor = Color(0xFF2D2D2D))
                                                 ) {
-                                                    Text(text = "▶️ 点击播放视频: $url", style = MaterialTheme.typography.bodySmall, color = Color(0xFFFFB6C1), modifier = Modifier.padding(6.dp))
+                                                    Row(
+                                                        modifier = Modifier.fillMaxWidth().padding(8.dp),
+                                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                                        verticalAlignment = Alignment.CenterVertically
+                                                    ) {
+                                                        Text(
+                                                            text = "▶️ ${url.substringAfterLast("/").substringBefore("?")}",
+                                                            style = MaterialTheme.typography.bodySmall,
+                                                            color = Color(0xFFFFB6C1),
+                                                            modifier = Modifier.weight(1f),
+                                                            maxLines = 1
+                                                        )
+                                                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                                            Button(
+                                                                onClick = {
+                                                                    try {
+                                                                        val intent = Intent(Intent.ACTION_VIEW).apply { setDataAndType(url.toUri(), "video/*") }
+                                                                        androidContext.startActivity(intent)
+                                                                    } catch (e: Exception) {
+                                                                        Toast.makeText(androidContext, "找不到合适的视频播放器", Toast.LENGTH_SHORT).show()
+                                                                    }
+                                                                },
+                                                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                                                                modifier = Modifier.height(30.dp)
+                                                            ) {
+                                                                Text("播放", style = MaterialTheme.typography.labelSmall)
+                                                            }
+                                                            Button(
+                                                                onClick = {
+                                                                    downloadMediaAsset(url, "保存视频")
+                                                                },
+                                                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                                                                modifier = Modifier.height(30.dp),
+                                                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
+                                                            ) {
+                                                                Text("保存", style = MaterialTheme.typography.labelSmall)
+                                                            }
+                                                        }
+                                                    }
                                                 }
                                             }
                                         }
@@ -381,22 +436,31 @@ class NekoCrawlerActivity : ComponentActivity() {
                                             Text(text = "${item.time} 📁 截获敏感后缀可下载文件 (${item.urls.size}个):", style = MaterialTheme.typography.bodySmall, color = Color(0xFF00FFFF))
                                             item.urls.forEach { url ->
                                                 Card(
-                                                    modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp).clickable {
-                                                        try {
-                                                            val request = DownloadManager.Request(url.toUri()).apply {
-                                                                setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-                                                                setTitle("爬虫截获文件下载")
-                                                            }
-                                                            val dm = androidContext.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
-                                                            dm.enqueue(request)
-                                                            Toast.makeText(androidContext, "已触发后台下载机制", Toast.LENGTH_SHORT).show()
-                                                        } catch (e: Exception) {
-                                                            Toast.makeText(androidContext, "触发下载失败", Toast.LENGTH_SHORT).show()
-                                                        }
-                                                    },
-                                                    colors = CardDefaults.cardColors(containerColor = Color(0.dp.value.toInt()))
+                                                    modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+                                                    colors = CardDefaults.cardColors(containerColor = Color(0xFF2D2D2D))
                                                 ) {
-                                                    Text(text = "💾 点击下载附件: ${url.substringAfterLast("/")}", style = MaterialTheme.typography.bodySmall, color = Color(0xE000FFFF), modifier = Modifier.padding(6.dp))
+                                                    Row(
+                                                        modifier = Modifier.fillMaxWidth().padding(8.dp),
+                                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                                        verticalAlignment = Alignment.CenterVertically
+                                                    ) {
+                                                        Text(
+                                                            text = "💾 ${url.substringAfterLast("/").substringBefore("?")}",
+                                                            style = MaterialTheme.typography.bodySmall,
+                                                            color = Color(0xFF00FFFF),
+                                                            modifier = Modifier.weight(1f),
+                                                            maxLines = 1
+                                                        )
+                                                        Button(
+                                                            onClick = {
+                                                                downloadMediaAsset(url, "保存文件")
+                                                            },
+                                                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                                                            modifier = Modifier.height(30.dp)
+                                                        ) {
+                                                            Text("直接保存", style = MaterialTheme.typography.labelSmall)
+                                                        }
+                                                    }
                                                 }
                                             }
                                         }
