@@ -541,7 +541,7 @@ class MainActivity : ComponentActivity() {
             val isUrl = content.startsWith("http://") || content.startsWith("https://")
 
             val intent = if (isUrl) {
-                Intent(Intent.ACTION_VIEW, Uri.parse(content)).apply {
+                Intent(Intent.ACTION_VIEW, content.toUri()).apply {
                     if (packageName.isNotEmpty()) {
                         setPackage(packageName)
                     }
