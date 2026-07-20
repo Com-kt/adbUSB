@@ -356,12 +356,16 @@ class MainActivity : ComponentActivity() {
         )
         setContent {
             val useDynamicColor by viewModel.useDynamicColor.collectAsStateWithLifecycle()
+            var showIntentShareDialog by remember { mutableStateOf(false) }
             NekoTheme(dynamicColor = useDynamicColor) {
                 CenterAlignedTopAppBarExample(
                     viewModel = viewModel,
                     activity = this@MainActivity,
                     onExecuteCommand = { cmd -> 
                         dispatchCommandRoute(cmd)
+                    },
+                    onOpenIntentDialog = { 
+                        showIntentShareDialog = true
                     }
                 )
             
@@ -397,6 +401,15 @@ class MainActivity : ComponentActivity() {
                                 appendLog("[系统] 解码内容已成功全部输出至: flash/$savedName")
                             }
                             qrDecodeResult = null 
+                        }
+                    )
+                }
+                
+                if (showIntentShareDialog) {
+                    NekoIntentDialog(
+                        onDismiss = { showIntentShareDialog = false },
+                        onCommandSubmit = { cmd ->
+                            dispatchCommandRoute(cmd) 
                         }
                     )
                 }
@@ -438,6 +451,22 @@ class MainActivity : ComponentActivity() {
         when {
             cmd.startsWith("neko ") -> {
                 handleLocalShellPipeline(cmd)
+            }
+            
+            cmd.startsWith("neko-intent ") -> {
+                appendLog("[系统] 扩展指令 >> $cmd")
+                val argsText = cmd.removePrefix("neko-intent ").trim()
+                val parts = argsText.split("|")
+                val content = parts[0].trim()
+                val packageName = if (parts.size > 1) parts[1].trim() else ""
+
+                if (content.isEmpty()) {
+                    appendLog("[错误] 分享的内容不能为空！")
+                    return
+                }
+
+                appendLog("[系统] 正在构建 Intent 分享管道...")
+                executeIntentShare(this, content, packageName)
             }
             
             cmd.startsWith("neko-audio") -> {
@@ -504,6 +533,24 @@ class MainActivity : ComponentActivity() {
             }
 
             else -> handlePhysicalFallback(cmd)
+        }
+    }
+    
+    private fun executeIntentShare(activityContext: ComponentActivity, content: String, packageName: String) {
+        try {
+            val shareIntent = Intent().apply {
+                action = Intent.ACTION_SEND
+                type = "text/plain"
+                putExtra(Intent.EXTRA_TEXT, content)
+                if (packageName.isNotEmpty()) {
+                    setPackage(packageName)
+                }
+            }
+            val chooser = Intent.createChooser(shareIntent, "Neko Intent 分享")
+            activityContext.startActivity(chooser)
+            appendLog("[系统] Intent 指令发送成功。")
+        } catch (e: Exception) {
+            appendLog("[错误] 无法定向分享到该包名，请检查应用是否存在！")
         }
     }
     

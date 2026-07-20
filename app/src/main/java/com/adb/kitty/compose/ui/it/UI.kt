@@ -117,7 +117,8 @@ import com.adb.kitty.compose.R
 fun CenterAlignedTopAppBarExample(
     viewModel: MainActivityViewModel,
     activity: MainActivity,
-    onExecuteCommand: (String) -> Unit
+    onExecuteCommand: (String) -> Unit,
+    onOpenIntentDialog: () -> Unit
 ) {
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior(rememberTopAppBarState())
     var showMenu by remember { mutableStateOf(false) }
@@ -341,6 +342,18 @@ fun CenterAlignedTopAppBarExample(
                                 onClick = {
                                     activity.startIpNetworkTest()
                                     showMenu = false
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = {
+                                    Text(
+                                        stringResource(R.string.action_menu_share)
+                                    )
+                                },
+                                leadingIcon = { Icon(Icons.Outlined.Share, null) },
+                                onClick = { 
+                                    showMenu = false
+                                    onOpenIntentDialog()
                                 }
                             )
                             HorizontalDivider()
