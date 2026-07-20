@@ -78,7 +78,7 @@ class NekoCrawlerActivity : ComponentActivity() {
         )
         setContent {
             NekoTheme {
-                var targetUrl by remember { mutableStateOf("https://m.baidu.com") }
+                var targetUrl by remember { mutableStateOf("https://baidu.com") }
                 
                 var spiderScript by remember {
                     mutableStateOf(
@@ -156,8 +156,14 @@ class NekoCrawlerActivity : ComponentActivity() {
                         TopAppBar(
                             title = { Text("🕷️ 网页自动化多媒体爬虫") },
                             navigationIcon = {
-                                IconButton(onClick = { finish() }) {
-                                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
+                                IconButton(onClick = {
+                                    if (webViewInstance?.canGoBack() == true) {
+                                        webViewInstance?.goBack()
+                                    } else {
+                                        finish()
+                                    }
+                                }) {
+                                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
                                 }
                             }
                         )
