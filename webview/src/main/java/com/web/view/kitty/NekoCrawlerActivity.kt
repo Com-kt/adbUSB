@@ -38,6 +38,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.net.toUri
+import coil.compose.AsyncImage
 import kotlinx.coroutines.launch
 import org.json.JSONObject
 import java.net.InetAddress
@@ -48,9 +49,13 @@ import kotlin.concurrent.thread
 
 sealed class LogEntry {
     abstract val time: String
+    
     data class Text(override val time: String, val message: String, val color: Color = Color(0xFF00FF00)) : LogEntry()
+
     data class ImageGallery(override val time: String, val urls: List<String>) : LogEntry()
+
     data class VideoList(override val time: String, val urls: List<String>) : LogEntry()
+
     data class FileList(override val time: String, val urls: List<String>) : LogEntry()
 }
 
@@ -86,6 +91,7 @@ class NekoCrawlerActivity : ComponentActivity() {
                                 "嗅探当前公网IP": "正在探测..."
                             };
 
+                            // 嗅探图片（兼容懒加载）
                             document.querySelectorAll('img').forEach(img => {
                                 let src = img.src || img.getAttribute('data-src') || img.getAttribute('data-original');
                                 if (src && src.startsWith('http') && !assets["图片列表"].includes(src)) {
@@ -93,6 +99,7 @@ class NekoCrawlerActivity : ComponentActivity() {
                                 }
                             });
 
+                            // 嗅探视频
                             document.querySelectorAll('video, video source').forEach(vid => {
                                 let src = vid.src;
                                 if (src && src.startsWith('http') && !assets["视频及流媒体"].includes(src)) {
@@ -100,6 +107,7 @@ class NekoCrawlerActivity : ComponentActivity() {
                                 }
                             });
 
+                            // 过滤敏感后缀文件
                             let fileSuffixes = ['.pdf', '.zip', '.rar', '.apk', '.docx', '.xlsx', '.mp3'];
                             document.querySelectorAll('a').forEach(a => {
                                 let href = a.href;
@@ -110,6 +118,7 @@ class NekoCrawlerActivity : ComponentActivity() {
                                 }
                             });
 
+                            // 反查公网IP
                             try {
                                 let res = await fetch('https://api.ipify.org?format=json');
                                 let json = await res.json();
@@ -377,7 +386,7 @@ class NekoCrawlerActivity : ComponentActivity() {
                                                     },
                                                     colors = CardDefaults.cardColors(containerColor = Color(0.dp.value.toInt()))
                                                 ) {
-                                                    Text(text = "💾 点击下载附件: ${url.substringAfterLast("/")}", style = MaterialTheme.typography.bodySmall, color = Color(0xFF00FFFF), modifier = Modifier.padding(6.dp))
+                                                    Text(text = "💾 点击下载附件: ${url.substringAfterLast("/")}", style = MaterialTheme.typography.bodySmall, color = Color(0xE000FFFF), modifier = Modifier.padding(6.dp))
                                                 }
                                             }
                                         }
