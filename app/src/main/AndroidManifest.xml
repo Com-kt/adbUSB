@@ -2,6 +2,10 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
     android:installLocation="auto">
+    <!-- 网页浏览 -->
+    <uses-feature 
+          android:name="android.software.webview"
+          android:required="false" />
     <!-- Vulkan -->
     <uses-feature
           android:name="android.hardware.vulkan.version"
@@ -21,6 +25,22 @@
     <!-- AEP -->
     <uses-feature 
           android:name="android.hardware.opengles.aep"
+          android:required="false" />
+    <!-- 系统备份服务 -->
+    <uses-feature 
+          android:name="android.software.backup"
+          android:required="false" />
+    <!-- ipsec -->
+    <uses-feature 
+          android:name="android.software.ipsec_tunnels"
+          android:required="false" />
+    <!-- ipsec 无缝网络迁移 -->
+    <uses-feature 
+          android:name="android.software.ipsec_tunnel_migration"
+          android:required="false" />
+    <!-- 标准运行内存设备 -->
+    <uses-feature 
+          android:name="android.hardware.ram.normal"
           android:required="false" />
     <!-- Android TV -->
     <uses-feature 
