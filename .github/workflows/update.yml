@@ -5,11 +5,84 @@ on:
     branches: [ "update" ]
   pull_request:
     branches: [ "update" ]
+    
+permissions:
+  contents: write
 
 jobs:
   update:
+    concurrency: ci-${{ github.ref }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
-      - name: Update
-        run: echo "Update file"
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v5
+        with:
+          java-version: '25'
+          distribution: 'temurin'
+          cache: 'gradle'
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Decode Both Keystores
+        run: |
+          echo "${{ secrets.SIGNING_KEY_BASE64 }}" | base64 --decode > webview/new_full_ec_key.jks
+
+      - name: Build Debug, Release
+        run: ./gradlew :webview:lint :webview:assembleDebug :webview:assembleRelease -i -w --stacktrace --warning-mode all 2>&1 | tee webview-build.log
+        env:
+          RELEASE_STORE_PASSWORD: ${{ secrets.KEY_STORE_PASSWORD }}
+          RELEASE_KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          RELEASE_KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          
+      - name: Upload Build Log
+        uses: actions/upload-artifact@v7
+        with:
+          name: webview-build-log
+          path: webview-build.log
+          archive: false
+          
+      - name: Upload Lint Report HTML
+        uses: actions/upload-artifact@v7
+        with:
+          name: webview-lint-html
+          path: webview/build/reports/lint-results-debug.html
+          archive: false
+          
+      - name: Upload Lint Report
+        uses: actions/upload-artifact@v7
+        with:
+          name: webview-lint
+          path: webview/build/reports/*
+          archive: true
+        
+      - name: Upload Debug APKs
+        uses: actions/upload-artifact@v7
+        with:
+          name: webview-debug
+          path: webview/build/outputs/apk/debug/*
+          archive: true
+
+      - name: Upload Release APKs
+        uses: actions/upload-artifact@v7
+        with:
+          name: webview-release
+          path: webview/build/outputs/apk/release/*
+          archive: true
+          
+      - name: Upload R8
+        uses: actions/upload-artifact@v7
+        with:
+          name: webview-r8
+          path: app/build/outputs/mapping/release/*
+          archive: true
+          
+      - name: Upload R8 HTML
+        uses: actions/upload-artifact@v7
+        with:
+          name: webview-r8-html
+          path: app/build/outputs/mapping/release/configanalyzer.html
+          archive: false

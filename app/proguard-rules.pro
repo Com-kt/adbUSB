@@ -1,6 +1,12 @@
 -keep class com.adb.kitty.compose.** { *; }
 -dontwarn com.adb.kitty.compose.**
 
+-keep class androidx.webkit.** { *; }
+-dontwarn androidx.webkit.**
+
+-keep class androidx.webgpu.** { *; }
+-dontwarn androidx.webgpu.**
+
 -keep class okio.** { *; }
 -dontwarn okio.**
 

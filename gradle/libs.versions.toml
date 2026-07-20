@@ -8,6 +8,9 @@ kotlinxCoroutines = "1.11.0"
 annotation = "1.10.0"
 coreKtx = "1.19.0"
 
+webkit = "1.16.0"
+webgpu = "1.0.0-alpha05"
+
 mtDataFilesProvider = "1.0.0"
 
 hiddenapibypassVersion = "6.1"
@@ -29,6 +32,10 @@ activity-compose = "1.13.0"
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 androidx-annotation = { group = "androidx.annotation", name = "annotation", version.ref = "annotation" }
 androidx-annotation-experimental = { group = "androidx.annotation", name = "annotation-experimental", version.ref = "annotationExperimental" }
+
+# Web 新API
+androidx-webgpu = { group = "androidx.webgpu", name = "webgpu", version.ref = "webgpu" }
+androidx-webkit = { group = "androidx.webkit", name = "webkit", version.ref = "webkit" }
 
 # Lifecycle 组件
 androidx-lifecycle-livedata-ktx = { group = "androidx.lifecycle", name = "lifecycle-livedata-ktx", version.ref = "lifecycle" }
