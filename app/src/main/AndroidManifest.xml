@@ -401,7 +401,6 @@
         <package android:name="com.twitter.android" />
         <package android:name="com.android.vending" />
         <package android:name="com.google.android.gms" />
-        <package android:name="com.android.settings" />
         <package android:name="com.android.ipsec" />
         <package android:name="com.android.art" />
         <package android:name="com.android.virt" />

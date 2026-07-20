@@ -33,7 +33,7 @@ fun NekoIntentDialog(
     
     var targetPackage by remember { mutableStateOf("") }
     
-    var currentMode by remember { mutableStateOf(IntentMode.GITHUB) }
+    var currentMode by remember { mutableStateOf(IntentMode.URL_DIRECT) }
     var menuExpanded by remember { mutableStateOf(false) }
 
     AlertDialog(
@@ -41,7 +41,7 @@ fun NekoIntentDialog(
         title = { Text(text = "Intent 控制台") },
         text = {
             Column(
-                verticalArrangement = Arrangement.spacedBy(10.dp),
+                verticalArrangement = Arrangement.spacedBy(7.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Box(
