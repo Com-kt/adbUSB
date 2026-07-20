@@ -6,6 +6,7 @@ import com.adb.kitty.compose.data.*
 import com.adb.kitty.compose.*
 import com.adb.kitty.compose.R
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -30,7 +31,6 @@ fun NekoIntentDialog(
     var inputFirst by remember { mutableStateOf("") }
     var inputSecond by remember { mutableStateOf("") }
     var inputThird by remember { mutableStateOf("") }
-    
     var targetPackage by remember { mutableStateOf("") }
     
     var currentMode by remember { mutableStateOf(IntentMode.URL_DIRECT) }
@@ -41,15 +41,23 @@ fun NekoIntentDialog(
         title = { Text(text = "Intent 控制台") },
         text = {
             Column(
-                verticalArrangement = Arrangement.spacedBy(7.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Box(
-                    modifier = Modifier.fillMaxWidth(),
-                    contentAlignment = Alignment.CenterStart
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    TextButton(onClick = { menuExpanded = true }) {
-                        Text(text = "当前模式: ${currentMode.title} ▾", style = MaterialTheme.typography.bodyMedium)
+                    Row(
+                        modifier = Modifier
+                            .clickable { menuExpanded = true }
+                            .padding(vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "当前模式: ${currentMode.title} ▾", 
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.primary
+                        )
                     }
                     
                     DropdownMenu(
@@ -127,20 +135,14 @@ fun NekoIntentDialog(
                 onClick = {
                     if (inputFirst.isNotBlank()) {
                         val finalUrlOrContent = when (currentMode) {
-                            IntentMode.CUSTOM, IntentMode.URL_DIRECT -> {
-                                inputFirst.trim()
-                            }
-                            IntentMode.GITHUB -> {
-                                buildString {
-                                    append("https://github.com/")
-                                    append(inputFirst.trim())
-                                    if (inputSecond.isNotBlank()) {
-                                        append("/").append(inputSecond.trim())
-                                    }
-                                    if (inputThird.isNotBlank()) {
-                                        val cleanSub = inputThird.trim().removePrefix("/")
-                                        append("/").append(cleanSub)
-                                    }
+                            IntentMode.CUSTOM, IntentMode.URL_DIRECT -> inputFirst.trim()
+                            IntentMode.GITHUB -> buildString {
+                                append("https://github.com/")
+                                append(inputFirst.trim())
+                                if (inputSecond.isNotBlank()) append("/").append(inputSecond.trim())
+                                if (inputThird.isNotBlank()) {
+                                    val cleanSub = inputThird.trim().removePrefix("/")
+                                    append("/").append(cleanSub)
                                 }
                             }
                             IntentMode.TELEGRAM -> "http://t.me/${inputFirst.trim()}"

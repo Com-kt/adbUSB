@@ -371,6 +371,7 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
         AdbCommand("pm clear [包名]", "pm clear "),
         AdbCommand("pm enable [包名或应用组件]", "pm enable "),
         AdbCommand("pm disable [包名或应用组件]", "pm disable "),
+        AdbCommand("列出所有功能特性标签", "pm list features"),
         AdbCommand("列出所有应用包名", "pm list packages"),
         AdbCommand("列出所有应用包名的数量", "pm list packages | wc -l"),
         AdbCommand("pm list packages [选项] [过滤字符]", "pm list packages "),
