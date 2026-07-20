@@ -6,8 +6,13 @@
     <uses-feature
           android:name="android.hardware.vulkan.version"
           android:required="false" />
+    <!-- Vulkan 计算能力 -->
     <uses-feature
-          android:name="android.hardware.vulkan"
+          android:name="android.hardware.vulkan.compute"
+          android:required="false" />
+    <!-- Vulkan 核心功能集 -->
+    <uses-feature
+          android:name="android.hardware.vulkan.level"
           android:required="false" />
     <!-- OpenGL ES -->
     <uses-feature 
