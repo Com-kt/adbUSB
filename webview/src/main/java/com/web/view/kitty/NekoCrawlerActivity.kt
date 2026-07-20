@@ -9,7 +9,9 @@ import android.content.Intent
 import android.net.ConnectivityManager
 import android.os.Bundle
 import android.os.Environment
+import android.view.ViewGroup
 import android.webkit.JavascriptInterface
+import android.webkit.RenderProcessGoneDetail
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
@@ -39,6 +41,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.net.toUri
 import coil.compose.AsyncImage
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.json.JSONObject
 import java.net.InetAddress
@@ -136,6 +140,9 @@ class NekoCrawlerActivity : ComponentActivity() {
                 fun getCurrentTime() = SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date())
 
                 fun appendTextLog(msg: String, color: Color = Color(0xFF00FF00)) {
+                    if (logs.size > 300) {
+                        logs.removeAt(0)
+                    }
                     logs.add(LogEntry.Text(getCurrentTime(), msg, color))
                     coroutineScope.launch { if (logs.isNotEmpty()) listState.animateScrollToItem(logs.size - 1) }
                 }
@@ -160,6 +167,22 @@ class NekoCrawlerActivity : ComponentActivity() {
 
                 var webViewInstance by remember { mutableStateOf<WebView?>(null) }
                 var isPageLoading by remember { mutableStateOf(false) }
+
+                var pageTimeoutJob by remember { mutableStateOf<Job?>(null) }
+
+                DisposableEffect(Unit) {
+                    onDispose {
+                        pageTimeoutJob?.cancel()
+                        webViewInstance?.let { wv ->
+                            (wv.parent as? ViewGroup)?.removeView(wv)
+                            wv.stopLoading()
+                            wv.clearHistory()
+                            wv.clearCache(true)
+                            wv.destroy()
+                        }
+                        webViewInstance = null
+                    }
+                }
 
                 Scaffold(
                     topBar = {
@@ -197,8 +220,11 @@ class NekoCrawlerActivity : ComponentActivity() {
                                         onClick = {
                                             currentAgent = mode
                                             agentMenuExpanded = false
-                                            webViewInstance?.settings?.userAgentString = mode.ua
-                                            webViewInstance?.reload()
+                                            webViewInstance?.let { wv ->
+                                                wv.loadUrl("about:blank")
+                                                wv.settings.userAgentString = mode.ua
+                                                wv.loadUrl(targetUrl)
+                                            }
                                             appendTextLog("【系统】已切换为 [${mode.title}] 并重载网页...")
                                         }
                                     )
@@ -208,7 +234,12 @@ class NekoCrawlerActivity : ComponentActivity() {
 
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                             OutlinedTextField(value = targetUrl, onValueChange = { targetUrl = it }, label = { Text("目标 URL") }, modifier = Modifier.weight(1f), singleLine = true, textStyle = MaterialTheme.typography.bodySmall)
-                            Button(onClick = { webViewInstance?.loadUrl(targetUrl.trim()) }) { Text("前往") }
+                            Button(onClick = { 
+                                webViewInstance?.let { wv ->
+                                    wv.loadUrl("about:blank")
+                                    wv.loadUrl(targetUrl.trim()) 
+                                }
+                            }) { Text("前往") }
                         }
 
                         Box(modifier = Modifier.fillMaxWidth().height(200.dp).border(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
@@ -224,6 +255,9 @@ class NekoCrawlerActivity : ComponentActivity() {
                                         settings.setSupportZoom(true)
                                         settings.builtInZoomControls = true
                                         settings.displayZoomControls = false 
+
+                                        settings.saveFormData = false
+                                        settings.savePassword = false
 
                                         settings.javaScriptCanOpenWindowsAutomatically = false
                                         settings.setSupportMultipleWindows(false)
@@ -277,10 +311,23 @@ class NekoCrawlerActivity : ComponentActivity() {
                                             override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) {
                                                 isPageLoading = true
                                                 appendTextLog("开始加载: $url")
+
+                                                pageTimeoutJob?.cancel()
+                                                pageTimeoutJob = coroutineScope.launch {
+                                                    delay(12000)
+                                                    if (isPageLoading) {
+                                                        runOnUiThread {
+                                                            view?.stopLoading()
+                                                            isPageLoading = false
+                                                            appendTextLog("【⚠️ 超时中断】单页加载超过12秒，强制停止以防 OOM！", Color.Yellow)
+                                                        }
+                                                    }
+                                                }
                                             }
 
                                             override fun onPageFinished(view: WebView?, url: String?) {
                                                 isPageLoading = false
+                                                pageTimeoutJob?.cancel()
                                                 appendTextLog("🚀 页面 DOM 就绪，随时可注入探针。")
                                                 
                                                 if (url != null && (url.startsWith("http://") || url.startsWith("https://"))) {
@@ -299,6 +346,18 @@ class NekoCrawlerActivity : ComponentActivity() {
                                                         }
                                                     }
                                                 }
+                                            }
+
+                                            override fun onRenderProcessGone(view: WebView?, detail: RenderProcessGoneDetail?): Boolean {
+                                                runOnUiThread {
+                                                    appendTextLog("【💥 渲染熔断】当前网页占用内存超标已被系统熔断！已释放内存。", Color.Red)
+                                                }
+                                                view?.let {
+                                                    (it.parent as? ViewGroup)?.removeView(it)
+                                                    it.destroy()
+                                                }
+                                                webViewInstance = null
+                                                return true
                                             }
 
                                             override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
