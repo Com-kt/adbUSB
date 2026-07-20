@@ -38,7 +38,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.net.toUri
-import coil.compose.AsyncImage
 import kotlinx.coroutines.launch
 import org.json.JSONObject
 import java.net.InetAddress
@@ -49,13 +48,9 @@ import kotlin.concurrent.thread
 
 sealed class LogEntry {
     abstract val time: String
-    
     data class Text(override val time: String, val message: String, val color: Color = Color(0xFF00FF00)) : LogEntry()
-
     data class ImageGallery(override val time: String, val urls: List<String>) : LogEntry()
-
     data class VideoList(override val time: String, val urls: List<String>) : LogEntry()
-
     data class FileList(override val time: String, val urls: List<String>) : LogEntry()
 }
 
@@ -91,7 +86,6 @@ class NekoCrawlerActivity : ComponentActivity() {
                                 "嗅探当前公网IP": "正在探测..."
                             };
 
-                            // 嗅探图片（兼容懒加载）
                             document.querySelectorAll('img').forEach(img => {
                                 let src = img.src || img.getAttribute('data-src') || img.getAttribute('data-original');
                                 if (src && src.startsWith('http') && !assets["图片列表"].includes(src)) {
@@ -99,7 +93,6 @@ class NekoCrawlerActivity : ComponentActivity() {
                                 }
                             });
 
-                            // 嗅探视频
                             document.querySelectorAll('video, video source').forEach(vid => {
                                 let src = vid.src;
                                 if (src && src.startsWith('http') && !assets["视频及流媒体"].includes(src)) {
@@ -107,7 +100,6 @@ class NekoCrawlerActivity : ComponentActivity() {
                                 }
                             });
 
-                            // 过滤敏感后缀文件
                             let fileSuffixes = ['.pdf', '.zip', '.rar', '.apk', '.docx', '.xlsx', '.mp3'];
                             document.querySelectorAll('a').forEach(a => {
                                 let href = a.href;
@@ -118,7 +110,6 @@ class NekoCrawlerActivity : ComponentActivity() {
                                 }
                             });
 
-                            // 反查公网IP
                             try {
                                 let res = await fetch('https://api.ipify.org?format=json');
                                 let json = await res.json();
@@ -263,7 +254,7 @@ class NekoCrawlerActivity : ComponentActivity() {
                                                 if (url != null && (url.startsWith("http://") || url.startsWith("https://"))) {
                                                     thread {
                                                         try {
-                                                            val host = Uri.parse(url).host ?: return@thread
+                                                            val host = url.toUri().host ?: return@thread
                                                             val ips = InetAddress.getAllByName(host).joinToString(", ") { it.hostAddress ?: "" }
                                                             val cm = getSystemService(CONNECTIVITY_SERVICE) as ConnectivityManager
                                                             val dns = cm.getLinkProperties(cm.activeNetwork)?.dnsServers?.joinToString(", ") { it.hostAddress ?: "" } ?: "未知"
@@ -337,7 +328,7 @@ class NekoCrawlerActivity : ComponentActivity() {
                                                         model = url,
                                                         contentDescription = "爬虫图片",
                                                         modifier = Modifier.size(80.dp).border(1.dp, Color.Gray).clickable {
-                                                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+                                                            val intent = Intent(Intent.ACTION_VIEW, url.toUri())
                                                             androidContext.startActivity(intent)
                                                         },
                                                         contentScale = ContentScale.Crop
@@ -353,7 +344,7 @@ class NekoCrawlerActivity : ComponentActivity() {
                                                 Card(
                                                     modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp).clickable {
                                                         try {
-                                                            val intent = Intent(Intent.ACTION_VIEW).apply { setDataAndType(Uri.parse(url), "video/*") }
+                                                            val intent = Intent(Intent.ACTION_VIEW).apply { setDataAndType(url.toUri(), "video/*") }
                                                             androidContext.startActivity(intent)
                                                         } catch (e: Exception) {
                                                             Toast.makeText(androidContext, "找不到合适的视频播放器", Toast.LENGTH_SHORT).show()
@@ -373,7 +364,7 @@ class NekoCrawlerActivity : ComponentActivity() {
                                                 Card(
                                                     modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp).clickable {
                                                         try {
-                                                            val request = DownloadManager.Request(Uri.parse(url)).apply {
+                                                            val request = DownloadManager.Request(url.toUri()).apply {
                                                                 setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
                                                                 setTitle("爬虫截获文件下载")
                                                             }
@@ -386,7 +377,7 @@ class NekoCrawlerActivity : ComponentActivity() {
                                                     },
                                                     colors = CardDefaults.cardColors(containerColor = Color(0.dp.value.toInt()))
                                                 ) {
-                                                    Text(text = "💾 点击下载附件: ${url.substringAfterLast("/")}", style = MaterialTheme.typography.bodySmall, color = Color(0xE000FFFF), modifier = Modifier.padding(6.dp))
+                                                    Text(text = "💾 点击下载附件: ${url.substringAfterLast("/")}", style = MaterialTheme.typography.bodySmall, color = Color(0xFF00FFFF), modifier = Modifier.padding(6.dp))
                                                 }
                                             }
                                         }
