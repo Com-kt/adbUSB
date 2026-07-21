@@ -397,6 +397,22 @@ class NekoCrawlerActivity : ComponentActivity() {
         
                                                             view?.evaluateJavascript(js, null)
                                                             
+                                                            val blockSensorsJs = """
+                                                                (function() {
+                                                                    window.addEventListener = (function(orig) {
+                                                                        return function(type, listener, options) {
+                                                                            if (type === 'deviceorientation' || type === 'devicemotion') {
+                                                                                console.log('Blocked orientation listener for safety.');
+                                                                                return; // Drop the listener completely
+                                                                            }
+                                                                            return orig.apply(this, arguments);
+                                                                        };
+                                                                    })(window.addEventListener);
+                                                                })();
+                                                            """.trimIndent()
+
+                                                            view?.evaluateJavascript(blockSensorsJs, null)
+                                                            
                                                             if (url != null && (url.startsWith("http://") || url.startsWith("https://"))) {
                                                                 thread {
                                                                     try {
