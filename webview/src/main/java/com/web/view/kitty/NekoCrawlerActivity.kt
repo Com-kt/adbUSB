@@ -53,7 +53,9 @@ import coil.compose.AsyncImage
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import org.json.JSONArray
 import org.json.JSONObject
+import org.json.JSONTokener
 import java.net.InetAddress
 import java.net.URL
 import java.text.SimpleDateFormat
@@ -320,40 +322,65 @@ class NekoCrawlerActivity : ComponentActivity() {
                                                     
                                                     webChromeClient = object : WebChromeClient() {
                                                         override fun onConsoleMessage(consoleMessage: ConsoleMessage?): Boolean {
-                                                            val msg = consoleMessage?.message() ?: ""
+                                                            val msg = consoleMessage?.message() ?: return super.onConsoleMessage(consoleMessage)
+
                                                             if (msg.startsWith("NEKO_DATA_BRIDGE:")) {
-                                                                val json = msg.removePrefix("NEKO_DATA_BRIDGE:")
+                                                                val rawJson = msg.removePrefix("NEKO_DATA_BRIDGE:").trim()
+
                                                                 runOnUiThread {
                                                                     try {
-                                                                        val obj = JSONObject(json)
-                                                                        val imgArr = obj.optJSONArray("图片列表")
-                                                                        val imgList = mutableListOf<String>()
-                                                                        if (imgArr != null) {
-                                                                            for (i in 0 until imgArr.length()) imgList.add(imgArr.getString(i))
-                                                                        }
-                                                                        if (imgList.isNotEmpty()) {
-                                                                            logs.add(LogEntry.ImageGallery(getCurrentTime(), imgList))
-                                                                        }
+                                                                        val tokener = org.json.JSONTokener(rawJson).nextValue()
 
-                                                                        val vidArr = obj.optJSONArray("视频及流媒体")
-                                                                        val vidList = mutableListOf<String>()
-                                                                        if (vidArr != null) {
-                                                                            for (i in 0 until vidArr.length()) vidList.add(vidArr.getString(i))
-                                                                        }
-                                                                        if (vidList.isNotEmpty()) {
-                                                                            logs.add(LogEntry.VideoList(getCurrentTime(), vidList))
-                                                                        }
+                                                                        when (tokener) {
+                                                                            is org.json.JSONObject -> {
+                                                                                val isMediaAsset = tokener.has("图片列表") || tokener.has("视频及流媒体") || tokener.has("下载文件")
 
-                                                                        val fileArr = obj.optJSONArray("下载文件")
-                                                                        val fileList = mutableListOf<String>()
-                                                                        if (fileArr != null) {
-                                                                            for (i in 0 until fileArr.length()) fileList.add(fileArr.getString(i))
-                                                                        }
-                                                                        if (fileList.isNotEmpty()) {
-                                                                            logs.add(LogEntry.FileList(getCurrentTime(), fileList))
-                                                                        }
+                                                                                if (isMediaAsset) {
+                                                                                    val imgArr = tokener.optJSONArray("图片列表")
+                                                                                    val imgList = mutableListOf<String>()
+                                                                                    imgArr?.let {
+                                                                                        for (i in 0 until it.length()) imgList.add(it.getString(i))
+                                                                                    }
+                                                                                    if (imgList.isNotEmpty()) {
+                                                                                        logs.add(LogEntry.ImageGallery(getCurrentTime(), imgList))
+                                                                                    }
 
-                                                                        appendTextLog("【系统】隐身嗅探资产清洗完毕，已渲染进看板面板。", Color.Yellow)
+                                                                                    val vidArr = tokener.optJSONArray("视频及流媒体")
+                                                                                    val vidList = mutableListOf<String>()
+                                                                                    vidArr?.let {
+                                                                                        for (i in 0 until it.length()) vidList.add(it.getString(i))
+                                                                                    }
+                                                                                    if (vidList.isNotEmpty()) {
+                                                                                        logs.add(LogEntry.VideoList(getCurrentTime(), vidList))
+                                                                                    }
+
+                                                                                    val fileArr = tokener.optJSONArray("下载文件")
+                                                                                    val fileList = mutableListOf<String>()
+                                                                                    fileArr?.let {
+                                                                                        for (i in 0 until it.length()) fileList.add(it.getString(i))
+                                                                                    }
+                                                                                    if (fileList.isNotEmpty()) {
+                                                                                        logs.add(LogEntry.FileList(getCurrentTime(), fileList))
+                                                                                    }
+
+                                                                                    appendTextLog("【系统】隐身嗅探资产清洗完毕，已渲染进看板面板。", Color.Yellow)
+                                                                                } else {
+                                                                                    val tag = tokener.optString("tag", "SYSTEM")
+                                                                                    val message = tokener.optString("message", rawJson)
+                                                                                    printFormattedMonitorLog(tag, message)
+                                                                                }
+                                                                            }
+
+                                                                            is org.json.JSONArray -> {
+                                                                                val tag = tokener.optString(0, "SYSTEM")
+                                                                                val message = tokener.optString(1, rawJson)
+                                                                                printFormattedMonitorLog(tag, message)
+                                                                            }
+
+                                                                            else -> {
+                                                                                appendTextLog("🌐 $rawJson", Color.LightGray)
+                                                                            }
+                                                                        }
                                                                     } catch (e: Exception) {
                                                                         appendTextLog("【解构异常】数据格式错误: ${e.message}", Color.Red)
                                                                     }
@@ -688,6 +715,26 @@ class NekoCrawlerActivity : ComponentActivity() {
                         }
                     }
                 }
+            }
+        }
+    }
+    
+    private fun printFormattedMonitorLog(tag: String, message: String) {
+        when (tag) {
+            "FETCH", "FETCH_RESP", "XHR", "XHR_RESP" -> {
+                appendTextLog("📡 [$tag] $message", Color(0xFF00BFFF)) // 网络请求：蓝色
+            }
+            "DOM_CREATE", "EVAL" -> {
+                appendTextLog("⚠️ [$tag] $message", Color(0xFFFF8C00)) // 敏感操作：橙色
+            }
+            "COOKIE", "STORAGE" -> {
+                appendTextLog("🔑 [$tag] $message", Color(0xFFFF69B4)) // 存储变更：粉色
+            }
+            "FETCH_ERR" -> {
+                appendTextLog("❌ [$tag] $message", Color.Red)        // 错误：红色
+            }
+            else -> {
+                appendTextLog("🌐 [$tag] $message", Color.LightGray)  // 普通/系统：灰色
             }
         }
     }
