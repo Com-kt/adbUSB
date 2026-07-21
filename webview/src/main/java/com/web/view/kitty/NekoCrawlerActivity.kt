@@ -25,6 +25,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -40,6 +41,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -158,6 +161,7 @@ class NekoCrawlerActivity : ComponentActivity() {
                 }
 
                 val androidContext = LocalContext.current
+                val focusManager = LocalFocusManager.current
                 fun downloadMediaAsset(url: String, prefix: String) {
                     try {
                         val cleanFileName = url.substringAfterLast("/").substringBefore("?").ifBlank { "neko_${System.currentTimeMillis()}" }
@@ -219,7 +223,10 @@ class NekoCrawlerActivity : ComponentActivity() {
                             tabs.forEachIndexed { index, title ->
                                 Tab(
                                     selected = selectedTab == index,
-                                    onClick = { selectedTab = index },
+                                    onClick = {
+                                        focusManager.clearFocus()
+                                        selectedTab = index
+                                    },
                                     text = { Text(title, style = MaterialTheme.typography.bodyMedium) }
                                 )
                             }
@@ -480,6 +487,11 @@ class NekoCrawlerActivity : ComponentActivity() {
                                     .imePadding()
                                     .zIndex(if (isTab1Active) 1f else 0f)
                                     .graphicsLayer { alpha = if (isTab1Active) 1f else 0f }
+                                    .pointerInput(Unit) {
+                                        detectTapGestures(onTap = {
+                                            focusManager.clearFocus()
+                                        })
+                                    }
                             ) {
                                 Column(
                                     modifier = Modifier.fillMaxSize(),
@@ -500,6 +512,7 @@ class NekoCrawlerActivity : ComponentActivity() {
                                     Button(
                                         enabled = !isPageLoading,
                                         onClick = {
+                                            focusManager.clearFocus()
                                             if (webViewInstance != null && spiderScript.isNotBlank()) {
                                                 appendTextLog("正在向当前页面灌入隐身探针...")
                                                 webViewInstance?.evaluateJavascript(spiderScript) { res -> appendTextLog("执行状态 >> $res") }
