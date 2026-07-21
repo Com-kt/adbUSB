@@ -367,14 +367,14 @@ class NekoCrawlerActivity : ComponentActivity() {
                                                                                 } else {
                                                                                     val tag = tokener.optString("tag", "SYSTEM")
                                                                                     val message = tokener.optString("message", rawJson)
-                                                                                    printFormattedMonitorLog(tag, message)
+                                                                                    printFormattedMonitorLog(tag, message, appendTextLog)
                                                                                 }
                                                                             }
 
                                                                             is org.json.JSONArray -> {
                                                                                 val tag = tokener.optString(0, "SYSTEM")
                                                                                 val message = tokener.optString(1, rawJson)
-                                                                                printFormattedMonitorLog(tag, message)
+                                                                                printFormattedMonitorLog(tag, message, appendTextLog)
                                                                             }
 
                                                                             else -> {
@@ -719,22 +719,26 @@ class NekoCrawlerActivity : ComponentActivity() {
         }
     }
     
-    private fun printFormattedMonitorLog(tag: String, message: String) {
+    private fun printFormattedMonitorLog(
+        tag: String, 
+        message: String, 
+        onAppendLog: (String, Color) -> Unit
+    ) {
         when (tag) {
             "FETCH", "FETCH_RESP", "XHR", "XHR_RESP" -> {
-                appendTextLog("📡 [$tag] $message", Color(0xFF00BFFF)) // 网络请求：蓝色
+                onAppendLog("📡 [$tag] $message", Color(0xFF00BFFF))
             }
             "DOM_CREATE", "EVAL" -> {
-                appendTextLog("⚠️ [$tag] $message", Color(0xFFFF8C00)) // 敏感操作：橙色
+                onAppendLog("⚠️ [$tag] $message", Color(0xFFFF8C00))
             }
             "COOKIE", "STORAGE" -> {
-                appendTextLog("🔑 [$tag] $message", Color(0xFFFF69B4)) // 存储变更：粉色
+                onAppendLog("🔑 [$tag] $message", Color(0xFFFF69B4))
             }
             "FETCH_ERR" -> {
-                appendTextLog("❌ [$tag] $message", Color.Red)        // 错误：红色
+                onAppendLog("❌ [$tag] $message", Color.Red)
             }
             else -> {
-                appendTextLog("🌐 [$tag] $message", Color.LightGray)  // 普通/系统：灰色
+                onAppendLog("🌐 [$tag] $message", Color.LightGray)
             }
         }
     }
