@@ -303,7 +303,7 @@ class NekoCrawlerActivity : ComponentActivity() {
                                                     settings.useWideViewPort = true
                                                     settings.loadWithOverviewMode = true
                                                     
-                                                    settings.supportZoom() = true
+                                                    settings.setSupportZoom(true)
                                                     settings.builtInZoomControls = true
                                                     settings.displayZoomControls = false 
 
