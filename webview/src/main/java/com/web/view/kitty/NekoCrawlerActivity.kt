@@ -80,7 +80,7 @@ class NekoCrawlerActivity : ComponentActivity() {
         )
         setContent {
             NekoTheme {
-                var targetUrl by remember { mutableStateOf("https://m.baidu.com") }
+                var targetUrl by remember { mutableStateOf("https://baidu.com") }
                 
                 var spiderScript by remember {
                     mutableStateOf(
