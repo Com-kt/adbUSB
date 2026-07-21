@@ -79,7 +79,7 @@
             android:showForAllUsers="false"
             android:hardwareAccelerated="true"
             android:supportsPictureInPicture="true"
-            android:windowSoftInputMode="adjustPan"
+            android:windowSoftInputMode="adjustResize"
             android:canDisplayOnRemoteDevices="false"
             android:launchMode="singleInstancePerTask"
             android:persistableMode="persistNever"

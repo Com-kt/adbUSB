@@ -10,7 +10,7 @@ coreKtx = "1.19.0"
 
 webkit = "1.16.0"
 webgpu = "1.0.0-alpha05"
-coil = "2.6.0"
+coil = "2.7.0"
 
 mtDataFilesProvider = "1.0.0"
 

@@ -119,7 +119,7 @@ class NekoCrawlerActivity : ComponentActivity() {
                                 }
                             });
 
-                            let fileSuffixes = ['.pdf', '.zip', '.rar', '.apk', '.docx', '.xlsx', '.mp3'];
+                            let fileSuffixes = ['.pdf', '.zip', '.rar', '.exe', '.7z', '.gz', '.apk', '.apks', '.xapk', '.apkm', '.docx', '.xlsx', '.flac', '.mp3'];
                             document.querySelectorAll('a').forEach(a => {
                                 let href = a.href;
                                 if (href && fileSuffixes.some(s => href.toLowerCase().includes(s))) {
@@ -477,6 +477,7 @@ class NekoCrawlerActivity : ComponentActivity() {
                             Box(
                                 modifier = Modifier
                                     .fillMaxSize()
+                                    .imePadding()
                                     .zIndex(if (isTab1Active) 1f else 0f)
                                     .graphicsLayer { alpha = if (isTab1Active) 1f else 0f }
                             ) {
