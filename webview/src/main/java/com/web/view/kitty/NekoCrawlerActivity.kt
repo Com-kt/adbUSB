@@ -82,55 +82,57 @@ class NekoCrawlerActivity : ComponentActivity() {
         )
         setContent {
             NekoTheme {
-                var targetUrl by mutableStateOf("https://baidu.com")
+                var targetUrl by remember { mutableStateOf("https://baidu.com") }
                 
-                var spiderScript by mutableStateOf(
-                    """
-                    (async function() {
-                        // 1. 强力隐藏自动化特征（过 navigator.webdriver 检测）
-                        Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
-                        window.navigator.chrome = { runtime: {} };
-                        Object.defineProperty(navigator, 'languages', { get: () => ['zh-CN', 'zh', 'en-US', 'en'] });
-                        Object.defineProperty(navigator, 'plugins', { get: () => [1, 2, 3, 4, 5] });
+                var spiderScript by remember {
+                    mutableStateOf(
+                        """
+                        (async function() {
+                            // 1. 强力隐藏自动化特征（过 navigator.webdriver 检测）
+                            Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
+                            window.navigator.chrome = { runtime: {} };
+                            Object.defineProperty(navigator, 'languages', { get: () => ['zh-CN', 'zh', 'en-US', 'en'] });
+                            Object.defineProperty(navigator, 'plugins', { get: () => [1, 2, 3, 4, 5] });
 
-                        // 2. 模拟人类浏览停顿，防并发机器特征
-                        await new Promise(r => setTimeout(r, Math.floor(Math.random() * 1200) + 800));
+                            // 2. 模拟人类浏览停顿，防并发机器特征
+                            await new Promise(r => setTimeout(r, Math.floor(Math.random() * 1200) + 800));
 
-                        let assets = {
-                            "图片列表": [],
-                            "视频及流媒体": [],
-                            "下载文件": []
-                        };
+                            let assets = {
+                                "图片列表": [],
+                                "视频及流媒体": [],
+                                "下载文件": []
+                            };
 
-                        document.querySelectorAll('img').forEach(img => {
-                            let src = img.src || img.getAttribute('data-src') || img.getAttribute('data-original');
-                            if (src && src.startsWith('http') && !assets["图片列表"].includes(src)) {
-                                assets["图片列表"].push(src);
-                            }
-                        });
-
-                        document.querySelectorAll('video, video source').forEach(vid => {
-                            let src = vid.src;
-                            if (src && src.startsWith('http') && !assets["视频及流媒体"].includes(src)) {
-                                assets["视频及流媒体"].push(src);
-                            }
-                        });
-
-                        let fileSuffixes = ['.pdf', '.zip', '.rar', '.apk', '.docx', '.xlsx', '.mp3'];
-                        document.querySelectorAll('a').forEach(a => {
-                            let href = a.href;
-                            if (href && fileSuffixes.some(s => href.toLowerCase().includes(s))) {
-                                if (!assets["下载文件"].includes(href)) {
-                                    assets["下载文件"].push(href);
+                            document.querySelectorAll('img').forEach(img => {
+                                let src = img.src || img.getAttribute('data-src') || img.getAttribute('data-original');
+                                if (src && src.startsWith('http') && !assets["图片列表"].includes(src)) {
+                                    assets["图片列表"].push(src);
                                 }
-                            }
-                        });
+                            });
 
-                        // 3. 使用无痕控制台通道回传数据（不留任何全局变量 window 痕迹）
-                        console.log("NEKO_DATA_BRIDGE:" + JSON.stringify(assets));
-                        return "隐身嗅探脚本触发成功！";
-                    })();
-                    """.trimIndent()
+                            document.querySelectorAll('video, video source').forEach(vid => {
+                                let src = vid.src;
+                                if (src && src.startsWith('http') && !assets["视频及流媒体"].includes(src)) {
+                                    assets["视频及流媒体"].push(src);
+                                }
+                            });
+
+                            let fileSuffixes = ['.pdf', '.zip', '.rar', '.apk', '.docx', '.xlsx', '.mp3'];
+                            document.querySelectorAll('a').forEach(a => {
+                                let href = a.href;
+                                if (href && fileSuffixes.some(s => href.toLowerCase().includes(s))) {
+                                    if (!assets["下载文件"].includes(href)) {
+                                        assets["下载文件"].push(href);
+                                    }
+                                }
+                            });
+
+                            // 3. 使用无痕控制台通道回传数据（不留任何全局变量 window 痕迹）
+                            console.log("NEKO_DATA_BRIDGE:" + JSON.stringify(assets));
+                            return "隐身嗅探脚本触发成功！";
+                        })();
+                        """.trimIndent()
+                    )
                 )
                 
                 val logs = remember { mutableStateListOf<LogEntry>() }
