@@ -381,19 +381,76 @@ class NekoCrawlerActivity : ComponentActivity() {
                                                             
                                                             view?.evaluateJavascript("""
                                                                 (function() {
-                                                                    var metas = document.getElementsByTagName('meta');
-                                                                    for (var i = 0; i < metas.length; i++) {
-                                                                        if (metas[i].name === 'viewport') {
-                                                                            var content = metas[i].getAttribute('content');
-                                                                            if (content) {
-                                                                                // 替换禁止用户缩放的属性
-                                                                                content = content.replace(/user-scalable\s*=\s*no/gi, 'user-scalable=yes');
-                                                                                // 将最大缩放倍数放大到 5 倍或 10 倍
-                                                                                content = content.replace(/maximum-scale\s*=\s*[0-9.]+/gi, 'maximum-scale=5.0');
-                                                                                metas[i].setAttribute('content', content);
+                                                                    try {
+                                                                        // 1. 彻底删除旧的 viewport 节点，重新创建并插入（强迫 Chromium 重新解析缩放引擎）
+                                                                        var oldMetas = document.querySelectorAll('meta[name="viewport"]');
+                                                                        oldMetas.forEach(function(m) { m.remove(); });
+                                                                        var meta = document.createElement('meta');
+                                                                        meta.name = 'viewport';
+                                                                        meta.content = 'width=device-width, initial-scale=1.0, minimum-scale=0.1, maximum-scale=10.0, user-scalable=yes';
+                                                                        (document.head || document.documentElement).appendChild(meta);
+                                                                        // 2. 注入高优先级 CSS，清空所有 touch-action 限制
+                                                                        var style = document.createElement('style');
+                                                                        style.id = 'neko-force-zoom-css';
+                                                                        style.innerHTML = `
+                                                                            html, body, * {
+                                                                                touch-action: auto !important;
+                                                                                -webkit-touch-callout: default !important;
                                                                             }
+                                                                        `;
+                                                                        (document.head || document.documentElement).appendChild(style);
+                                                                        
+                                                                        // 3. 拦截网页自身的 JS，防止其在双指触控时调用 e.preventDefault()
+                                                                        var unblockPinch = function(e) {
+                                                                        if (e.touches && e.touches.length > 1) {
+                                                                            e.stopPropagation(); // 阻止网页自己的脚本拦截双指手势
                                                                         }
-                                                                    }
+                                                                    };
+                                                                    window.addEventListener('touchstart', unblockPinch, true);
+                                                                    window.addEventListener('touchmove', unblockPinch, true);
+                                                                } catch(e) {
+                                                                    console.log("强制缩放注入失败: " + e.message);
+                                                                }
+                                                            })();
+                                                            """.trimIndent(), null)
+
+                                                            view?.evaluateJavascript("""
+                                                                (function() {
+                                                                    // 1. 强行把 JS 层的屏幕方向属性修正为标准竖屏 (0°)
+                                                                    try {
+                                                                        Object.defineProperty(window, 'orientation', { get: () => 0, configurable: true });
+                                                                        if (window.screen && window.screen.orientation) {
+                                                                            Object.defineProperty(window.screen.orientation, 'type', { get: () => 'portrait-primary', configurable: true });
+                                                                            Object.defineProperty(window.screen.orientation, 'angle', { get: () => 0, configurable: true });
+                                                                        }
+                                                                    } catch(e) {}
+                                                                    
+                                                                    // 2. 精准拔除腾讯 H5 专用的 #orientlayer 遮罩节点，并恢复页面滚动
+                                                                    var style = document.createElement('style');
+                                                                    style.id = 'neko-kill-orientlayer';
+                                                                    style.innerHTML = `
+                                                                        #orientlayer, .orientlayer, 
+                                                                        #landscape, .landscape, 
+                                                                        #portrait, .portrait,
+                                                                        [id*="orient"], [class*="orient"] {
+                                                                            display: none !important;
+                                                                            visibility: hidden !important;
+                                                                            opacity: 0 !important;
+                                                                            pointer-events: none !important;
+                                                                            width: 0 !important;
+                                                                            height: 0 !important;
+                                                                        }
+                                                                        html, body {
+                                                                            overflow: auto !important;
+                                                                            position: relative !important;
+                                                                            height: auto !important;
+                                                                        }
+                                                                    `;
+                                                                    (document.head || document.documentElement).appendChild(style);
+                                                                    
+                                                                    // 3. 触发事件让页面前端框架（Vue/React）重新计算布局
+                                                                    window.dispatchEvent(new Event('resize'));
+                                                                    window.dispatchEvent(new Event('orientationchange'));
                                                                 })();
                                                             """.trimIndent(), null)
                                                             
