@@ -30,6 +30,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
@@ -153,7 +154,7 @@ class NekoCrawlerActivity : ComponentActivity() {
                 fun getCurrentTime() = SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date())
 
                 fun appendTextLog(msg: String, color: Color = Color(0xFF00FF00)) {
-                    if (logs.size > 500) {
+                    if (logs.size > 800) {
                         logs.removeAt(0)
                     }
                     logs.add(LogEntry.Text(getCurrentTime(), msg, color))
@@ -545,132 +546,134 @@ class NekoCrawlerActivity : ComponentActivity() {
                                         }
                                     }
                                     
-                                    LazyColumn(
-                                        state = listState,
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .weight(1f)
-                                            .background(Color(0xFF1E1E1E))
-                                            .padding(8.dp),
-                                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                                    ) {
-                                        items(logs) { item ->
-                                            when (item) {
-                                                is LogEntry.Text -> {
-                                                    Text(text = "${item.time} ${item.message}", style = MaterialTheme.typography.bodySmall, color = item.color)
-                                                }
-                                                is LogEntry.ImageGallery -> {
-                                                    Column {
-                                                        Text(text = "${item.time} 📸 抓取到图片阵列 (${item.urls.size}张) [点击图片直接保存]:", style = MaterialTheme.typography.bodySmall, color = Color.Yellow)
-                                                        Spacer(modifier = Modifier.height(4.dp))
-                                                        LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                                            items(item.urls) { url ->
-                                                                Box(
-                                                                    modifier = Modifier
-                                                                        .size(85.dp)
-                                                                        .border(1.dp, Color.Gray)
-                                                                        .clickable {
-                                                                            downloadMediaAsset(url, "保存抓取图片")
-                                                                        }
-                                                                ) {
-                                                                    AsyncImage(
-                                                                        model = url,
-                                                                        contentDescription = "爬虫图片",
-                                                                        modifier = Modifier.fillMaxSize(),
-                                                                        contentScale = ContentScale.Crop
-                                                                    )
+                                    SelectionContainer {
+                                        LazyColumn(
+                                            state = listState,
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .weight(1f)
+                                                .background(Color(0xFF1E1E1E))
+                                                .padding(8.dp),
+                                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                                        ) {
+                                            items(logs) { item ->
+                                                when (item) {
+                                                    is LogEntry.Text -> {
+                                                        Text(text = "${item.time} ${item.message}", style = MaterialTheme.typography.bodySmall, color = item.color)
+                                                    }
+                                                    is LogEntry.ImageGallery -> {
+                                                        Column {
+                                                            Text(text = "${item.time} 📸 抓取到图片阵列 (${item.urls.size}张) [点击图片直接保存]:", style = MaterialTheme.typography.bodySmall, color = Color.Yellow)
+                                                            Spacer(modifier = Modifier.height(4.dp))
+                                                            LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                                                items(item.urls) { url ->
                                                                     Box(
                                                                         modifier = Modifier
-                                                                            .align(Alignment.BottomEnd)
-                                                                            .background(Color.Black.copy(alpha = 0.7f))
-                                                                            .padding(horizontal = 4.dp, vertical = 2.dp)
+                                                                            .size(85.dp)
+                                                                            .border(1.dp, Color.Gray)
+                                                                            .clickable {
+                                                                                downloadMediaAsset(url, "保存抓取图片")
+                                                                            }
                                                                     ) {
-                                                                        Text("💾保存", style = MaterialTheme.typography.labelSmall, color = Color.White)
+                                                                        AsyncImage(
+                                                                            model = url,
+                                                                            contentDescription = "爬虫图片",
+                                                                            modifier = Modifier.fillMaxSize(),
+                                                                            contentScale = ContentScale.Crop
+                                                                        )
+                                                                        Box(
+                                                                            modifier = Modifier
+                                                                                .align(Alignment.BottomEnd)
+                                                                                .background(Color.Black.copy(alpha = 0.7f))
+                                                                                .padding(horizontal = 4.dp, vertical = 2.dp)
+                                                                        ) {
+                                                                            Text("💾保存", style = MaterialTheme.typography.labelSmall, color = Color.White)
+                                                                        }
                                                                     }
                                                                 }
                                                             }
                                                         }
                                                     }
-                                                }
-                                                is LogEntry.VideoList -> {
-                                                    Column {
-                                                        Text(text = "${item.time} 🎬 嗅探到在线流媒体/视频 (${item.urls.size}个):", style = MaterialTheme.typography.bodySmall, color = Color(0xFFFF69B4))
-                                                        item.urls.forEach { url ->
-                                                            Card(
-                                                                modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
-                                                                colors = CardDefaults.cardColors(containerColor = Color(0xFF2D2D2D))
-                                                            ) {
-                                                                Row(
-                                                                    modifier = Modifier.fillMaxWidth().padding(8.dp),
-                                                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                                                    verticalAlignment = Alignment.CenterVertically
+                                                    is LogEntry.VideoList -> {
+                                                        Column {
+                                                            Text(text = "${item.time} 🎬 嗅探到在线流媒体/视频 (${item.urls.size}个):", style = MaterialTheme.typography.bodySmall, color = Color(0xFFFF69B4))
+                                                            item.urls.forEach { url ->
+                                                                Card(
+                                                                    modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+                                                                    colors = CardDefaults.cardColors(containerColor = Color(0xFF2D2D2D))
                                                                 ) {
-                                                                    Text(
-                                                                        text = "▶️ ${url.substringAfterLast("/").substringBefore("?")}",
-                                                                        style = MaterialTheme.typography.bodySmall,
-                                                                        color = Color(0xFFFFB6C1),
-                                                                        modifier = Modifier.weight(1f),
-                                                                        maxLines = 1
-                                                                    )
-                                                                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                                                    Row(
+                                                                        modifier = Modifier.fillMaxWidth().padding(8.dp),
+                                                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                                                        verticalAlignment = Alignment.CenterVertically
+                                                                    ) {
+                                                                        Text(
+                                                                            text = "▶️ ${url.substringAfterLast("/").substringBefore("?")}",
+                                                                            style = MaterialTheme.typography.bodySmall,
+                                                                            color = Color(0xFFFFB6C1),
+                                                                            modifier = Modifier.weight(1f),
+                                                                            maxLines = 1
+                                                                        )
+                                                                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                                                            Button(
+                                                                                onClick = {
+                                                                                    try {
+                                                                                        val intent = Intent(Intent.ACTION_VIEW).apply { setDataAndType(url.toUri(), "video/*") }
+                                                                                        androidContext.startActivity(intent)
+                                                                                    } catch (e: Exception) {
+                                                                                        Toast.makeText(androidContext, "找不到合适的视频播放器", Toast.LENGTH_SHORT).show()
+                                                                                    }
+                                                                                },
+                                                                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                                                                                modifier = Modifier.height(30.dp)
+                                                                            ) {
+                                                                                Text("播放", style = MaterialTheme.typography.labelSmall)
+                                                                            }
+                                                                            Button(
+                                                                                onClick = {
+                                                                                    downloadMediaAsset(url, "保存视频")
+                                                                                },
+                                                                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                                                                                modifier = Modifier.height(30.dp),
+                                                                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
+                                                                            ) {
+                                                                                Text("保存", style = MaterialTheme.typography.labelSmall)
+                                                                            }
+                                                                        }
+                                                                    }
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                    is LogEntry.FileList -> {
+                                                        Column {
+                                                            Text(text = "${item.time} 📁 截获敏感后缀可下载文件 (${item.urls.size}个):", style = MaterialTheme.typography.bodySmall, color = Color(0xFF00FFFF))
+                                                            item.urls.forEach { url ->
+                                                                Card(
+                                                                    modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+                                                                    colors = CardDefaults.cardColors(containerColor = Color(0xFF2D2D2D))
+                                                                ) {
+                                                                    Row(
+                                                                        modifier = Modifier.fillMaxWidth().padding(8.dp),
+                                                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                                                        verticalAlignment = Alignment.CenterVertically
+                                                                    ) {
+                                                                        Text(
+                                                                            text = "💾 ${url.substringAfterLast("/").substringBefore("?")}",
+                                                                            style = MaterialTheme.typography.bodySmall,
+                                                                            color = Color(0xFF00FFFF),
+                                                                            modifier = Modifier.weight(1f),
+                                                                            maxLines = 1
+                                                                        )
                                                                         Button(
                                                                             onClick = {
-                                                                                try {
-                                                                                    val intent = Intent(Intent.ACTION_VIEW).apply { setDataAndType(url.toUri(), "video/*") }
-                                                                                    androidContext.startActivity(intent)
-                                                                                } catch (e: Exception) {
-                                                                                    Toast.makeText(androidContext, "找不到合适的视频播放器", Toast.LENGTH_SHORT).show()
-                                                                                }
+                                                                                downloadMediaAsset(url, "保存文件")
                                                                             },
                                                                             contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
                                                                             modifier = Modifier.height(30.dp)
                                                                         ) {
-                                                                            Text("播放", style = MaterialTheme.typography.labelSmall)
+                                                                            Text("直接保存", style = MaterialTheme.typography.labelSmall)
                                                                         }
-                                                                        Button(
-                                                                            onClick = {
-                                                                                downloadMediaAsset(url, "保存视频")
-                                                                            },
-                                                                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
-                                                                            modifier = Modifier.height(30.dp),
-                                                                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
-                                                                        ) {
-                                                                            Text("保存", style = MaterialTheme.typography.labelSmall)
-                                                                        }
-                                                                    }
-                                                                }
-                                                            }
-                                                        }
-                                                    }
-                                                }
-                                                is LogEntry.FileList -> {
-                                                    Column {
-                                                        Text(text = "${item.time} 📁 截获敏感后缀可下载文件 (${item.urls.size}个):", style = MaterialTheme.typography.bodySmall, color = Color(0xFF00FFFF))
-                                                        item.urls.forEach { url ->
-                                                            Card(
-                                                                modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
-                                                                colors = CardDefaults.cardColors(containerColor = Color(0xFF2D2D2D))
-                                                            ) {
-                                                                Row(
-                                                                    modifier = Modifier.fillMaxWidth().padding(8.dp),
-                                                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                                                    verticalAlignment = Alignment.CenterVertically
-                                                                ) {
-                                                                    Text(
-                                                                        text = "💾 ${url.substringAfterLast("/").substringBefore("?")}",
-                                                                        style = MaterialTheme.typography.bodySmall,
-                                                                        color = Color(0xFF00FFFF),
-                                                                        modifier = Modifier.weight(1f),
-                                                                        maxLines = 1
-                                                                    )
-                                                                    Button(
-                                                                        onClick = {
-                                                                            downloadMediaAsset(url, "保存文件")
-                                                                        },
-                                                                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
-                                                                        modifier = Modifier.height(30.dp)
-                                                                    ) {
-                                                                        Text("直接保存", style = MaterialTheme.typography.labelSmall)
                                                                     }
                                                                 }
                                                             }
