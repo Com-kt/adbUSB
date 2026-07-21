@@ -150,7 +150,7 @@ class NekoCrawlerActivity : ComponentActivity() {
                 fun getCurrentTime() = SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date())
 
                 fun appendTextLog(msg: String, color: Color = Color(0xFF00FF00)) {
-                    if (logs.size > 150) {
+                    if (logs.size > 500) {
                         logs.removeAt(0)
                     }
                     logs.add(LogEntry.Text(getCurrentTime(), msg, color))
@@ -378,6 +378,24 @@ class NekoCrawlerActivity : ComponentActivity() {
                                                             isPageLoading = false
                                                             pageTimeoutJob?.cancel()
                                                             appendTextLog("🚀 隐身 DOM 就绪，环境指纹已伪装。")
+                                                            
+                                                            view?.evaluateJavascript("""
+                                                                (function() {
+                                                                    var metas = document.getElementsByTagName('meta');
+                                                                    for (var i = 0; i < metas.length; i++) {
+                                                                        if (metas[i].name === 'viewport') {
+                                                                            var content = metas[i].getAttribute('content');
+                                                                            if (content) {
+                                                                                // 替换禁止用户缩放的属性
+                                                                                content = content.replace(/user-scalable\s*=\s*no/gi, 'user-scalable=yes');
+                                                                                // 将最大缩放倍数放大到 5 倍或 10 倍
+                                                                                content = content.replace(/maximum-scale\s*=\s*[0-9.]+/gi, 'maximum-scale=5.0');
+                                                                                metas[i].setAttribute('content', content);
+                                                                            }
+                                                                        }
+                                                                    }
+                                                                })();
+                                                            """.trimIndent(), null)
                                                             
                                                             if (url != null && (url.startsWith("http://") || url.startsWith("https://"))) {
                                                                 thread {
