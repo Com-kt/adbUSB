@@ -80,7 +80,7 @@ class NekoCrawlerActivity : ComponentActivity() {
         )
         setContent {
             NekoTheme {
-                var targetUrl by remember { mutableStateOf("https://baidu.com") }
+                var targetUrl by remember { mutableStateOf("https://m.baidu.com") }
                 
                 var spiderScript by remember {
                     mutableStateOf(
@@ -139,13 +139,13 @@ class NekoCrawlerActivity : ComponentActivity() {
                 var currentAgent by remember { mutableStateOf(WebAgentMode.MOBILE) }
                 var agentMenuExpanded by remember { mutableStateOf(false) }
 
-                var selectedTab by remember { mutableStateOf(0) }
+                var selectedTab by remember { mutableIntStateOf(0) }
                 val tabs = listOf("网页", "脚本", "日志看板")
 
                 fun getCurrentTime() = SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date())
 
                 fun appendTextLog(msg: String, color: Color = Color(0xFF00FF00)) {
-                    if (logs.size > 500) {
+                    if (logs.size > 150) {
                         logs.removeAt(0)
                     }
                     logs.add(LogEntry.Text(getCurrentTime(), msg, color))
@@ -210,7 +210,7 @@ class NekoCrawlerActivity : ComponentActivity() {
                             .fillMaxSize()
                             .padding(innerPadding)
                     ) {
-                        TabRow(selectedTabIndex = selectedTab) {
+                        PrimaryTabRow(selectedTabIndex = selectedTab) {
                             tabs.forEachIndexed { index, title ->
                                 Tab(
                                     selected = selectedTab == index,
