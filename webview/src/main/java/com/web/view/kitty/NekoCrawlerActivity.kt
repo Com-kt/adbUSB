@@ -10,8 +10,9 @@ import android.net.ConnectivityManager
 import android.os.Bundle
 import android.os.Environment
 import android.view.ViewGroup
-import android.webkit.JavascriptInterface
+import android.webkit.ConsoleMessage
 import android.webkit.RenderProcessGoneDetail
+import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
@@ -48,6 +49,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.json.JSONObject
 import java.net.InetAddress
+import java.net.URL
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -71,7 +73,7 @@ enum class WebAgentMode(val title: String, val ua: String) {
 class NekoCrawlerActivity : ComponentActivity() {
 
     @OptIn(ExperimentalMaterial3Api::class)
-    @SuppressLint("SetJavaScriptEnabled", "JavascriptInterface")
+    @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge(
@@ -80,57 +82,56 @@ class NekoCrawlerActivity : ComponentActivity() {
         )
         setContent {
             NekoTheme {
-                var targetUrl by remember { mutableStateOf("https://baidu.com") }
+                var targetUrl by mutableStateOf("https://baidu.com")
                 
-                var spiderScript by remember {
-                    mutableStateOf(
-                        """
-                        (async function() {
-                            let assets = {
-                                "图片列表": [],
-                                "视频及流媒体": [],
-                                "下载文件": [],
-                                "嗅探当前公网IP": "正在探测..."
-                            };
+                var spiderScript by mutableStateOf(
+                    """
+                    (async function() {
+                        // 1. 强力隐藏自动化特征（过 navigator.webdriver 检测）
+                        Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
+                        window.navigator.chrome = { runtime: {} };
+                        Object.defineProperty(navigator, 'languages', { get: () => ['zh-CN', 'zh', 'en-US', 'en'] });
+                        Object.defineProperty(navigator, 'plugins', { get: () => [1, 2, 3, 4, 5] });
 
-                            document.querySelectorAll('img').forEach(img => {
-                                let src = img.src || img.getAttribute('data-src') || img.getAttribute('data-original');
-                                if (src && src.startsWith('http') && !assets["图片列表"].includes(src)) {
-                                    assets["图片列表"].push(src);
-                                }
-                            });
+                        // 2. 模拟人类浏览停顿，防并发机器特征
+                        await new Promise(r => setTimeout(r, Math.floor(Math.random() * 1200) + 800));
 
-                            document.querySelectorAll('video, video source').forEach(vid => {
-                                let src = vid.src;
-                                if (src && src.startsWith('http') && !assets["视频及流媒体"].includes(src)) {
-                                    assets["视频及流媒体"].push(src);
-                                }
-                            });
+                        let assets = {
+                            "图片列表": [],
+                            "视频及流媒体": [],
+                            "下载文件": []
+                        };
 
-                            let fileSuffixes = ['.pdf', '.zip', '.rar', '.apk', '.docx', '.xlsx', '.mp3'];
-                            document.querySelectorAll('a').forEach(a => {
-                                let href = a.href;
-                                if (href && fileSuffixes.some(s => href.toLowerCase().includes(s))) {
-                                    if (!assets["下载文件"].includes(href)) {
-                                        assets["下载文件"].push(href);
-                                    }
-                                }
-                            });
-
-                            try {
-                                let res = await fetch('https://api.ipify.org?format=json');
-                                let json = await res.json();
-                                assets["嗅探当前公网IP"] = json.ip;
-                            } catch (e) {
-                                assets["嗅探当前公网IP"] = "检测失败";
+                        document.querySelectorAll('img').forEach(img => {
+                            let src = img.src || img.getAttribute('data-src') || img.getAttribute('data-original');
+                            if (src && src.startsWith('http') && !assets["图片列表"].includes(src)) {
+                                assets["图片列表"].push(src);
                             }
+                        });
 
-                            window.NekoSpider.postData(JSON.stringify(assets)); 
-                            return "嗅探脚本触发成功！";
-                        })();
-                        """.trimIndent()
-                    )
-                }
+                        document.querySelectorAll('video, video source').forEach(vid => {
+                            let src = vid.src;
+                            if (src && src.startsWith('http') && !assets["视频及流媒体"].includes(src)) {
+                                assets["视频及流媒体"].push(src);
+                            }
+                        });
+
+                        let fileSuffixes = ['.pdf', '.zip', '.rar', '.apk', '.docx', '.xlsx', '.mp3'];
+                        document.querySelectorAll('a').forEach(a => {
+                            let href = a.href;
+                            if (href && fileSuffixes.some(s => href.toLowerCase().includes(s))) {
+                                if (!assets["下载文件"].includes(href)) {
+                                    assets["下载文件"].push(href);
+                                }
+                            }
+                        });
+
+                        // 3. 使用无痕控制台通道回传数据（不留任何全局变量 window 痕迹）
+                        console.log("NEKO_DATA_BRIDGE:" + JSON.stringify(assets));
+                        return "隐身嗅探脚本触发成功！";
+                    })();
+                    """.trimIndent()
+                )
                 
                 val logs = remember { mutableStateListOf<LogEntry>() }
                 val coroutineScope = rememberCoroutineScope()
@@ -190,7 +191,7 @@ class NekoCrawlerActivity : ComponentActivity() {
                 Scaffold(
                     topBar = {
                         TopAppBar(
-                            title = { Text("🕷️ 网页自动化多媒体爬虫") },
+                            title = { Text("🕷️ 隐身多媒体爬虫 (Anti-Bot)") },
                             navigationIcon = {
                                 IconButton(onClick = {
                                     if (webViewInstance?.canGoBack() == true) {
@@ -255,9 +256,9 @@ class NekoCrawlerActivity : ComponentActivity() {
                                                         currentAgent = mode
                                                         agentMenuExpanded = false
                                                         webViewInstance?.let { wv ->
-                                                            wv.loadUrl("about:blank")
+                                                            val currentWebUrl = wv.url.takeIf { !it.isNullOrBlank() && it != "about:blank" } ?: targetUrl
                                                             wv.settings.userAgentString = mode.ua
-                                                            wv.loadUrl(targetUrl)
+                                                            wv.loadUrl(currentWebUrl)
                                                         }
                                                         appendTextLog("【系统】已切换为 [${mode.title}] 并重载网页...")
                                                     }
@@ -305,50 +306,51 @@ class NekoCrawlerActivity : ComponentActivity() {
                                                     settings.javaScriptCanOpenWindowsAutomatically = false
                                                     settings.setSupportMultipleWindows(false)
                                                     
-                                                    addJavascriptInterface(object {
-                                                        @JavascriptInterface
-                                                        fun postData(json: String) {
-                                                            runOnUiThread {
-                                                                try {
-                                                                    val obj = JSONObject(json)
-                                                                    val ip = obj.optString("嗅探当前公网IP")
-                                                                    appendTextLog("【网络层】本地嗅探公网出口 IP: $ip", Color(0xFF00BFFF))
+                                                    webChromeClient = object : WebChromeClient() {
+                                                        override fun onConsoleMessage(consoleMessage: ConsoleMessage?): Boolean {
+                                                            val msg = consoleMessage?.message() ?: ""
+                                                            if (msg.startsWith("NEKO_DATA_BRIDGE:")) {
+                                                                val json = msg.removePrefix("NEKO_DATA_BRIDGE:")
+                                                                runOnUiThread {
+                                                                    try {
+                                                                        val obj = JSONObject(json)
+                                                                        val imgArr = obj.optJSONArray("图片列表")
+                                                                        val imgList = mutableListOf<String>()
+                                                                        if (imgArr != null) {
+                                                                            for (i in 0 until imgArr.length()) imgList.add(imgArr.getString(i))
+                                                                        }
+                                                                        if (imgList.isNotEmpty()) {
+                                                                            logs.add(LogEntry.ImageGallery(getCurrentTime(), imgList))
+                                                                        }
 
-                                                                    val imgArr = obj.optJSONArray("图片列表")
-                                                                    val imgList = mutableListOf<String>()
-                                                                    if (imgArr != null) {
-                                                                        for (i in 0 until imgArr.length()) imgList.add(imgArr.getString(i))
-                                                                    }
-                                                                    if (imgList.isNotEmpty()) {
-                                                                        logs.add(LogEntry.ImageGallery(getCurrentTime(), imgList))
-                                                                    }
+                                                                        val vidArr = obj.optJSONArray("视频及流媒体")
+                                                                        val vidList = mutableListOf<String>()
+                                                                        if (vidArr != null) {
+                                                                            for (i in 0 until vidArr.length()) vidList.add(vidArr.getString(i))
+                                                                        }
+                                                                        if (vidList.isNotEmpty()) {
+                                                                            logs.add(LogEntry.VideoList(getCurrentTime(), vidList))
+                                                                        }
 
-                                                                    val vidArr = obj.optJSONArray("视频及流媒体")
-                                                                    val vidList = mutableListOf<String>()
-                                                                    if (vidArr != null) {
-                                                                        for (i in 0 until vidArr.length()) vidList.add(vidArr.getString(i))
-                                                                    }
-                                                                    if (vidList.isNotEmpty()) {
-                                                                        logs.add(LogEntry.VideoList(getCurrentTime(), vidList))
-                                                                    }
+                                                                        val fileArr = obj.optJSONArray("下载文件")
+                                                                        val fileList = mutableListOf<String>()
+                                                                        if (fileArr != null) {
+                                                                            for (i in 0 until fileArr.length()) fileList.add(fileArr.getString(i))
+                                                                        }
+                                                                        if (fileList.isNotEmpty()) {
+                                                                            logs.add(LogEntry.FileList(getCurrentTime(), fileList))
+                                                                        }
 
-                                                                    val fileArr = obj.optJSONArray("下载文件")
-                                                                    val fileList = mutableListOf<String>()
-                                                                    if (fileArr != null) {
-                                                                        for (i in 0 until fileArr.length()) fileList.add(fileArr.getString(i))
+                                                                        appendTextLog("【系统】隐身嗅探资产清洗完毕，已渲染进看板面板。", Color.Yellow)
+                                                                    } catch (e: Exception) {
+                                                                        appendTextLog("【解构异常】数据格式错误: ${e.message}", Color.Red)
                                                                     }
-                                                                    if (fileList.isNotEmpty()) {
-                                                                        logs.add(LogEntry.FileList(getCurrentTime(), fileList))
-                                                                    }
-
-                                                                    appendTextLog("【系统】多媒体资产清洗完毕，已渲染进看板面板。", Color.Yellow)
-
-                                                                } catch (e: Exception) {
-                                                                    appendTextLog("【解构异常】数据格式错误: ${e.message}", Color.Red)
                                                                 }
+                                                                return true
                                                             }
+                                                            return super.onConsoleMessage(consoleMessage)
                                                         }
-                                                    }, "NekoSpider")
+                                                    }
 
                                                     webViewClient = object : WebViewClient() {
                                                         override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) {
@@ -371,21 +373,30 @@ class NekoCrawlerActivity : ComponentActivity() {
                                                         override fun onPageFinished(view: WebView?, url: String?) {
                                                             isPageLoading = false
                                                             pageTimeoutJob?.cancel()
-                                                            appendTextLog("🚀 页面 DOM 就绪，随时可注入探针。")
+                                                            appendTextLog("🚀 隐身 DOM 就绪，环境指纹已伪装。")
                                                             
                                                             if (url != null && (url.startsWith("http://") || url.startsWith("https://"))) {
                                                                 thread {
                                                                     try {
                                                                         val host = url.toUri().host ?: return@thread
                                                                         val ips = InetAddress.getAllByName(host).joinToString(", ") { it.hostAddress ?: "" }
+                                                                        
+                                                                        val publicIp = try {
+                                                                            URL("https://api.ipify.org").readText(Charsets.UTF_8)
+                                                                        } catch (e: Exception) {
+                                                                            "探测失败"
+                                                                        }
+
                                                                         val cm = getSystemService(CONNECTIVITY_SERVICE) as ConnectivityManager
                                                                         val dns = cm.getLinkProperties(cm.activeNetwork)?.dnsServers?.joinToString(", ") { it.hostAddress ?: "" } ?: "未知"
+                                                                        
                                                                         runOnUiThread {
+                                                                            appendTextLog("【网络层】本机公网出口 IP: [$publicIp]", Color(0xFF00BFFF))
                                                                             appendTextLog("【网络DNS】主机: $host -> 实际服务器IP: [$ips]")
                                                                             appendTextLog("【网络DNS】本地系统 DNS 服务器: [$dns]")
                                                                         }
                                                                     } catch (e: Exception) {
-                                                                        runOnUiThread { appendTextLog("【DNS分析失败】: ${e.message}", Color.Red) }
+                                                                        runOnUiThread { appendTextLog("【网络分析失败】: ${e.message}", Color.Red) }
                                                                     }
                                                                 }
                                                             }
@@ -435,7 +446,7 @@ class NekoCrawlerActivity : ComponentActivity() {
                                     modifier = Modifier.fillMaxSize(),
                                     verticalArrangement = Arrangement.spacedBy(10.dp)
                                 ) {
-                                    Text("编写或修改自动化多媒体嗅探脚本 (JS)：", style = MaterialTheme.typography.titleSmall)
+                                    Text("编写或修改隐身自动化多媒体嗅探脚本 (JS)：", style = MaterialTheme.typography.titleSmall)
                                     
                                     OutlinedTextField(
                                         value = spiderScript,
@@ -451,12 +462,12 @@ class NekoCrawlerActivity : ComponentActivity() {
                                         enabled = !isPageLoading,
                                         onClick = {
                                             if (webViewInstance != null && spiderScript.isNotBlank()) {
-                                                appendTextLog("正在向当前页面灌入多媒体探针...")
+                                                appendTextLog("正在向当前页面灌入隐身探针...")
                                                 webViewInstance?.evaluateJavascript(spiderScript) { res -> appendTextLog("执行状态 >> $res") }
                                             }
                                         },
                                         modifier = Modifier.fillMaxWidth()
-                                    ) { Text("立即嗅探图片/视频/文件") }
+                                    ) { Text("立即隐身嗅探图片/视频/文件") }
                                 }
                             }
 
