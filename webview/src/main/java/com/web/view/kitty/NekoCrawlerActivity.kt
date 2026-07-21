@@ -33,6 +33,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -83,7 +85,7 @@ class NekoCrawlerActivity : ComponentActivity() {
         setContent {
             NekoTheme {
                 var targetUrl by remember { mutableStateOf("https://baidu.com") }
-                
+
                 var spiderScript by remember {
                     mutableStateOf(
                         """
@@ -127,14 +129,14 @@ class NekoCrawlerActivity : ComponentActivity() {
                                 }
                             });
 
-                            // 3. 使用无痕控制台通道回传数据（不留任何全局变量 window 痕迹）
+                            // 3. 使用无痕控制台通道回传数据
                             console.log("NEKO_DATA_BRIDGE:" + JSON.stringify(assets));
                             return "隐身嗅探脚本触发成功！";
                         })();
                         """.trimIndent()
                     )
-                )
-                
+                }
+
                 val logs = remember { mutableStateListOf<LogEntry>() }
                 val coroutineScope = rememberCoroutineScope()
                 val listState = rememberLazyListState()
@@ -262,7 +264,7 @@ class NekoCrawlerActivity : ComponentActivity() {
                                                             wv.settings.userAgentString = mode.ua
                                                             wv.loadUrl(currentWebUrl)
                                                         }
-                                                        appendTextLog("【系统】已切换为 [${mode.title}] 并重载网页...")
+                                                        appendTextLog("【系统】已切换为 [${mode.title}]，正在重载当前页面...")
                                                     }
                                                 )
                                             }
