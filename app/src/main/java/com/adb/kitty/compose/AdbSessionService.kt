@@ -167,7 +167,6 @@ class AdbSessionService : Service() {
             startForeground(NOTIFICATION_ID, buildNotification(initialText))
         }
 
-        // 2. 开启 3 秒高频静默刷新定时器
         startNotificationTicker()
     }
     
@@ -201,8 +200,8 @@ class AdbSessionService : Service() {
         refreshJob = serviceScope.launch {
             while (isActive) {
                 updateTickerNotification()
-                delay(3000)
-                totalSeconds += 3
+                delay(7000)
+                totalSeconds += 7
             }
         }
     }
@@ -213,7 +212,6 @@ class AdbSessionService : Service() {
         val seconds = totalSeconds % 60
         val timeString = String.format(Locale.US, "%02d:%02d:%02d", hours, minutes, seconds)
 
-        // ✨ 核心修正 2：定时器只负责安心传递时间字符串，不再负责用“|”野蛮拼接
         updateNotification(timeString)
     }
 
@@ -291,7 +289,8 @@ class AdbSessionService : Service() {
             .setIcon(avatarIcon)
             .setIntent(Intent(this, AdbSessionService::class.java).apply { action = "LAUNCH_FROM_NOTIF" })
             .setPerson(consoleUser)
-            .setLongLived(true) 
+            .setLongLived(true)
+            .setIsConversation()
             .build()
         
         ShortcutManagerCompat.pushDynamicShortcut(this, shortcut)
@@ -315,6 +314,7 @@ class AdbSessionService : Service() {
             .setSmallIcon(R.drawable.ic_small_kiss)
             .setStyle(messagingStyle)
             .setShortcutId(shortcutId)
+            .setBubbleMetadata(null)
             .setCategory(NotificationCompat.CATEGORY_MESSAGE)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
