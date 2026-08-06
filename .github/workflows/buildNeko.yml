@@ -136,6 +136,9 @@ jobs:
           archive: false
           
       - name: Builds APKs Splits
+        run: |
+          chmod +x ./.github/scripts/build_and_sign.sh
+          ./.github/scripts/build_and_sign.sh
         env:
           GH_TOKEN: ${{ github.token }}
           KEY_STORE_PASSWORD: ${{ secrets.KEY_STORE_PASSWORD }}
@@ -144,9 +147,6 @@ jobs:
           OLD_KEY_STORE_PASSWORD: ${{ secrets.OLD_KEY_STORE_PASSWORD }}
           OLD_KEY_ALIAS: ${{ secrets.OLD_KEY_ALIAS }}
           OLD_KEY_PASSWORD: ${{ secrets.OLD_KEY_PASSWORD }}
-        run: |
-          chmod +x ./.github/scripts/build_and_sign.sh
-          ./.github/scripts/build_and_sign.sh
           
       - name: Upload Debug Bundle Apks
         uses: actions/upload-artifact@v7
