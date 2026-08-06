@@ -1,4 +1,4 @@
-#!/usr/bin/env shell=bash
+#!/usr/bin/env bash
 set -e
 
 echo "=== Downloading Bundletool ==="
