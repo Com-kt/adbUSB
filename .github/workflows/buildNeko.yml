@@ -75,14 +75,14 @@ jobs:
       - name: Upload Debug APKs
         uses: actions/upload-artifact@v7
         with:
-          name: debug-apks
+          name: app-debug
           path: app/build/outputs/apk/debug/*
           archive: true
 
       - name: Upload Release APKs
         uses: actions/upload-artifact@v7
         with:
-          name: release-apks
+          name: app-release
           path: app/build/outputs/apk/release/*
           archive: true
           
@@ -90,20 +90,27 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: native-debug-symbols
-          path: app/build/outputs/native-debug-symbols/*
-          archive: true
+          path: app/build/outputs/native-debug-symbols/release/native-debug-symbols.zip
+          archive: false
           
-      - name: Upload Apks Logs
+      - name: Upload Debug Manifest
         uses: actions/upload-artifact@v7
         with:
-          name: apks-logs
-          path: app/build/outputs/logs/*
-          archive: true
+          name: manifest-debug
+          path: app/build/outputs/logs/manifest-merger-debug-report.txt
+          archive: false
+          
+      - name: Upload Release Manifest
+        uses: actions/upload-artifact@v7
+        with:
+          name: manifest-release
+          path: app/build/outputs/logs/manifest-merger-release-report.txt
+          archive: false
          
       - name: Upload R8
         uses: actions/upload-artifact@v7
         with:
-          name: r8-logs
+          name: r8-deploy
           path: app/build/outputs/mapping/release/*
           archive: true
           
@@ -114,9 +121,43 @@ jobs:
           path: app/build/outputs/mapping/release/configanalyzer.html
           archive: false
       
-      - name: Upload Bundle
+      - name: Upload Debug Bundle
         uses: actions/upload-artifact@v7
         with:
-          name: aab-bundle
-          path: app/build/outputs/bundle/*
-          archive: true
+          name: aab-bundle-debug
+          path: app/build/outputs/bundle/debug/app-debug.aab
+          archive: false
+          
+      - name: Upload Release Bundle
+        uses: actions/upload-artifact@v7
+        with:
+          name: aab-bundle-release
+          path: app/build/outputs/bundle/release/app-release.aab
+          archive: false
+          
+      - name: Builds APKs Splits
+        env:
+          GH_TOKEN: ${{ github.token }}
+          KEY_STORE_PASSWORD: ${{ secrets.KEY_STORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          OLD_KEY_STORE_PASSWORD: ${{ secrets.OLD_KEY_STORE_PASSWORD }}
+          OLD_KEY_ALIAS: ${{ secrets.OLD_KEY_ALIAS }}
+          OLD_KEY_PASSWORD: ${{ secrets.OLD_KEY_PASSWORD }}
+        run: |
+          chmod +x .github/scripts/build_and_sign.sh
+          ./.github/scripts/build_and_sign.sh
+          
+      - name: Upload Debug Bundle Apks
+        uses: actions/upload-artifact@v7
+        with:
+          name: apks-bundle-debug
+          path: app/build/outputs/bundle/debug/aab-debug.apks
+          archive: false
+          
+      - name: Upload Release Bundle Apks
+        uses: actions/upload-artifact@v7
+        with:
+          name: apks-bundle-release
+          path: app/build/outputs/bundle/release/aab-release.apks
+          archive: false
