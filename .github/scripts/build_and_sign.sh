@@ -15,7 +15,7 @@ echo "=== Debug AAB: $DEBUG_AAB ==="
 
 java -jar bundletool.jar build-apks \
   --bundle="$RELEASE_AAB" \
-  --output=app/build/outputs/bundle/release/aab-release.apks \
+  --output=app/build/outputs/bundle/release/app-release.apks \
   --aapt2="$AAPT2_PATH" \
   --mode=default \
   --ks=app/new_full_ec_key.jks \
@@ -25,7 +25,7 @@ java -jar bundletool.jar build-apks \
 
 java -jar bundletool.jar build-apks \
   --bundle="$DEBUG_AAB" \
-  --output=app/build/outputs/bundle/debug/aab-debug.apks \
+  --output=app/build/outputs/bundle/debug/app-debug.apks \
   --aapt2="$AAPT2_PATH" \
   --mode=default \
   --ks=app/new_full_ec_key.jks \
@@ -38,7 +38,7 @@ echo "Using system apksigner: $APKSIGNER"
 
 echo "=== Re-signing Release Split APKs with V3.1 ==="
 mkdir -p ext_release
-unzip -o app/build/outputs/bundle/release/aab-release.apks -d ext_release
+unzip -o app/build/outputs/bundle/release/app-release.apks -d ext_release
 find ext_release -name "*.apk" | while read -r apk; do
   echo "Processing: $apk"
   "$APKSIGNER" sign \
@@ -57,11 +57,11 @@ find ext_release -name "*.apk" | while read -r apk; do
     "$apk"
 done
 
-cd ext_release && zip -r ../app/build/outputs/bundle/release/aab-release.apks . && cd ..
+cd ext_release && zip -r ../app/build/outputs/bundle/release/app-release.apks . && cd ..
 
 echo "=== Re-signing Debug Split APKs with V3.1 ==="
 mkdir -p ext_debug
-unzip -o app/build/outputs/bundle/debug/aab-debug.apks -d ext_debug
+unzip -o app/build/outputs/bundle/debug/app-debug.apks -d ext_debug
 find ext_debug -name "*.apk" | while read -r apk; do
   echo "Processing: $apk"
   "$APKSIGNER" sign \
@@ -80,6 +80,6 @@ find ext_debug -name "*.apk" | while read -r apk; do
     "$apk"
 done
 
-cd ext_debug && zip -r ../app/build/outputs/bundle/debug/aab-debug.apks . && cd ..
+cd ext_debug && zip -r ../app/build/outputs/bundle/debug/app-debug.apks . && cd ..
 
 echo "=== V3.1 Key Rotation signing completed successfully! ==="

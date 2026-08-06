@@ -137,7 +137,7 @@ jobs:
           
       - name: Builds APKs Splits
         run: |
-          chmod +x ./.github/scripts/build_and_sign.sh
+          chmod +x .github/scripts/build_and_sign.sh
           ./.github/scripts/build_and_sign.sh
         env:
           GH_TOKEN: ${{ github.token }}
@@ -152,12 +152,12 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: apks-bundle-debug
-          path: app/build/outputs/bundle/debug/aab-debug.apks
+          path: app/build/outputs/bundle/debug/app-debug.apks
           archive: false
           
       - name: Upload Release Bundle Apks
         uses: actions/upload-artifact@v7
         with:
           name: apks-bundle-release
-          path: app/build/outputs/bundle/release/aab-release.apks
+          path: app/build/outputs/bundle/release/app-release.apks
           archive: false
