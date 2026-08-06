@@ -2,8 +2,8 @@
 set -e
 
 echo "=== Downloading Bundletool ==="
-gh release download --repo google/bundletool --pattern "bundletool-all-*.jar" --clobber
-mv bundletool-all-*.jar bundletool.jar
+gh release download --repo google/bundletool --pattern "bundletool-all-1.18.3.jar" --clobber
+mv bundletool-all-1.18.3.jar bundletool.jar
 
 RELEASE_AAB=$(ls app/build/outputs/bundle/release/*.aab | head -n 1)
 DEBUG_AAB=$(ls app/build/outputs/bundle/debug/*.aab | head -n 1)
