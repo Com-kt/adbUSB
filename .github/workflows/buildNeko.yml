@@ -145,7 +145,7 @@ jobs:
           OLD_KEY_ALIAS: ${{ secrets.OLD_KEY_ALIAS }}
           OLD_KEY_PASSWORD: ${{ secrets.OLD_KEY_PASSWORD }}
         run: |
-          chmod +x .github/scripts/build_and_sign.sh
+          chmod +x ./.github/scripts/build_and_sign.sh
           ./.github/scripts/build_and_sign.sh
           
       - name: Upload Debug Bundle Apks
