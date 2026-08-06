@@ -114,9 +114,7 @@ jobs:
           path: app/build/outputs/mapping/release/configanalyzer.html
           archive: false
       
-      - name: Builds APKs Splits & Sign with V3.1 Key Rotation
-        env:
-          GH_TOKEN: ${{ github.token }}
+      - name: Builds APKs Splits
         run: |
           BUNDLETOOL_PATH="app/jar/bundletool-all-1.18.3.jar"
     
