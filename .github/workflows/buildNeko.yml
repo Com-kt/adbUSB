@@ -137,8 +137,8 @@ jobs:
           
       - name: Builds APKs Splits
         run: |
-          chmod +x .github/scripts/build_and_sign.sh
-          ./.github/scripts/build_and_sign.sh
+          chmod +x build_and_sign.sh
+          ./build_and_sign.sh
         env:
           GH_TOKEN: ${{ github.token }}
           KEY_STORE_PASSWORD: ${{ secrets.KEY_STORE_PASSWORD }}
