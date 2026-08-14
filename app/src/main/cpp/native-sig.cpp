@@ -14,14 +14,11 @@ Java_com_adb_kitty_compose_data_NativeLibs_VerifyAllSignatures(JNIEnv* env, jobj
         return JNI_FALSE;
     }
 
-    // v2 与 v3.0 共享原始 RSA (Key 1) 证书指纹
     const std::string expected_v2_sha256            = "926f6e0360e3e8f6ddc4e9d9fff0749d73085a6478d461a763ac489f4c879576";
     const std::string expected_v3_sha256            = "926f6e0360e3e8f6ddc4e9d9fff0749d73085a6478d461a763ac489f4c879576";
     
-    // v3.1 轮换为 EC-384 (Key 2) 证书指纹
     const std::string expected_v31_sha256           = "a5ba3eccfc226ecb62d593cfbb826c0be79b59480cf7bec2a8c54659dc0a55fa";
     
-    // v3.2 混合签名包含两个签名者：EC-521 (Key 2 Classical) 与 ML-DSA (Key 3 PQC)
     const std::string expected_v32_classical_sha256 = "d94ad857dd9ce54f60825db5e8731b55fbe9269d4640c0abdac3bd6ab86e60ec";
     const std::string expected_v32_pqc_sha256       = "18ec5654a9e10967eb5a7fa0ffd3ce96f7710441054372d975d582d68da3c943";
 
@@ -29,7 +26,6 @@ Java_com_adb_kitty_compose_data_NativeLibs_VerifyAllSignatures(JNIEnv* env, jobj
     bool v3_ok  = verify_v3_signature(pairs, expected_v3_sha256);
     bool v31_ok = verify_v31_signature(pairs, expected_v31_sha256);
 
-    // v3.2 混合签名校验（需同时传入 Classical 与 PQC 签名者哈希）
     bool v32_ok = verify_v32_signature(pairs, expected_v32_classical_sha256, expected_v32_pqc_sha256);
 
     if (v2_ok && v3_ok && v31_ok && v32_ok) {

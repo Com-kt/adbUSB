@@ -34,7 +34,6 @@ public:
 
 uint32_t read_uint32_le(const uint8_t*& ptr);
 
-// 提取指定索引 (signer_index) 的签名者证书 SHA256 (用于 v3.2 提取 Classical 和 PQC)
 std::string get_signer_cert_sha256(const uint8_t* payload, size_t payload_size, size_t signer_index = 0);
 size_t get_signer_count(const uint8_t* payload, size_t payload_size);
 std::string get_block_cert_sha256(const uint8_t* payload, size_t payload_size);
@@ -46,7 +45,6 @@ bool verify_v2_signature(const std::unordered_map<uint32_t, std::vector<uint8_t>
 bool verify_v3_signature(const std::unordered_map<uint32_t, std::vector<uint8_t>>& pairs, const std::string& expected_sha256);
 bool verify_v31_signature(const std::unordered_map<uint32_t, std::vector<uint8_t>>& pairs, const std::string& expected_sha256);
 
-// v3.2 混合签名接收 2 个指纹（Classical + PQC）
 bool verify_v32_signature(const std::unordered_map<uint32_t, std::vector<uint8_t>>& pairs, 
                          const std::string& expected_classical_sha256, 
                          const std::string& expected_pqc_sha256);

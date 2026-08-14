@@ -18,7 +18,7 @@ java -jar bundletool.jar build-apks \
   --output=app/build/outputs/bundle/release/app-release.apks \
   --aapt2="$AAPT2_PATH" \
   --mode=default \
-  --ks=new_key.jks \
+  --ks=app/bash/new_key.jks \
   --ks-pass="pass:${KEY_STORE_PASSWORD}" \
   --ks-key-alias="${KEY_ALIAS}" \
   --key-pass="pass:${KEY_PASSWORD}"
@@ -28,7 +28,7 @@ java -jar bundletool.jar build-apks \
   --output=app/build/outputs/bundle/debug/app-debug.apks \
   --aapt2="$AAPT2_PATH" \
   --mode=default \
-  --ks=new_key.jks \
+  --ks=app/bash/new_key.jks \
   --ks-pass="pass:${KEY_STORE_PASSWORD}" \
   --ks-key-alias="${KEY_ALIAS}" \
   --key-pass="pass:${KEY_PASSWORD}"
@@ -46,32 +46,32 @@ find ext_release -name "*.apk" | while read -r apk; do
     --v2-signing-enabled true \
     --v3-signing-enabled true \
     --v4-signing-enabled true \
-    --ks old_key.jks \
+    --ks app/bash/old_key.jks \
     --ks-pass "pass:${OLD_KEY_STORE_PASSWORD}" \
     --ks-key-alias "${OLD_KEY_ALIAS}" \
     --key-pass "pass:${OLD_KEY_PASSWORD}" \
     --next-signer \
-    --ks new_key.jks \
+    --ks app/bash/new_key.jks \
     --ks-pass "pass:${KEY_STORE_PASSWORD}" \
     --ks-key-alias "${KEY_ALIAS}" \
     --key-pass "pass:${KEY_PASSWORD}" \
     --next-signer \
-    --ks new_keys.jks \
+    --ks app/bash/new_keys.jks \
     --ks-pass pass:${NEW_KEY_STORE_PASSWORD} \
     --ks-key-alias ${NEW_KEY_ALIAS} \
     --key-pass pass:${NEW_KEY_PASSWORD} \
-    --signer-lineage app_lineage_2.bin \
+    --signer-lineage app/bash/app_lineage_2.bin \
     --hybrid-signer-role classical \
     --hybrid-min-sdk-version 37 \
     --next-signer \
-    --ks pqc_key.jks \
+    --ks app/bash/pqc_key.jks \
     --ks-pass pass:${PQC_KEY_STORE_PASSWORD} \
     --ks-key-alias ${PQC_KEY_ALIAS} \
     --key-pass pass:${PQC_KEY_PASSWORD} \
-    --signer-lineage app_lineage_3.bin \
+    --signer-lineage app/bash/app_lineage_3.bin \
     --hybrid-signer-role pqc \
     --hybrid-min-sdk-version 37 \
-    --lineage app_lineage_1.bin \
+    --lineage app/bash/app_lineage_1.bin \
     "$apk"
 done
 
@@ -87,32 +87,32 @@ find ext_debug -name "*.apk" | while read -r apk; do
     --v2-signing-enabled true \
     --v3-signing-enabled true \
     --v4-signing-enabled true \
-    --ks old_key.jks \
+    --ks app/bash/old_key.jks \
     --ks-pass "pass:${OLD_KEY_STORE_PASSWORD}" \
     --ks-key-alias "${OLD_KEY_ALIAS}" \
     --key-pass "pass:${OLD_KEY_PASSWORD}" \
     --next-signer \
-    --ks new_key.jks \
+    --ks app/bash/new_key.jks \
     --ks-pass "pass:${KEY_STORE_PASSWORD}" \
     --ks-key-alias "${KEY_ALIAS}" \
     --key-pass "pass:${KEY_PASSWORD}" \
     --next-signer \
-    --ks new_keys.jks \
+    --ks app/bash/new_keys.jks \
     --ks-pass pass:${NEW_KEY_STORE_PASSWORD} \
     --ks-key-alias ${NEW_KEY_ALIAS} \
     --key-pass pass:${NEW_KEY_PASSWORD} \
-    --signer-lineage app_lineage_2.bin \
+    --signer-lineage app/bash/app_lineage_2.bin \
     --hybrid-signer-role classical \
     --hybrid-min-sdk-version 37 \
     --next-signer \
-    --ks pqc_key.jks \
+    --ks app/bash/pqc_key.jks \
     --ks-pass pass:${PQC_KEY_STORE_PASSWORD} \
     --ks-key-alias ${PQC_KEY_ALIAS} \
     --key-pass pass:${PQC_KEY_PASSWORD} \
-    --signer-lineage app_lineage_3.bin \
+    --signer-lineage app/bash/app_lineage_3.bin \
     --hybrid-signer-role pqc \
     --hybrid-min-sdk-version 37 \
-    --lineage app_lineage_1.bin \
+    --lineage app/bash/app_lineage_1.bin \
     "$apk"
 done
 

@@ -175,14 +175,14 @@ jobs:
           PQC_KEY_ALIAS: ${{ secrets.PQC_KEY_ALIAS }}
           PQC_KEY_PASSWORD: ${{ secrets.PQC_KEY_PASSWORD }}
           
-      - name: Upload Debug Bundle Apks
+      - name: Upload Splits Debug APKs
         uses: actions/upload-artifact@v7
         with:
           name: apks-bundle-debug
           path: app/build/outputs/bundle/debug/app-debug.apks
           archive: false
           
-      - name: Upload Release Bundle Apks
+      - name: Upload Splits Release APKs
         uses: actions/upload-artifact@v7
         with:
           name: apks-bundle-release

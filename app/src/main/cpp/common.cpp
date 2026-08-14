@@ -105,12 +105,10 @@ std::string get_signer_cert_sha256(const uint8_t* payload, size_t payload_size, 
                 const uint8_t* signed_data_end = ptr + signed_data_size;
                 if (signed_data_end > next_signer) return "";
 
-                // 跳过 Digests 序列
                 if (ptr + 4 > signed_data_end) return "";
                 uint32_t digests_sequence_size = read_uint32_le(ptr);
                 ptr += digests_sequence_size;
 
-                // 解析 Certificates 序列
                 if (ptr + 4 > signed_data_end) return "";
                 uint32_t certs_sequence_size = read_uint32_le(ptr);
                 if (ptr + 4 > signed_data_end) return "";
@@ -274,16 +272,13 @@ bool verify_v32_signature(const std::unordered_map<uint32_t, std::vector<uint8_t
 
     const auto& payload = it->second;
 
-    // 1. 验证签名者数量必须为 2
     if (get_signer_count(payload.data(), payload.size()) != 2) {
         return false;
     }
 
-    // 2. 提取 Index 0 (Classical) 与 Index 1 (PQC)
     std::string classical_sha256 = get_signer_cert_sha256(payload.data(), payload.size(), 0);
     std::string pqc_sha256       = get_signer_cert_sha256(payload.data(), payload.size(), 1);
 
-    // 3. 双重校验匹配
     return (!classical_sha256.empty() && classical_sha256 == expected_classical_sha256) &&
            (!pqc_sha256.empty() && pqc_sha256 == expected_pqc_sha256);
 }
