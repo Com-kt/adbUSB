@@ -507,6 +507,7 @@ class AdbSessionService : Service() {
     private var proxyServerSocket: ServerSocket? = null
     @Volatile private var isProxyRunning = false
     
+    @RequiresApi(Build.VERSION_CODES.Q)
     fun initWifiP2p(onLog: (String) -> Unit) {
         if (p2pChannel == null) {
             p2pChannel = wifiP2pManager.initialize(this, mainLooper, null)
@@ -514,6 +515,7 @@ class AdbSessionService : Service() {
         }
     }
     
+    @RequiresApi(Build.VERSION_CODES.Q)
     @SuppressLint("MissingPermission")
     fun resetP2pGroup(onLog: (String) -> Unit) {
         initWifiP2p(onLog)
@@ -541,6 +543,7 @@ class AdbSessionService : Service() {
         })
     }
 
+    @RequiresApi(Build.VERSION_CODES.Q)
     @SuppressLint("MissingPermission")
     fun requestP2pPeers(onLog: (String) -> Unit) {
         initWifiP2p(onLog)
@@ -567,6 +570,7 @@ class AdbSessionService : Service() {
         }
     }
 
+    @RequiresApi(Build.VERSION_CODES.Q)
     @SuppressLint("MissingPermission")
     fun connectToP2pDevice(deviceAddress: String, intentValue: Int, onLog: (String) -> Unit) {
         initWifiP2p(onLog)
@@ -594,10 +598,6 @@ class AdbSessionService : Service() {
     @RequiresApi(Build.VERSION_CODES.Q)
     @SuppressLint("MissingPermission")
     fun startP2pGroup(customSsid: String? = null, customPass: String? = null, onLog: (String) -> Unit) {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
-            return
-        }
-        
         initWifiP2p(onLog)
 
         val manager = wifiP2pManager
@@ -653,6 +653,7 @@ class AdbSessionService : Service() {
         }
     }
 
+    @RequiresApi(Build.VERSION_CODES.Q)
     fun checkP2pConnectionState(onLog: (String) -> Unit) {
         initWifiP2p(onLog)
         try {
@@ -675,6 +676,7 @@ class AdbSessionService : Service() {
         }
     }
     
+    @RequiresApi(Build.VERSION_CODES.Q)
     @SuppressLint("MissingPermission")
     fun discoverP2pDevices(onLog: (String) -> Unit) {
         initWifiP2p(onLog)
@@ -688,11 +690,13 @@ class AdbSessionService : Service() {
         }
     }
 
+    @RequiresApi(Build.VERSION_CODES.Q)
     fun closeAllActiveSockets() {
         try { activeClientSocket?.close() } catch (_: Exception) {} finally { activeClientSocket = null }
         try { activeServerSocket?.close() } catch (_: Exception) {} finally { activeServerSocket = null }
     }
 
+    @RequiresApi(Build.VERSION_CODES.Q)
     @SuppressLint("MissingPermission")
     fun autoP2pSend(sourceFile: File, userPort: Int? = null, onLog: (String) -> Unit) {
         val port = userPort ?: DEFAULT_P2P_PORT
@@ -755,6 +759,7 @@ class AdbSessionService : Service() {
         }
     }
 
+    @RequiresApi(Build.VERSION_CODES.Q)
     @SuppressLint("MissingPermission")
     fun autoP2pReceive(outputFolder: File, userPort: Int? = null, onLog: (String) -> Unit) {
         val port = userPort ?: DEFAULT_P2P_PORT
@@ -818,10 +823,6 @@ class AdbSessionService : Service() {
     @RequiresApi(Build.VERSION_CODES.Q)
     @SuppressLint("WakelockTimeout")
     private fun acquireHighPerformanceLocks() {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
-            return
-        }
-    
         try {
             if (wakeLock == null) {
                 val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
@@ -877,6 +878,7 @@ class AdbSessionService : Service() {
         } catch (_: Exception) {}
     }
     
+    @RequiresApi(Build.VERSION_CODES.Q)
     private fun releasePerformanceLocks() {
         try {
             if (wakeLock?.isHeld == true) {
@@ -895,6 +897,7 @@ class AdbSessionService : Service() {
         }
     }
 
+    @RequiresApi(Build.VERSION_CODES.Q)
     private fun executeStreamTransfer(socket: Socket, sourceFile: File, onLog: (String) -> Unit) {
         var dos: DataOutputStream? = null
         try {
@@ -965,6 +968,7 @@ class AdbSessionService : Service() {
         }
     }
 
+    @RequiresApi(Build.VERSION_CODES.Q)
     private fun executeStreamReceive(socket: Socket, outputFolder: File, onLog: (String) -> Unit) {
         var dis: DataInputStream? = null
         try {
@@ -1029,6 +1033,7 @@ class AdbSessionService : Service() {
         }
     }
     
+    @RequiresApi(Build.VERSION_CODES.Q)
     private fun handleSocks5Client(client: Socket) {
         try {
             val clientIn = client.getInputStream()
@@ -1113,6 +1118,7 @@ class AdbSessionService : Service() {
         }
     }
     
+    @RequiresApi(Build.VERSION_CODES.Q)
     private fun handleUdpAssociate(clientTcp: Socket, clientIn: InputStream, clientOut: OutputStream) {
         var udpServerSocket: DatagramSocket? = null
         try {
@@ -1147,6 +1153,7 @@ class AdbSessionService : Service() {
         }
     }
     
+    @RequiresApi(Build.VERSION_CODES.Q)
     private fun runUdpPumpEngine(udpServer: DatagramSocket) {
         val receiveBuffer = ByteArray(65507)
         val packet = DatagramPacket(receiveBuffer, receiveBuffer.size)
@@ -1246,6 +1253,7 @@ class AdbSessionService : Service() {
         }
     }
     
+    @RequiresApi(Build.VERSION_CODES.Q)
     private fun forwardStream(input: InputStream, output: OutputStream) {
         val buffer = ByteArray(8192)
         var len: Int
@@ -1257,6 +1265,7 @@ class AdbSessionService : Service() {
         } catch (_: Exception) {}
     }
     
+    @RequiresApi(Build.VERSION_CODES.Q)
     fun startSocks5Proxy(port: Int, onLog: (String) -> Unit) {
         if (isProxyRunning) {
             onLog("[提示] SOCKS5 代理已经在运行中，请勿重复开启。")
@@ -1292,6 +1301,7 @@ class AdbSessionService : Service() {
         }
     }
     
+    @RequiresApi(Build.VERSION_CODES.Q)
     fun stopSocks5Proxy(onLog: (String) -> Unit) {
         if (!isProxyRunning) {
             onLog("[提示] 代理服务本就处于关闭状态。")

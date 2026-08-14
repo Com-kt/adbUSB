@@ -9,7 +9,7 @@ annotation = "1.10.0"
 coreKtx = "1.19.0"
 
 mtDataFilesProvider = "1.0.0"
-jdklibs = "2.0.4"
+jdklibs = "2.1.5"
 
 hiddenapibypassVersion = "6.1"
 nayukiQR = "1.8.0"

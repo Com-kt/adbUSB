@@ -424,7 +424,7 @@ class MainActivity : ComponentActivity() {
         val intent = Intent(this, LocalShellService::class.java)
         bindService(intent, localServiceConnection, Context.BIND_AUTO_CREATE)
 
-        val exportFlag = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) RECEIVER_NOT_EXPORTED else 0
+        val exportFlag = ContextCompat.RECEIVER_NOT_EXPORTED
         ContextCompat.registerReceiver(this, usbPermissionReceiver, IntentFilter(ACTION_USB_PERMISSION), exportFlag)
         ContextCompat.registerReceiver(this, usbStateReceiver, IntentFilter().apply {
             addAction(UsbManager.ACTION_USB_DEVICE_ATTACHED)
@@ -1802,8 +1802,7 @@ class MainActivity : ComponentActivity() {
 
     private fun isValidSsid(ssid: String?): Boolean {
         if (ssid.isNullOrEmpty()) return false
-        return !ssid.equals("<unknown ssid>", ignoreCase = true) && 
-               !ssid.equals(WifiManager.UNKNOWN_SSID, ignoreCase = true)
+        return !ssid.equals("<unknown ssid>", ignoreCase = true)
     }
 
     fun handleWifiConnectionFlow() {
