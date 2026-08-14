@@ -57,17 +57,17 @@ find ext_release -name "*.apk" | while read -r apk; do
     --key-pass "pass:${KEY_PASSWORD}" \
     --next-signer \
     --ks app/bash/new_keys.jks \
-    --ks-pass pass:${NEW_KEY_STORE_PASSWORD} \
-    --ks-key-alias ${NEW_KEY_ALIAS} \
-    --key-pass pass:${NEW_KEY_PASSWORD} \
+    --ks-pass "pass:${NEW_KEY_STORE_PASSWORD}" \
+    --ks-key-alias "${NEW_KEY_ALIAS}" \
+    --key-pass "pass:${NEW_KEY_PASSWORD}" \
     --signer-lineage app/bash/app_lineage_2.bin \
     --hybrid-signer-role classical \
     --hybrid-min-sdk-version 37 \
     --next-signer \
     --ks app/bash/pqc_key.jks \
-    --ks-pass pass:${PQC_KEY_STORE_PASSWORD} \
-    --ks-key-alias ${PQC_KEY_ALIAS} \
-    --key-pass pass:${PQC_KEY_PASSWORD} \
+    --ks-pass "pass:${PQC_KEY_STORE_PASSWORD}" \
+    --ks-key-alias "${PQC_KEY_ALIAS}" \
+    --key-pass "pass:${PQC_KEY_PASSWORD}" \
     --signer-lineage app/bash/app_lineage_3.bin \
     --hybrid-signer-role pqc \
     --hybrid-min-sdk-version 37 \
@@ -98,17 +98,17 @@ find ext_debug -name "*.apk" | while read -r apk; do
     --key-pass "pass:${KEY_PASSWORD}" \
     --next-signer \
     --ks app/bash/new_keys.jks \
-    --ks-pass pass:${NEW_KEY_STORE_PASSWORD} \
-    --ks-key-alias ${NEW_KEY_ALIAS} \
-    --key-pass pass:${NEW_KEY_PASSWORD} \
+    --ks-pass "pass:${NEW_KEY_STORE_PASSWORD}" \
+    --ks-key-alias "${NEW_KEY_ALIAS}" \
+    --key-pass "pass:${NEW_KEY_PASSWORD}" \
     --signer-lineage app/bash/app_lineage_2.bin \
     --hybrid-signer-role classical \
     --hybrid-min-sdk-version 37 \
     --next-signer \
     --ks app/bash/pqc_key.jks \
-    --ks-pass pass:${PQC_KEY_STORE_PASSWORD} \
-    --ks-key-alias ${PQC_KEY_ALIAS} \
-    --key-pass pass:${PQC_KEY_PASSWORD} \
+    --ks-pass "pass:${PQC_KEY_STORE_PASSWORD}" \
+    --ks-key-alias "${PQC_KEY_ALIAS}" \
+    --key-pass "pass:${PQC_KEY_PASSWORD}" \
     --signer-lineage app/bash/app_lineage_3.bin \
     --hybrid-signer-role pqc \
     --hybrid-min-sdk-version 37 \

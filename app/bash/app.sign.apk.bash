@@ -6,27 +6,27 @@
   --v3-signing-enabled true \
   --v4-signing-enabled true \
   --ks app/bash/old_key.jks \
-  --ks-pass pass:${OLD_KEY_STORE_PASSWORD} \
-  --ks-key-alias ${OLD_KEY_ALIAS} \
-  --key-pass pass:${OLD_KEY_PASSWORD} \
+  --ks-pass "pass:${OLD_KEY_STORE_PASSWORD}" \
+  --ks-key-alias "${OLD_KEY_ALIAS}" \
+  --key-pass "pass:${OLD_KEY_PASSWORD}" \
   --next-signer \
   --ks app/bash/new_key.jks \
-  --ks-pass pass:${KEY_STORE_PASSWORD} \
-  --ks-key-alias ${KEY_ALIAS} \
-  --key-pass pass:${KEY_PASSWORD} \
+  --ks-pass "pass:${KEY_STORE_PASSWORD}" \
+  --ks-key-alias "${KEY_ALIAS}" \
+  --key-pass "pass:${KEY_PASSWORD}" \
   --next-signer \
   --ks app/bash/new_keys.jks \
-  --ks-pass pass:${NEW_KEY_STORE_PASSWORD} \
-  --ks-key-alias ${NEW_KEY_ALIAS} \
-  --key-pass pass:${NEW_KEY_PASSWORD} \
+  --ks-pass "pass:${NEW_KEY_STORE_PASSWORD}" \
+  --ks-key-alias "${NEW_KEY_ALIAS}" \
+  --key-pass "pass:${NEW_KEY_PASSWORD}" \
   --signer-lineage app/bash/app_lineage_2.bin \
   --hybrid-signer-role classical \
   --hybrid-min-sdk-version 37 \
   --next-signer \
   --ks app/bash/pqc_key.jks \
-  --ks-pass pass:${PQC_KEY_STORE_PASSWORD} \
-  --ks-key-alias ${PQC_KEY_ALIAS} \
-  --key-pass pass:${PQC_KEY_PASSWORD} \
+  --ks-pass "pass:${PQC_KEY_STORE_PASSWORD}" \
+  --ks-key-alias "${PQC_KEY_ALIAS}" \
+  --key-pass "pass:${PQC_KEY_PASSWORD}" \
   --signer-lineage app/bash/app_lineage_3.bin \
   --hybrid-signer-role pqc \
   --hybrid-min-sdk-version 37 \
@@ -40,27 +40,27 @@
   --v3-signing-enabled true \
   --v4-signing-enabled true \
   --ks app/bash/old_key.jks \
-  --ks-pass pass:${OLD_KEY_STORE_PASSWORD} \
-  --ks-key-alias ${OLD_KEY_ALIAS} \
-  --key-pass pass:${OLD_KEY_PASSWORD} \
+  --ks-pass "pass:${OLD_KEY_STORE_PASSWORD}" \
+  --ks-key-alias "${OLD_KEY_ALIAS}" \
+  --key-pass "pass:${OLD_KEY_PASSWORD}" \
   --next-signer \
   --ks app/bash/new_key.jks \
-  --ks-pass pass:${KEY_STORE_PASSWORD} \
-  --ks-key-alias ${KEY_ALIAS} \
-  --key-pass pass:${KEY_PASSWORD} \
+  --ks-pass "pass:${KEY_STORE_PASSWORD}" \
+  --ks-key-alias "${KEY_ALIAS}" \
+  --key-pass "pass:${KEY_PASSWORD}" \
   --next-signer \
   --ks app/bash/new_keys.jks \
-  --ks-pass pass:${KEY_STORE_PASSWORD} \
-  --ks-key-alias ${KEY_ALIAS} \
-  --key-pass pass:${KEY_PASSWORD} \
+  --ks-pass "pass:${KEY_STORE_PASSWORD}" \
+  --ks-key-alias "${KEY_ALIAS}" \
+  --key-pass "pass:${KEY_PASSWORD}" \
   --signer-lineage app/bash/app_lineage_2.bin \
   --hybrid-signer-role classical \
   --hybrid-min-sdk-version 37 \
   --next-signer \
   --ks app/bash/pqc_key.jks \
-  --ks-pass pass:${KEY_STORE_PASSWORD} \
-  --ks-key-alias ${KEY_ALIAS} \
-  --key-pass pass:${KEY_PASSWORD} \
+  --ks-pass "pass:${KEY_STORE_PASSWORD}" \
+  --ks-key-alias "${KEY_ALIAS}" \
+  --key-pass "pass:${KEY_PASSWORD}" \
   --signer-lineage app/bash/app_lineage_3.bin \
   --hybrid-signer-role pqc \
   --hybrid-min-sdk-version 37 \
