@@ -127,7 +127,7 @@ jobs:
           chmod +x app/bash/app.sign.apk.bash
           chmod +x app/bash/apksigner
           chmod +x app/bash/apksigner.jar
-          sh app/bash/app.sign.apk.bash
+          ./app/bash/app.sign.apk.bash
         env:
           KEY_STORE_PASSWORD: ${{ secrets.KEY_STORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}

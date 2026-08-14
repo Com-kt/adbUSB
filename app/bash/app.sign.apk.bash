@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+set -e
+
 ./app/bash/apksigner sign \
   --lineage app/bash/app_lineage_1.bin \
   --v1-signing-enabled false \
