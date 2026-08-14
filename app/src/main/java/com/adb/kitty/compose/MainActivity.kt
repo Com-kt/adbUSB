@@ -486,12 +486,16 @@ class MainActivity : ComponentActivity() {
 
             cmd.startsWith("p2p-") -> {
                 appendLog("[系统] 扩展指令 >> $cmd")
-                val service = adbService
-                if (service == null || !isServiceBound) {
-                    appendLog("[错误] 核心前台服务未并网，拒绝执行 P2P 指令")
-                    return
+                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+                    val service = adbService
+                    if (service == null || !isServiceBound) {
+                        appendLog("[错误] 核心前台服务未并网，拒绝执行 P2P 指令")
+                        return
+                    }
+                    dispatchP2pSubRoute(cmd, service)
+                } else {
+                    appendLog("Wi-Fi p2p 最低要求 Android 10")
                 }
-                dispatchP2pSubRoute(cmd, service)
             }
 
             cmd.startsWith("download ") -> {
@@ -572,6 +576,7 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    @RequiresApi(Build.VERSION_CODES.Q)
     private fun dispatchP2pSubRoute(cmd: String, service: AdbSessionService) {
         when {
             cmd.startsWith("p2p-start-proxy") -> {
