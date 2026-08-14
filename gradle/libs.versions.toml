@@ -9,19 +9,20 @@ annotation = "1.10.0"
 coreKtx = "1.19.0"
 
 mtDataFilesProvider = "1.0.0"
+jdklibs = "2.0.4"
 
 hiddenapibypassVersion = "6.1"
 nayukiQR = "1.8.0"
 libsuVersion = "6.0.0"
 lifecycle = "2.11.0"
 
-material3 = "1.5.0-alpha25"
+material3 = "1.5.0-alpha26"
 
 kadb = "2.1.3"
 zxing = "3.5.4"
 annotationExperimental = "1.6.0"
 
-compose-bom = "2026.06.01"
+compose-bom = "2026.08.00"
 activity-compose = "1.13.0"
 
 [libraries]
@@ -48,6 +49,8 @@ lsposed-hiddenapibypass = { module = "org.lsposed.hiddenapibypass:hiddenapibypas
 
 nayuki-qrcode = { group = "io.nayuki", name = "qrcodegen", version.ref = "nayukiQR" }
 zxing-core = { group = "com.google.zxing", name = "core", version.ref = "zxing" }
+
+android-jdk-libs = { group = "com.android.tools", name = "desugar_jdk_libs", version.ref = "jdklibs" }
 
 libsu-core = { module = "com.github.topjohnwu.libsu:core", version.ref = "libsuVersion" }
 libsu-service = { module = "com.github.topjohnwu.libsu:service", version.ref = "libsuVersion" }

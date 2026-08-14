@@ -425,8 +425,8 @@ class MainActivity : ComponentActivity() {
         bindService(intent, localServiceConnection, Context.BIND_AUTO_CREATE)
 
         val exportFlag = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) RECEIVER_NOT_EXPORTED else 0
-        registerReceiver(usbPermissionReceiver, IntentFilter(ACTION_USB_PERMISSION), exportFlag)
-        registerReceiver(usbStateReceiver, IntentFilter().apply {
+        ContextCompat.registerReceiver(usbPermissionReceiver, IntentFilter(ACTION_USB_PERMISSION), exportFlag)
+        ContextCompat.registerReceiver(usbStateReceiver, IntentFilter().apply {
             addAction(UsbManager.ACTION_USB_DEVICE_ATTACHED)
             addAction(UsbManager.ACTION_USB_DEVICE_DETACHED)
             addAction(UsbManager.ACTION_USB_ACCESSORY_ATTACHED)
@@ -1766,28 +1766,31 @@ class MainActivity : ComponentActivity() {
 
     private fun getCurrentWifiSsid(): String {
         try {
-            val connectivityManager = applicationContext.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-            val activeNetwork = connectivityManager.activeNetwork
-            val capabilities = connectivityManager.getNetworkCapabilities(activeNetwork)
-        
-            if (capabilities != null && capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)) {
-                val wifiInfo = capabilities.transportInfo as? WifiInfo
-                if (wifiInfo != null) {
-                    val ssid = wifiInfo.ssid.replace("\"", "")
-                    if (ssid != "<unknown ssid>" && ssid.isNotEmpty()) {
-                        return ssid
+            val connectivityManager = applicationContext.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                val activeNetwork = connectivityManager?.activeNetwork
+                val capabilities = connectivityManager?.getNetworkCapabilities(activeNetwork)
+
+                if (capabilities != null && capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)) {
+                    val wifiInfo = capabilities.transportInfo as? WifiInfo
+                    if (wifiInfo != null) {
+                        val ssid = wifiInfo.ssid.removeSurrounding("\"")
+                        if (isValidSsid(ssid)) {
+                            return ssid
+                        }
                     }
                 }
             }
-            
+
             @Suppress("DEPRECATION")
-            val wifiManager = applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
+            val wifiManager = applicationContext.applicationContext.getSystemService(Context.WIFI_SERVICE) as? WifiManager
             @Suppress("DEPRECATION")
-            val info = wifiManager.connectionInfo
-            
+            val info = wifiManager?.connectionInfo
+
             if (info != null) {
-                val ssid = info.ssid.replace("\"", "")
-                if (ssid != "<unknown ssid>" && ssid.isNotEmpty()) {
+                val ssid = info.ssid.removeSurrounding("\"")
+                if (isValidSsid(ssid)) {
                     return ssid
                 }
             }
@@ -1795,6 +1798,12 @@ class MainActivity : ComponentActivity() {
             Log.e("adbKitty", "获取无线SSID受限", e)
         }
         return "DEFAULT_WIFI"
+    }
+
+    private fun isValidSsid(ssid: String?): Boolean {
+        if (ssid.isNull_or_Empty()) return false
+        return !ssid.equals("<unknown ssid>", ignoreCase = true) && 
+               !ssid.equals(WifiManager.UNKNOWN_SSID, ignoreCase = true)
     }
 
     fun handleWifiConnectionFlow() {

@@ -20,8 +20,9 @@ import com.adb.kitty.compose.R
 class BypassApi : Application() {
     override fun attachBaseContext(base: Context?) {
         super.attachBaseContext(base)
-       // HiddenApiBypass.addHiddenApiExemptions("L")
-        HiddenApiBypass.setHiddenApiExemptions("")
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            HiddenApiBypass.setHiddenApiExemptions("")
+        }
     }
     override fun onCreate() {
         super.onCreate()

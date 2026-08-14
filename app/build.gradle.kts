@@ -79,6 +79,7 @@ android {
     }
     
     compileOptions {
+        isCoreLibraryDesugaringEnabled = true
         sourceCompatibility = JavaVersion.VERSION_25
         targetCompatibility = JavaVersion.VERSION_25
     }
@@ -170,6 +171,7 @@ android {
 }
 
 dependencies {
+    coreLibraryDesugaring(libs.android.jdk.libs)
     runtimeOnly(libs.bundles.coroutines.runtime)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.annotation)

@@ -325,38 +325,43 @@ class AdbSessionService : Service() {
             .build()
     }
 
-    /**
-     * 🌟 针对 minSdk 29 深度瘦身的渠道创建方法
-     */
     private fun createNotificationChannel() {
-        val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        
-        val oldChannelId = "adb_kitty_channel"
-        val existingChannel = manager.getNotificationChannel(oldChannelId)
-        if (existingChannel != null) {
-            manager.deleteNotificationChannel(oldChannelId)
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
+            return
         }
-        
-        val groupName = getString(R.string.action_service_aaf)
-        val channelGroup = NotificationChannelGroup(GROUP_ID, groupName)
-        manager.createNotificationChannelGroup(channelGroup)
 
-        val channel = NotificationChannel(
-            CHANNEL_ID,
-            getString(R.string.action_service_aag),
-            NotificationManager.IMPORTANCE_DEFAULT
-        ).apply {
-            description = getString(R.string.action_service_aah)
-            group = GROUP_ID
-            setShowBadge(false)
-            enableLights(false)
-            enableVibration(false)
-            setSound(null, null)
+        val manager = getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager ?: return
+
+        try {
+            val oldChannelId = "adb_kitty_channel"
+            val existingChannel = manager.getNotificationChannel(oldChannelId)
+            if (existingChannel != null) {
+                manager.deleteNotificationChannel(oldChannelId)
+            }
+
+            val groupName = getString(R.string.action_service_aaf)
+            val channelGroup = NotificationChannelGroup(GROUP_ID, groupName)
+            manager.createNotificationChannelGroup(channelGroup)
+
+            val channel = NotificationChannel(
+                CHANNEL_ID,
+                getString(R.string.action_service_aag),
+                NotificationManager.IMPORTANCE_DEFAULT
+            ).apply {
+                description = getString(R.string.action_service_aah)
+                group = GROUP_ID
+                setShowBadge(false)
+                enableLights(false)
+                enableVibration(false)
+                setSound(null, null)
+            }
+
+            manager.createNotificationChannel(channel)
+        } catch (e: Exception) {
+            e.printStackTrace()
         }
-        
-        manager.createNotificationChannel(channel)
     }
-    
+
     fun reloadAvatar() {
         cachedCircularIcon = null
         triggerTickerRefreshImmediate()
@@ -586,8 +591,13 @@ class AdbSessionService : Service() {
         }
     }
     
+    @RequiresApi(Build.VERSION_CODES.Q)
     @SuppressLint("MissingPermission")
     fun startP2pGroup(customSsid: String? = null, customPass: String? = null, onLog: (String) -> Unit) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+            return
+        }
+        
         initWifiP2p(onLog)
 
         val manager = wifiP2pManager
@@ -805,8 +815,13 @@ class AdbSessionService : Service() {
         }
     }
 
+    @RequiresApi(Build.VERSION_CODES.Q)
     @SuppressLint("WakelockTimeout")
     private fun acquireHighPerformanceLocks() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+            return
+        }
+    
         try {
             if (wakeLock == null) {
                 val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
