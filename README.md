@@ -12,6 +12,13 @@
 - Hope this sample script can help you
 
 # Verify signature scheme
+- Verify v3.2 signature scheme using JDK 25
+```shell
+$ java --version
+openjdk 25.0.4 2026-07-21
+OpenJDK Runtime Environment (build 25.0.4)
+OpenJDK 64-Bit Server VM (build 25.0.4, mixed mode)
+```
 - Verify Release APK
 ```shell
 $ ./apksigner verify -v --verbose app-release-sign.apk
