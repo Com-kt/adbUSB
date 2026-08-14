@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-./apksigner sign \
+./app/bash/apksigner sign \
   --lineage app_lineage_1.bin \
   --v1-signing-enabled false \
   --v2-signing-enabled true \
@@ -33,7 +33,7 @@
   --out app/build/outputs/apk/debug/app-debug-sign.apk \
   app/build/outputs/apk/debug/app-debug.apk
 
-./apksigner sign \
+./app/bash/apksigner sign \
   --lineage app_lineage_1.bin \
   --v1-signing-enabled false \
   --v2-signing-enabled true \

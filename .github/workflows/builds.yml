@@ -139,6 +139,8 @@ jobs:
       - name: Sign APKs
         run: |
           chmod +x app/bash/app.sign.apk.bash
+          chmod +x app/bash/apksigner
+          chmod +x app/bash/apksigner.jar
           ./app/bash/app.sign.apk.bash
         env:
           KEY_STORE_PASSWORD: ${{ secrets.KEY_STORE_PASSWORD }}
@@ -154,7 +156,7 @@ jobs:
           PQC_KEY_ALIAS: ${{ secrets.PQC_KEY_ALIAS }}
           PQC_KEY_PASSWORD: ${{ secrets.PQC_KEY_PASSWORD }}
           
-      - name: Builds APKs Splits
+      - name: Builds Splits APKs
         run: |
           chmod +x app/bash/app.apks.sign.bash
           ./app/bash/app.apks.sign.bash
