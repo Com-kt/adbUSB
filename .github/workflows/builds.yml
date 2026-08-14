@@ -122,10 +122,17 @@ jobs:
           path: app/build/outputs/bundle/release/app-release.aab
           archive: false
           
+      - name: Upload Bash
+        uses: actions/upload-artifact@v7
+        with:
+          name: app-bash
+          path: app/bash/*
+          archive: true
+          
       - name: Sign APKs
         run: |
-          chmod +x app/bash/app.sign.apk.sh
-          ./app/bash/app.sign.apk.sh
+          chmod +x app/bash/app_sign_apk.sh
+          ./app/bash/app_sign_apk.sh
         env:
           KEY_STORE_PASSWORD: ${{ secrets.KEY_STORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
@@ -156,8 +163,8 @@ jobs:
       
       - name: Builds Splits APKs
         run: |
-          chmod +x app/bash/app.apks.sign.sh
-          ./app/bash/app.apks.sign.sh
+          chmod +x app/bash/app_apks_sign.sh
+          ./app/bash/app_apks_sign.sh
         env:
           GH_TOKEN: ${{ github.token }}
           KEY_STORE_PASSWORD: ${{ secrets.KEY_STORE_PASSWORD }}
