@@ -492,6 +492,7 @@ class MainActivity : ComponentActivity() {
                         appendLog("[错误] 核心前台服务未并网，拒绝执行 P2P 指令")
                         return
                     }
+                    @TargetApi(Build.VERSION_CODES.Q)
                     dispatchP2pSubRoute(cmd, service)
                 } else {
                     appendLog("Wi-Fi p2p 最低要求 Android 10")
