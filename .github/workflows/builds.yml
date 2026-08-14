@@ -124,10 +124,8 @@ jobs:
           
       - name: Sign APKs
         run: |
-          chmod +x app/bash/app.sign.apk.bash
-          chmod +x app/bash/apksigner
-          chmod +x app/bash/apksigner.jar
-          ./app/bash/app.sign.apk.bash
+          chmod +x app/bash/app.sign.apk.sh
+          ./app/bash/app.sign.apk.sh
         env:
           KEY_STORE_PASSWORD: ${{ secrets.KEY_STORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
@@ -158,8 +156,8 @@ jobs:
       
       - name: Builds Splits APKs
         run: |
-          chmod +x app/bash/app.apks.sign.bash
-          ./app/bash/app.apks.sign.bash
+          chmod +x app/bash/app.apks.sign.sh
+          ./app/bash/app.apks.sign.sh
         env:
           GH_TOKEN: ${{ github.token }}
           KEY_STORE_PASSWORD: ${{ secrets.KEY_STORE_PASSWORD }}

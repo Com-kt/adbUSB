@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 set -e
 
-./app/bash/apksigner sign \
+APKSIGNER=$(ls -d $ANDROID_HOME/build-tools/*/apksigner | tail -1)
+
+$APKSIGNER sign \
   --lineage app/bash/app_lineage_1.bin \
   --v1-signing-enabled false \
   --v2-signing-enabled true \
@@ -35,7 +37,7 @@ set -e
   --out app/build/outputs/apk/debug/app-debug-sign.apk \
   app/build/outputs/apk/debug/app-debug.apk
 
-./app/bash/apksigner sign \
+$APKSIGNER sign \
   --lineage app/bash/app_lineage_1.bin \
   --v1-signing-enabled false \
   --v2-signing-enabled true \
