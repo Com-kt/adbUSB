@@ -425,8 +425,8 @@ class MainActivity : ComponentActivity() {
         bindService(intent, localServiceConnection, Context.BIND_AUTO_CREATE)
 
         val exportFlag = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) RECEIVER_NOT_EXPORTED else 0
-        ContextCompat.registerReceiver(usbPermissionReceiver, IntentFilter(ACTION_USB_PERMISSION), exportFlag)
-        ContextCompat.registerReceiver(usbStateReceiver, IntentFilter().apply {
+        ContextCompat.registerReceiver(this, usbPermissionReceiver, IntentFilter(ACTION_USB_PERMISSION), exportFlag)
+        ContextCompat.registerReceiver(this, usbStateReceiver, IntentFilter().apply {
             addAction(UsbManager.ACTION_USB_DEVICE_ATTACHED)
             addAction(UsbManager.ACTION_USB_DEVICE_DETACHED)
             addAction(UsbManager.ACTION_USB_ACCESSORY_ATTACHED)
@@ -1801,7 +1801,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun isValidSsid(ssid: String?): Boolean {
-        if (ssid.isNull_or_Empty()) return false
+        if (ssid.isNullOrEmpty()) return false
         return !ssid.equals("<unknown ssid>", ignoreCase = true) && 
                !ssid.equals(WifiManager.UNKNOWN_SSID, ignoreCase = true)
     }
