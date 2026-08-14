@@ -18,7 +18,7 @@ java -jar bundletool.jar build-apks \
   --output=app/build/outputs/bundle/release/app-release.apks \
   --aapt2="$AAPT2_PATH" \
   --mode=default \
-  --ks=app/new_full_ec_key.jks \
+  --ks=new_key.jks \
   --ks-pass="pass:${KEY_STORE_PASSWORD}" \
   --ks-key-alias="${KEY_ALIAS}" \
   --key-pass="pass:${KEY_PASSWORD}"
@@ -28,7 +28,7 @@ java -jar bundletool.jar build-apks \
   --output=app/build/outputs/bundle/debug/app-debug.apks \
   --aapt2="$AAPT2_PATH" \
   --mode=default \
-  --ks=app/new_full_ec_key.jks \
+  --ks=new_key.jks \
   --ks-pass="pass:${KEY_STORE_PASSWORD}" \
   --ks-key-alias="${KEY_ALIAS}" \
   --key-pass="pass:${KEY_PASSWORD}"
@@ -43,21 +43,39 @@ find ext_release -name "*.apk" | while read -r apk; do
   echo "Processing: $apk"
   "$APKSIGNER" sign \
     --v1-signing-enabled false \
-    --v2-signing-enabled false \
-    --ks app/old_key.jks \
+    --v2-signing-enabled true \
+    --v3-signing-enabled true \
+    --v4-signing-enabled true \
+    --ks old_key.jks \
     --ks-pass "pass:${OLD_KEY_STORE_PASSWORD}" \
     --ks-key-alias "${OLD_KEY_ALIAS}" \
     --key-pass "pass:${OLD_KEY_PASSWORD}" \
     --next-signer \
-    --ks app/new_full_ec_key.jks \
+    --ks new_key.jks \
     --ks-pass "pass:${KEY_STORE_PASSWORD}" \
     --ks-key-alias "${KEY_ALIAS}" \
     --key-pass "pass:${KEY_PASSWORD}" \
-    --lineage app/app_lineage.bin \
+    --next-signer \
+    --ks new_keys.jks \
+    --ks-pass pass:${NEW_KEY_STORE_PASSWORD} \
+    --ks-key-alias ${NEW_KEY_ALIAS} \
+    --key-pass pass:${NEW_KEY_PASSWORD} \
+    --signer-lineage app_lineage_2.bin \
+    --hybrid-signer-role classical \
+    --hybrid-min-sdk-version 37 \
+    --next-signer \
+    --ks pqc_key.jks \
+    --ks-pass pass:${PQC_KEY_STORE_PASSWORD} \
+    --ks-key-alias ${PQC_KEY_ALIAS} \
+    --key-pass pass:${PQC_KEY_PASSWORD} \
+    --signer-lineage app_lineage_3.bin \
+    --hybrid-signer-role pqc \
+    --hybrid-min-sdk-version 37 \
+    --lineage app_lineage_1.bin \
     "$apk"
 done
 
-cd ext_release && zip -r ../app/build/outputs/bundle/release/app-release.apks . && cd ..
+cd ext_release && zip -r ../app/build/outputs/bundle/release/app-release.apks . && cd app/bash
 
 echo "=== Re-signing Debug Split APKs with V3.1 ==="
 mkdir -p ext_debug
@@ -66,20 +84,38 @@ find ext_debug -name "*.apk" | while read -r apk; do
   echo "Processing: $apk"
   "$APKSIGNER" sign \
     --v1-signing-enabled false \
-    --v2-signing-enabled false \
-    --ks app/old_key.jks \
+    --v2-signing-enabled true \
+    --v3-signing-enabled true \
+    --v4-signing-enabled true \
+    --ks old_key.jks \
     --ks-pass "pass:${OLD_KEY_STORE_PASSWORD}" \
     --ks-key-alias "${OLD_KEY_ALIAS}" \
     --key-pass "pass:${OLD_KEY_PASSWORD}" \
     --next-signer \
-    --ks app/new_full_ec_key.jks \
+    --ks new_key.jks \
     --ks-pass "pass:${KEY_STORE_PASSWORD}" \
     --ks-key-alias "${KEY_ALIAS}" \
     --key-pass "pass:${KEY_PASSWORD}" \
-    --lineage app/app_lineage.bin \
+    --next-signer \
+    --ks new_keys.jks \
+    --ks-pass pass:${NEW_KEY_STORE_PASSWORD} \
+    --ks-key-alias ${NEW_KEY_ALIAS} \
+    --key-pass pass:${NEW_KEY_PASSWORD} \
+    --signer-lineage app_lineage_2.bin \
+    --hybrid-signer-role classical \
+    --hybrid-min-sdk-version 37 \
+    --next-signer \
+    --ks pqc_key.jks \
+    --ks-pass pass:${PQC_KEY_STORE_PASSWORD} \
+    --ks-key-alias ${PQC_KEY_ALIAS} \
+    --key-pass pass:${PQC_KEY_PASSWORD} \
+    --signer-lineage app_lineage_3.bin \
+    --hybrid-signer-role pqc \
+    --hybrid-min-sdk-version 37 \
+    --lineage app_lineage_1.bin \
     "$apk"
 done
 
-cd ext_debug && zip -r ../app/build/outputs/bundle/debug/app-debug.apks . && cd ..
+cd ext_debug && zip -r ../app/build/outputs/bundle/debug/app-debug.apks . && cd app/bash
 
 echo "=== V3.1 Key Rotation signing completed successfully! ==="

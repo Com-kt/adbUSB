@@ -27,7 +27,7 @@ class BypassApi : Application() {
         super.onCreate()
         thread {
             val apkPath = packageCodePath
-            val isNativeVerified = NativeLibs.V3Signature(apkPath)
+            val isNativeVerified = NativeLibs.VerifyAllSignatures(apkPath)
             if (!isNativeVerified) {
                 val appContext = this
                 val mainHandler = Handler(Looper.getMainLooper())
@@ -35,7 +35,7 @@ class BypassApi : Application() {
                     override fun run() {
                         Toast.makeText(
                             appContext,
-                            "V3签名校验失败，V3.1签名校验失败",
+                            "您正在使用非官方正版应用，注意代码安全",
                             Toast.LENGTH_LONG
                         ).show()
                         mainHandler.postDelayed(this, 3000)

@@ -12,6 +12,8 @@ set(SOURCE_DIR src/main/cpp)
 add_library(native-lib SHARED
         native-lib.cpp
         native-sig.cpp
+        common.cpp
+        verifier.cpp
 )
 
 target_link_libraries(native-lib

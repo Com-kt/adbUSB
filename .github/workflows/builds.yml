@@ -37,16 +37,17 @@ jobs:
 
       - name: Decode Both Keystores
         run: |
-          echo "${{ secrets.OLD_SIGNING_KEY_BASE64 }}" | base64 --decode > app/old_key.jks
-          echo "${{ secrets.SIGNING_KEY_BASE64 }}" | base64 --decode > app/new_full_ec_key.jks
-          echo "${{ secrets.LINEAGE_BASE64 }}" | base64 --decode > app/app_lineage.bin
+          echo "${{ secrets.OLD_SIGNING_KEY_BASE64 }}" | base64 --decode > app/bash/old_key.jks
+          echo "${{ secrets.SIGNING_KEY_BASE64 }}" | base64 --decode > app/bash/new_key.jks
+          echo "${{ secrets.SIGNING_KEYS_BASE64 }}" | base64 --decode > app/bash/new_keys.jks
+          echo "${{ secrets.SIGNING_PQC_KEY_BASE64 }}" | base64 --decode > app/bash/pqc_key.jks
+          echo "${{ secrets.LINEAGE_A_BASE64 }}" | base64 --decode > app/bash/app_lineage_1.bin
+          echo "${{ secrets.LINEAGE_B_BASE64 }}" | base64 --decode > app/bash/app_lineage_2.bin
+          echo "${{ secrets.LINEAGE_C_BASE64 }}" | base64 --decode > app/bash/app_lineage_3.bin
 
       - name: Build Debug, Release and Bundle
         run: ./gradlew :app:lint :app:assembleDebug :app:assembleRelease :app:bundleDebug :app:bundleRelease -i -w --stacktrace --warning-mode all 2>&1 | tee build.log
         env:
-          OLD_STORE_PASSWORD: ${{ secrets.OLD_KEY_STORE_PASSWORD }}
-          OLD_KEY_ALIAS: ${{ secrets.OLD_KEY_ALIAS }}
-          OLD_KEY_PASSWORD: ${{ secrets.OLD_KEY_PASSWORD }}
           RELEASE_STORE_PASSWORD: ${{ secrets.KEY_STORE_PASSWORD }}
           RELEASE_KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           RELEASE_KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
@@ -135,10 +136,28 @@ jobs:
           path: app/build/outputs/bundle/release/app-release.aab
           archive: false
           
+      - name: Sign APKs
+        run: |
+          chmod +x app/bash/app.sign.apk.bash
+          ./app/bash/app.sign.apk.bash
+        env:
+          KEY_STORE_PASSWORD: ${{ secrets.KEY_STORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          OLD_KEY_STORE_PASSWORD: ${{ secrets.OLD_KEY_STORE_PASSWORD }}
+          OLD_KEY_ALIAS: ${{ secrets.OLD_KEY_ALIAS }}
+          OLD_KEY_PASSWORD: ${{ secrets.OLD_KEY_PASSWORD }}
+          NEW_KEY_STORE_PASSWORD: ${{ secrets.NEW_KEY_STORE_PASSWORD }}
+          NEW_KEY_ALIAS: ${{ secrets.NEW_KEY_ALIAS }}
+          NEW_KEY_PASSWORD: ${{ secrets.NEW_KEY_PASSWORD }}
+          PQC_KEY_STORE_PASSWORD: ${{ secrets.PQC_KEY_STORE_PASSWORD }}
+          PQC_KEY_ALIAS: ${{ secrets.PQC_KEY_ALIAS }}
+          PQC_KEY_PASSWORD: ${{ secrets.PQC_KEY_PASSWORD }}
+          
       - name: Builds APKs Splits
         run: |
-          chmod +x build_and_sign.sh
-          ./build_and_sign.sh
+          chmod +x app/bash/app.apks.sign.bash
+          ./app/bash/app.apks.sign.bash
         env:
           GH_TOKEN: ${{ github.token }}
           KEY_STORE_PASSWORD: ${{ secrets.KEY_STORE_PASSWORD }}
@@ -147,6 +166,12 @@ jobs:
           OLD_KEY_STORE_PASSWORD: ${{ secrets.OLD_KEY_STORE_PASSWORD }}
           OLD_KEY_ALIAS: ${{ secrets.OLD_KEY_ALIAS }}
           OLD_KEY_PASSWORD: ${{ secrets.OLD_KEY_PASSWORD }}
+          NEW_KEY_STORE_PASSWORD: ${{ secrets.NEW_KEY_STORE_PASSWORD }}
+          NEW_KEY_ALIAS: ${{ secrets.NEW_KEY_ALIAS }}
+          NEW_KEY_PASSWORD: ${{ secrets.NEW_KEY_PASSWORD }}
+          PQC_KEY_STORE_PASSWORD: ${{ secrets.PQC_KEY_STORE_PASSWORD }}
+          PQC_KEY_ALIAS: ${{ secrets.PQC_KEY_ALIAS }}
+          PQC_KEY_PASSWORD: ${{ secrets.PQC_KEY_PASSWORD }}
           
       - name: Upload Debug Bundle Apks
         uses: actions/upload-artifact@v7

@@ -30,15 +30,161 @@ val propNdk = providers.gradleProperty("NDK_VERSION").get()
 val propCmake = providers.gradleProperty("CMAKE_VERSION").get()
 val propBuildTools = providers.gradleProperty("BUILDTOOLS_VERSION").get()
 
-val envOldStorePassword = System.getenv("OLD_STORE_PASSWORD") ?: ""
-val envOldKeyAlias = System.getenv("OLD_KEY_ALIAS") ?: ""
-val envOldKeyPassword = System.getenv("OLD_KEY_PASSWORD") ?: ""
-
 val envNewStorePassword = System.getenv("RELEASE_STORE_PASSWORD") ?: ""
 val envNewKeyAlias = System.getenv("RELEASE_KEY_ALIAS") ?: ""
 val envNewKeyPassword = System.getenv("RELEASE_KEY_PASSWORD") ?: ""
 
-val buildVariants = listOf("release", "debug")
+android {
+    namespace = "com.adb.kitty.compose"
+    compileSdk = propCompileSdk
+    buildToolsVersion = "$propBuildTools"
+    ndkVersion = "$propNdk"
+    
+    packaging {
+        dex {
+            useLegacyPackaging = true
+        }
+        jniLibs {
+            useLegacyPackaging = true
+        }
+        resources {
+            excludes += "/META-INF/{AL2.0,LGPL2.1}"
+        }
+    }
+    
+    androidResources {
+        generateLocaleConfig = true
+    }
+    
+    defaultConfig {
+        applicationId = "com.adb.kitty.compose"
+        minSdk = propMinSdk
+        targetSdk = propTargetSdk
+        versionCode = propVersionCode
+        versionName = "$versionPrefix-$buildDate"
+        
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        
+        vectorDrawables { 
+            useSupportLibrary = true
+        }
+        ndk {
+            abiFilters.addAll(setOf("arm64-v8a", "armeabi-v7a", "x86", "x86_64", "riscv64"))
+        }
+        externalNativeBuild {
+            cmake {
+                abiFilters("arm64-v8a", "armeabi-v7a", "x86", "x86_64", "riscv64")
+            }
+        }
+    }
+    
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_25
+        targetCompatibility = JavaVersion.VERSION_25
+    }
+    
+    kotlin {
+        compilerOptions {
+            languageVersion = KotlinVersion.KOTLIN_2_4
+            apiVersion = KotlinVersion.KOTLIN_2_4
+            jvmTarget = JvmTarget.JVM_25
+        }
+    }
+    
+    externalNativeBuild {
+        cmake {
+            path("src/main/cpp/CMakeLists.txt")
+            version = "$propCmake"
+        }
+    }
+    
+    bundle {
+        language {
+            enableSplit = true
+        }
+        density {
+            enableSplit = true
+        }
+        abi {
+            enableSplit = true
+        }
+    }
+    
+    signingConfigs {
+        create("adb") {
+        // keystore file，.bks & .jks & .p12
+            storeFile = file("bash/new_key.jks")
+            storePassword = envNewStorePassword
+            keyAlias = envNewKeyAlias
+            keyPassword = envNewKeyPassword
+            storeType = "PKCS12"
+            enableV1Signing = false
+            enableV2Signing = true
+            enableV3Signing = true
+            enableV4Signing = true
+        }
+    }
+    
+    testBuildType = "debug"
+    buildTypes {
+        release {
+            isMinifyEnabled = true
+            isShrinkResources = true
+            vcsInfo.include = false
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"), 
+                "proguard-rules.pro"
+            )
+            optimization.keepRules {
+                // ignoreFrom 只允许忽略来自远程库的依赖
+                ignoreFrom("org.jetbrains.kotlinx:kotlinx-coroutines-android")
+                ignoreFrom("org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm")
+                ignoreFrom("com.github.topjohnwu.libsu:core")
+                ignoreFrom("org.lsposed.hiddenapibypass:hiddenapibypass")
+            }
+            signingConfig = signingConfigs.getByName("adb")
+        }
+        debug {
+            isMinifyEnabled = false
+            isDebuggable = true
+            signingConfig = signingConfigs.getByName("adb")
+        }
+    }
+
+    buildFeatures {
+        aidl = true
+        buildConfig = true
+        compose = true
+        prefab = true
+    }
+    
+    lint {
+        checkDependencies = false
+      //  abortOnError = false
+    }
+    
+    dependenciesInfo {
+        includeInApk = false
+        includeInBundle = false
+    }
+}
+
+dependencies {
+    runtimeOnly(libs.bundles.coroutines.runtime)
+    implementation(libs.androidx.core.ktx)
+    implementation(libs.androidx.annotation)
+    implementation(libs.mt.dataFilesProvider)
+    implementation(libs.lsposed.hiddenapibypass)
+    implementation(libs.nayuki.qrcode)
+    implementation(libs.zxing.core)
+    implementation(libs.bundles.libsu)
+    implementation(libs.com.flyfishxu.kadb)
+    implementation(libs.androidx.annotation.experimental)
+    implementation(platform(libs.androidx.compose.bom))
+    implementation(libs.bundles.compose)
+    implementation(libs.bundles.compose.lifecycle)
+    debugImplementation(libs.bundles.compose.debug)
+}
 
 abstract class GenerateKotlinMetadataTask : DefaultTask() {
     @get:OutputDirectory abstract val outputDir: DirectoryProperty
@@ -162,227 +308,11 @@ val injectKotlinMetadataToRoot = tasks.register<GenerateKotlinMetadataTask>("inj
     )
 }
 
-android {
-    namespace = "com.adb.kitty.compose"
-    compileSdk = propCompileSdk
-    buildToolsVersion = "$propBuildTools"
-    ndkVersion = "$propNdk"
-    
-    packaging {
-        dex {
-            useLegacyPackaging = true
-        }
-        jniLibs {
-            useLegacyPackaging = true
-        }
-        resources {
-            excludes += "/META-INF/{AL2.0,LGPL2.1}"
-        }
-    }
-    
-    androidResources {
-        generateLocaleConfig = true
-    }
-    
-    defaultConfig {
-        applicationId = "com.adb.kitty.compose"
-        minSdk = propMinSdk
-        targetSdk = propTargetSdk
-        versionCode = propVersionCode
-        versionName = "$versionPrefix-$buildDate"
-        
-        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        
-        vectorDrawables { 
-            useSupportLibrary = true
-        }
-        ndk {
-            abiFilters.addAll(setOf("arm64-v8a", "armeabi-v7a", "x86", "x86_64"))
-        }
-        externalNativeBuild {
-            cmake {
-                abiFilters("arm64-v8a", "armeabi-v7a", "x86", "x86_64")
-            }
-        }
-    }
-    
-    compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_25
-        targetCompatibility = JavaVersion.VERSION_25
-    }
-    
-    kotlin {
-        compilerOptions {
-            languageVersion = KotlinVersion.KOTLIN_2_4
-            apiVersion = KotlinVersion.KOTLIN_2_4
-            jvmTarget = JvmTarget.JVM_25
-        }
-    }
-    
-    externalNativeBuild {
-        cmake {
-            path("src/main/cpp/CMakeLists.txt")
-            version = "$propCmake"
-        }
-    }
-    
-    bundle {
-        language {
-            enableSplit = true
-        }
-        density {
-            enableSplit = true
-        }
-        abi {
-            enableSplit = true
-        }
-    }
-    
-    signingConfigs {
-        create("adb") {
-        // keystore file，.bks & .jks & .p12
-            storeFile = file("new_full_ec_key.jks")
-            storePassword = envNewStorePassword
-            keyAlias = envNewKeyAlias
-            keyPassword = envNewKeyPassword
-            storeType = "PKCS12"
-            enableV1Signing = false
-            enableV2Signing = false
-            enableV3Signing = true
-            enableV4Signing = true
-        }
-    }
-    
-    testBuildType = "debug"
-    buildTypes {
-        release {
-            isMinifyEnabled = true
-            isShrinkResources = true
-            vcsInfo.include = false
-            proguardFiles(
-                getDefaultProguardFile("proguard-android-optimize.txt"), 
-                "proguard-rules.pro"
-            )
-            optimization.keepRules {
-                // ignoreFrom 只允许忽略来自远程库的依赖
-                ignoreFrom("org.jetbrains.kotlinx:kotlinx-coroutines-android")
-                ignoreFrom("org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm")
-                ignoreFrom("com.github.topjohnwu.libsu:core")
-                ignoreFrom("org.lsposed.hiddenapibypass:hiddenapibypass")
-            }
-            signingConfig = signingConfigs.getByName("adb")
-        }
-        debug {
-            isMinifyEnabled = false
-            isDebuggable = true
-            signingConfig = signingConfigs.getByName("adb")
-        }
-    }
-
-    buildFeatures {
-        aidl = true
-        buildConfig = true
-        compose = true
-        prefab = true
-    }
-    
-    lint {
-        checkDependencies = false
-      //  abortOnError = false
-    }
-    
-    dependenciesInfo {
-        includeInApk = false
-        includeInBundle = false
-    }
-}
-
 androidComponents {
     onVariants { variant ->
         variant.sources.resources?.addGeneratedSourceDirectory(
             injectKotlinMetadataToRoot,
             GenerateKotlinMetadataTask::outputDir
         )
-    }
-}
-
-dependencies {
-    runtimeOnly(libs.bundles.coroutines.runtime)
-    implementation(libs.androidx.core.ktx)
-    implementation(libs.androidx.annotation)
-    implementation(libs.mt.dataFilesProvider)
-    implementation(libs.lsposed.hiddenapibypass)
-    implementation(libs.nayuki.qrcode)
-    implementation(libs.zxing.core)
-    implementation(libs.bundles.libsu)
-    implementation(libs.com.flyfishxu.kadb)
-    implementation(libs.androidx.annotation.experimental)
-    implementation(platform(libs.androidx.compose.bom))
-    implementation(libs.bundles.compose)
-    implementation(libs.bundles.compose.lifecycle)
-    debugImplementation(libs.bundles.compose.debug)
-}
-
-buildVariants.forEach { variant ->
-    val taskName = "customApkSignerRotation${variant.replaceFirstChar { it.uppercase() }}"
-    
-    tasks.register(taskName) {
-        group = "signing"
-        description = "apksigner V3+V3.1 for $variant"
-
-        val apkDirProvider = project.layout.buildDirectory.dir("outputs/apk/$variant")
-        inputs.dir(apkDirProvider)
-        outputs.file(apkDirProvider.map { it.file("app-$variant-final.apk") })
-
-        val androidComponents = project.extensions.getByType<ApplicationAndroidComponentsExtension>()
-        val sdkDirProvider = androidComponents.sdkComponents.sdkDirectory
-        
-        val currentProjectDir = project.projectDir 
-        val execOperations = project.providers
-
-        doLast {
-            val sdkDir = sdkDirProvider.get().asFile
-            val apksignerExecutable = File(sdkDir, "build-tools/$propBuildTools/apksigner")
-
-            val apkDirFile = apkDirProvider.get().asFile
-            
-            val inputApk = apkDirFile.listFiles()?.firstOrNull { 
-                it.extension == "apk" && !it.name.contains("final") 
-            } ?: throw GradleException("${apkDirFile.absolutePath} no apk!")
-
-            val outputApk = File(apkDirFile, "app-$variant-final.apk")
-
-            println("apk ($variant): ${inputApk.name}")
-     
-            execOperations.exec {
-            workingDir(currentProjectDir)
-                commandLine(
-                    apksignerExecutable.absolutePath, "sign",
-                    "--v1-signing-enabled", "false",
-                    "--v2-signing-enabled", "false",
-                    "--ks", "old_key.jks",
-                    "--ks-pass", "pass:$envOldStorePassword",
-                    "--ks-key-alias", envOldKeyAlias,
-                    "--key-pass", "pass:$envOldKeyPassword",
-                    "--next-signer", 
-                    "--ks", "new_full_ec_key.jks",
-                    "--ks-pass", "pass:$envNewStorePassword",
-                    "--ks-key-alias", envNewKeyAlias,
-                    "--key-pass", "pass:$envNewKeyPassword",
-                    "--lineage", "app_lineage.bin",
-                    "--out", outputApk.absolutePath,
-                    inputApk.absolutePath
-                )
-            }.result.get()
-
-            println("sig ($variant) OKAY!")
-        }
-    }
-}
-
-tasks.configureEach {
-    when (name) {
-        "packageRelease" -> finalizedBy("customApkSignerRotationRelease")
-        "packageDebug" -> finalizedBy("customApkSignerRotationDebug")
     }
 }

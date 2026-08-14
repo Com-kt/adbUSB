@@ -44,7 +44,7 @@ object NativeLibs {
         System.loadLibrary("native-lib")
     }
     external fun UserString(): String
-    external fun V3Signature(apkPath: String): Boolean
+    external fun VerifyAllSignatures(apkPath: String): Boolean
     
 }
 

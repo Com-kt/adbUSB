@@ -1,0 +1,68 @@
+#!/usr/bin/env bash
+./apksigner sign \
+  --lineage app_lineage_1.bin \
+  --v1-signing-enabled false \
+  --v2-signing-enabled true \
+  --v3-signing-enabled true \
+  --v4-signing-enabled true \
+  --ks old_key.jks \
+  --ks-pass pass:${OLD_KEY_STORE_PASSWORD} \
+  --ks-key-alias ${OLD_KEY_ALIAS} \
+  --key-pass pass:${OLD_KEY_PASSWORD} \
+  --next-signer \
+  --ks new_key.jks \
+  --ks-pass pass:${KEY_STORE_PASSWORD} \
+  --ks-key-alias ${KEY_ALIAS} \
+  --key-pass pass:${KEY_PASSWORD} \
+  --next-signer \
+  --ks new_keys.jks \
+  --ks-pass pass:${NEW_KEY_STORE_PASSWORD} \
+  --ks-key-alias ${NEW_KEY_ALIAS} \
+  --key-pass pass:${NEW_KEY_PASSWORD} \
+  --signer-lineage app_lineage_2.bin \
+  --hybrid-signer-role classical \
+  --hybrid-min-sdk-version 37 \
+  --next-signer \
+  --ks pqc_key.jks \
+  --ks-pass pass:${PQC_KEY_STORE_PASSWORD} \
+  --ks-key-alias ${PQC_KEY_ALIAS} \
+  --key-pass pass:${PQC_KEY_PASSWORD} \
+  --signer-lineage app_lineage_3.bin \
+  --hybrid-signer-role pqc \
+  --hybrid-min-sdk-version 37 \
+  --out app/build/outputs/apk/debug/app-debug-sign.apk \
+  app/build/outputs/apk/debug/app-debug.apk
+
+./apksigner sign \
+  --lineage app_lineage_1.bin \
+  --v1-signing-enabled false \
+  --v2-signing-enabled true \
+  --v3-signing-enabled true \
+  --v4-signing-enabled true \
+  --ks old_key.jks \
+  --ks-pass pass:${OLD_KEY_STORE_PASSWORD} \
+  --ks-key-alias ${OLD_KEY_ALIAS} \
+  --key-pass pass:${OLD_KEY_PASSWORD} \
+  --next-signer \
+  --ks new_key.jks \
+  --ks-pass pass:${KEY_STORE_PASSWORD} \
+  --ks-key-alias ${KEY_ALIAS} \
+  --key-pass pass:${KEY_PASSWORD} \
+  --next-signer \
+  --ks new_keys.jks \
+  --ks-pass pass:${KEY_STORE_PASSWORD} \
+  --ks-key-alias ${KEY_ALIAS} \
+  --key-pass pass:${KEY_PASSWORD} \
+  --signer-lineage app_lineage_2.bin \
+  --hybrid-signer-role classical \
+  --hybrid-min-sdk-version 37 \
+  --next-signer \
+  --ks pqc_key.jks \
+  --ks-pass pass:${KEY_STORE_PASSWORD} \
+  --ks-key-alias ${KEY_ALIAS} \
+  --key-pass pass:${KEY_PASSWORD} \
+  --signer-lineage app_lineage_3.bin \
+  --hybrid-signer-role pqc \
+  --hybrid-min-sdk-version 37 \
+  --out app/build/outputs/apk/release/app-release-sign.apk \
+  app/build/outputs/apk/release/app-release.apk
