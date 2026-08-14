@@ -42,6 +42,7 @@ unzip -o app/build/outputs/bundle/release/app-release.apks -d ext_release
 find ext_release -name "*.apk" | while read -r apk; do
   echo "Processing: $apk"
   "$APKSIGNER" sign \
+    --lineage app/bash/app_lineage_1.bin \
     --v1-signing-enabled false \
     --v2-signing-enabled true \
     --v3-signing-enabled true \
@@ -75,7 +76,7 @@ find ext_release -name "*.apk" | while read -r apk; do
     "$apk"
 done
 
-cd ext_release && zip -r ../app/build/outputs/bundle/release/app-release.apks . && cd app/bash
+cd ext_release && zip -r ../app/build/outputs/bundle/release/app-release.apks . && cd ..
 
 echo "=== Re-signing Debug Split APKs with V3.1 ==="
 mkdir -p ext_debug
@@ -83,6 +84,7 @@ unzip -o app/build/outputs/bundle/debug/app-debug.apks -d ext_debug
 find ext_debug -name "*.apk" | while read -r apk; do
   echo "Processing: $apk"
   "$APKSIGNER" sign \
+    --lineage app/bash/app_lineage_1.bin \
     --v1-signing-enabled false \
     --v2-signing-enabled true \
     --v3-signing-enabled true \
@@ -112,10 +114,9 @@ find ext_debug -name "*.apk" | while read -r apk; do
     --signer-lineage app/bash/app_lineage_3.bin \
     --hybrid-signer-role pqc \
     --hybrid-min-sdk-version 37 \
-    --lineage app/bash/app_lineage_1.bin \
     "$apk"
 done
 
-cd ext_debug && zip -r ../app/build/outputs/bundle/debug/app-debug.apks . && cd app/bash
+cd ext_debug && zip -r ../app/build/outputs/bundle/debug/app-debug.apks . && cd ..
 
 echo "=== V3.1 Key Rotation signing completed successfully! ==="
