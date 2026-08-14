@@ -35,7 +35,7 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
-      - name: Decode Both Keystores
+      - name: Decode Keystores
         run: |
           echo "${{ secrets.OLD_SIGNING_KEY_BASE64 }}" | base64 --decode > app/bash/old_key.jks
           echo "${{ secrets.SIGNING_KEY_BASE64 }}" | base64 --decode > app/bash/new_key.jks
@@ -121,13 +121,6 @@ jobs:
           name: aab-bundle-release
           path: app/build/outputs/bundle/release/app-release.aab
           archive: false
-          
-      - name: Upload Bash
-        uses: actions/upload-artifact@v7
-        with:
-          name: app-bash
-          path: app/bash/*
-          archive: true
           
       - name: Sign APKs
         run: |
