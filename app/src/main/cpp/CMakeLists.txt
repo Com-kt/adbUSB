@@ -24,10 +24,10 @@ set_target_properties(ssl PROPERTIES
 )
 
 add_library(native-lib SHARED
-    ${SOURCE_DIR}/native-lib.cpp
-    ${SOURCE_DIR}/native-sig.cpp
-    ${SOURCE_DIR}/common.cpp
-    ${SOURCE_DIR}/verifier.cpp
+      native-lib.cpp
+      native-sig.cpp
+      common.cpp
+      verifier.cpp
 )
 
 target_link_libraries(native-lib
