@@ -51,7 +51,6 @@ nayuki-qrcode = { group = "io.nayuki", name = "qrcodegen", version.ref = "nayuki
 zxing-core = { group = "com.google.zxing", name = "core", version.ref = "zxing" }
 
 android-jdk-libs = { group = "com.android.tools", name = "desugar_jdk_libs", version.ref = "jdklibs" }
-android-tools-build-apksig = { group = "com.android.tools.build", name = "apksig", version.ref = "agp" }
 
 libsu-core = { module = "com.github.topjohnwu.libsu:core", version.ref = "libsuVersion" }
 libsu-service = { module = "com.github.topjohnwu.libsu:service", version.ref = "libsuVersion" }
