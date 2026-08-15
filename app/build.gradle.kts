@@ -142,7 +142,6 @@ android {
                 ignoreFrom("org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm")
                 ignoreFrom("com.github.topjohnwu.libsu:core")
                 ignoreFrom("org.lsposed.hiddenapibypass:hiddenapibypass")
-                ignoreFrom("com.android.tools.build:apksig")
             }
             signingConfig = signingConfigs.getByName("adb")
         }
