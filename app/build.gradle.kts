@@ -142,6 +142,7 @@ android {
                 ignoreFrom("org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm")
                 ignoreFrom("com.github.topjohnwu.libsu:core")
                 ignoreFrom("org.lsposed.hiddenapibypass:hiddenapibypass")
+                ignoreFrom("com.android.tools.build:apksig")
             }
             signingConfig = signingConfigs.getByName("adb")
         }
@@ -172,6 +173,7 @@ android {
 
 dependencies {
     coreLibraryDesugaring(libs.android.jdk.libs)
+    implementation(libs.android.tools.build.apksig)
     runtimeOnly(libs.bundles.coroutines.runtime)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.annotation)
