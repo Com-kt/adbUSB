@@ -155,14 +155,6 @@ private fun AppListItem(
                 )
             }
         },
-        headlineContent = {
-            Text(
-                text = appInfo.appName,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                style = MaterialTheme.typography.bodyLarge
-            )
-        },
         supportingContent = {
             Column {
                 Text(
@@ -179,5 +171,12 @@ private fun AppListItem(
                 )
             }
         }
-    )
+    ) {
+        Text(
+            text = appInfo.appName,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            style = MaterialTheme.typography.bodyLarge
+        )
+    }
 }
