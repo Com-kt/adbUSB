@@ -132,7 +132,6 @@ class MainActivity : ComponentActivity() {
     
     private var showAppSigBottomSheet by mutableStateOf(false)
     private var selectedSigReport by mutableStateOf<String?>(null)
-    private val nativeVerifier by lazy { NativeLibs() }
     
     private val flashFolder by lazy { File(getExternalFilesDir(null), "flash") }
     private fun ensureFlashDirExists() {
@@ -434,7 +433,7 @@ class MainActivity : ComponentActivity() {
                             appendLog("[系统] 正在解析 ${selectedApp.appName} [${selectedApp.packageName}] 的 APK 签名...")
 
                             lifecycleScope.launch(Dispatchers.IO) {
-                                val report = nativeVerifier.ApkSignature(selectedApp.apkPath)
+                                val report = NativeLibs.ApkSignature(selectedApp.apkPath)
                                 withContext(Dispatchers.Main) {
                                     selectedSigReport = report
                                     appendLog("[系统] 签名解析完成")
