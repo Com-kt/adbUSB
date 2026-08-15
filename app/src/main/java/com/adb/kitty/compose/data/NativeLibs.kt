@@ -43,8 +43,8 @@ object NativeLibs {
     init {
         System.loadLibrary("native-lib")
     }
-    external fun UserString(): String
     external fun VerifyAllSignatures(apkPath: String): Boolean
+    external fun ApkSignature(apkPath: String): String
     
 }
 

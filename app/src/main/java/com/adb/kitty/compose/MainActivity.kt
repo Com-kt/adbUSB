@@ -128,6 +128,10 @@ class MainActivity : ComponentActivity() {
 
     private val responseChannel = Channel<String>(Channel.UNLIMITED)
     
+    private var showAppSigBottomSheet by mutableStateOf(false)
+    private var selectedSigReport by mutableStateOf<String?>(null)
+    private val nativeVerifier by lazy { NativeLibs() }
+    
     private val flashFolder by lazy { File(getExternalFilesDir(null), "flash") }
     private fun ensureFlashDirExists() {
         if (!flashFolder.exists()) {
@@ -414,6 +418,36 @@ class MainActivity : ComponentActivity() {
                         }
                     )
                 }
+                
+                if (showAppSigBottomSheet) {
+                    val context = LocalContext.current
+                    val appList = remember { getInstalledApps(context) }
+
+                    AppListBottomSheet(
+                        appList = appList,
+                        isVisible = showAppSigBottomSheet,
+                        onDismissRequest = { showAppSigBottomSheet = false },
+                        onAppSelected = { selectedApp ->
+                            showAppSigBottomSheet = false
+                            appendLog("[系统] 正在解析 ${selectedApp.appName} [${selectedApp.packageName}] 的 APK 签名...")
+
+                            lifecycleScope.launch(Dispatchers.IO) {
+                                val report = nativeVerifier.ApkSignature(selectedApp.apkPath)
+                                withContext(Dispatchers.Main) {
+                                    selectedSigReport = report
+                                    appendLog("[系统] 签名解析完成")
+                                }
+                            }
+                        }
+                    )
+                }
+                
+                selectedSigReport?.let { report ->
+                    SignatureResultDialog(
+                        signatureInfo = report,
+                        onDismiss = { selectedSigReport = null }
+                    )
+                }
             }
         }
         
@@ -452,6 +486,12 @@ class MainActivity : ComponentActivity() {
         when {
             cmd.startsWith("neko ") -> {
                 handleLocalShellPipeline(cmd)
+            }
+            
+            cmd == "neko-sig" || cmd == "apk-sig" -> {
+                appendLog("[系统] 扩展指令 >> $cmd")
+                appendLog("[系统] 正在读取安装应用列表...")
+                showAppSigBottomSheet = true
             }
             
             cmd.startsWith("neko-intent ") -> {

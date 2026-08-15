@@ -13,7 +13,9 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.annotation.Keep
 
+@Keep
 enum class IntentMode(val title: String) {
     GITHUB("GitHub"),
     CUSTOM("文本分享"),
@@ -23,6 +25,7 @@ enum class IntentMode(val title: String) {
     PLAY("Play")
 }
 
+@Keep
 @Composable
 fun NekoIntentDialog(
     onDismiss: () -> Unit,
