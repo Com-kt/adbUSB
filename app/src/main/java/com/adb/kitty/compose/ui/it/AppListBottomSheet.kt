@@ -19,6 +19,11 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.graphics.drawable.toBitmap
 import androidx.annotation.Keep
+import com.adb.kitty.compose.ui.theme.*
+import com.adb.kitty.compose.ui.viewmodel.*
+import com.adb.kitty.compose.data.*
+import com.adb.kitty.compose.*
+import com.adb.kitty.compose.R
 
 @Keep
 @OptIn(ExperimentalMaterial3Api::class)
