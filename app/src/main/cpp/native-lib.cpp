@@ -59,6 +59,13 @@ public:
         pos += len;
         return slice;
     }
+    
+    BufferReader readSlice(size_t len) {
+        if (len > remaining()) throw std::runtime_error("Buffer underflow in readSlice");
+        BufferReader slice(data_ + offset_, len);
+        offset_ += len;
+        return slice;
+    }
 
     std::vector<uint8_t> readBytes(size_t len) {
         if (pos + len > size) throw std::runtime_error("Read bytes out of bounds");
@@ -491,7 +498,7 @@ static void parseSourceStampV2Payload(std::ostringstream& ss, const std::vector<
     try {
         BufferReader reader(payload.data(), payload.size());
         if (reader.remaining() >= 4) {
-            uint32_t version = reader.readUint32();
+            uint32_t version = reader.readU32();
             ss << "    * Lineage Version  : " << std::dec << version << "\n";
 
             BufferReader nodesReader = reader.readSlice(reader.remaining());
@@ -509,13 +516,13 @@ static void parseSourceStampV2Payload(std::ostringstream& ss, const std::vector<
                 }
 
                 if (nodesReader.remaining() >= 4) {
-                    uint32_t flags = nodesReader.readUint32();
+                    uint32_t flags = nodesReader.readU32();
                     ss << "    * Capability Flags : 0x" << std::hex << flags 
                        << " [" << decodeLineageFlags(flags) << "]\n";
                 }
 
                 if (nodesReader.remaining() >= 4) {
-                    uint32_t sigAlgId = nodesReader.readUint32();
+                    uint32_t sigAlgId = nodesReader.readU32();
                     ss << "    * Sig Algorithm ID : 0x" << std::hex << sigAlgId 
                        << " (" << decodeSigAlgId(sigAlgId) << ")\n";
                 }
