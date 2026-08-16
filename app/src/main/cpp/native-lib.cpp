@@ -502,65 +502,49 @@ void parseSourceStampBlock(std::ostringstream& ss, const std::vector<uint8_t>& p
     try {
         BufferReader reader(payload.data(), payload.size());
 
-        // 版本号 (Version: 4 字节)
-        if (reader.remaining() < 4) return;
-        uint32_t version = reader.readU32();
-        ss << "    * Version          : " << std::dec << version << "\n";
+        if (!reader.hasRemaining()) return;
+        BufferReader signedDataSlice = reader.readLengthPrefixedSlice();
+        ss << "    * Signed Data Size : " << std::dec << signedDataSlice.remaining() << " bytes\n";
 
-        // 非对称公钥 (Stamp Public Key: Length-Prefixed Byte Array)
-        if (reader.hasRemaining()) {
-            BufferReader pubKeySlice = reader.readLengthPrefixedSlice();
-            std::vector<uint8_t> pubKeyBytes = pubKeySlice.readBytes(pubKeySlice.remaining());
-            ss << "    * Stamp Public Key : " << std::dec << pubKeyBytes.size() << " bytes\n";
-            ss << "      - Raw Bytes      : " << toHexString(pubKeyBytes) << "\n";
+        if (signedDataSlice.hasRemaining()) {
+            BufferReader digestsSlice = signedDataSlice.readLengthPrefixedSlice();
+            int digestIdx = 1;
+            while (digestsSlice.hasRemaining()) {
+                BufferReader digestEntry = digestsSlice.readLengthPrefixedSlice();
+                uint32_t sigAlgId = digestEntry.readU32();
+                BufferReader digestValue = digestEntry.readLengthPrefixedSlice();
+                
+                ss << "      - Digest #" << digestIdx++ << " (Alg: 0x" 
+                   << std::hex << sigAlgId << "): "
+                   << toHexString(digestValue.readBytes(digestValue.remaining())) << "\n";
+            }
         }
 
-        // 证书链 (Certificates Sequence: Length-Prefixed)
-        if (reader.hasRemaining()) {
-            BufferReader certsSlice = reader.readLengthPrefixedSlice();
+        if (signedDataSlice.hasRemaining()) {
+            BufferReader certsSlice = signedDataSlice.readLengthPrefixedSlice();
             int certIdx = 1;
             while (certsSlice.hasRemaining()) {
                 BufferReader certSlice = certsSlice.readLengthPrefixedSlice();
                 std::vector<uint8_t> certBytes = certSlice.readBytes(certSlice.remaining());
                 
                 ss << "\n    --- Stamp Certificate #" << certIdx++ << " ---\n";
+                ss << "    * Cert Raw Size    : " << std::dec << certBytes.size() << " bytes\n";
+                
                 printCertDetails(ss, certBytes);
             }
         }
 
-        // 签名主体与摘要 (Signed Data & Signatures)
         if (reader.hasRemaining()) {
-            BufferReader signedDataSlice = reader.readLengthPrefixedSlice();
-            ss << "\n    * Signed Data Size : " << std::dec << signedDataSlice.remaining() << " bytes\n";
-
-            // 摘要列表 (Digests)
-            if (signedDataSlice.hasRemaining()) {
-                BufferReader digestsSlice = signedDataSlice.readLengthPrefixedSlice();
-                int digestIdx = 1;
-                while (digestsSlice.hasRemaining()) {
-                    BufferReader digestEntry = digestsSlice.readLengthPrefixedSlice();
-                    uint32_t sigAlgId = digestEntry.readU32();
-                    BufferReader digestValue = digestEntry.readLengthPrefixedSlice();
-                    
-                    ss << "      - Digest #" << digestIdx++ << " (Alg: 0x" 
-                       << std::hex << sigAlgId << "): "
-                       << toHexString(digestValue.readBytes(digestValue.remaining())) << "\n";
-                }
-            }
-
-            // 签名值 (Signatures)
-            if (reader.hasRemaining()) {
-                BufferReader signaturesSlice = reader.readLengthPrefixedSlice();
-                int sigIdx = 1;
-                while (signaturesSlice.hasRemaining()) {
-                    BufferReader sigEntry = signaturesSlice.readLengthPrefixedSlice();
-                    uint32_t sigAlgId = sigEntry.readU32();
-                    BufferReader signatureValue = sigEntry.readLengthPrefixedSlice();
-                    
-                    ss << "\n    --- Signature #" << sigIdx++ << " ---\n";
-                    ss << "    * Sig Alg ID       : 0x" << std::hex << sigAlgId << "\n";
-                    ss << "    * Signature Size   : " << std::dec << signatureValue.remaining() << " bytes\n";
-                }
+            BufferReader signaturesSlice = reader.readLengthPrefixedSlice();
+            int sigIdx = 1;
+            while (signaturesSlice.hasRemaining()) {
+                BufferReader sigEntry = signaturesSlice.readLengthPrefixedSlice();
+                uint32_t sigAlgId = sigEntry.readU32();
+                BufferReader signatureValue = sigEntry.readLengthPrefixedSlice();
+                
+                ss << "\n    --- Stamp Signature #" << sigIdx++ << " ---\n";
+                ss << "    * Sig Alg ID       : 0x" << std::hex << sigAlgId << "\n";
+                ss << "    * Signature Size   : " << std::dec << signatureValue.remaining() << " bytes\n";
             }
         }
 
