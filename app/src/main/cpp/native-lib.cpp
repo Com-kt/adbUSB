@@ -179,7 +179,7 @@ static void printCertDetails(std::ostringstream& ss, const std::vector<uint8_t>&
 }
 
 static void parseSchemePayload(std::ostringstream& ss, const std::string& schemeName, const std::vector<uint8_t>& payload, bool isV3Family) {
-    ss << "\n========== [ " << schemeName << " ] ==========\n";
+    ss << "\n [ " << schemeName << " ] \n";
     try {
         BufferReader reader(payload.data(), payload.size());
         BufferReader signers = reader.readLengthPrefixedSlice();
@@ -249,7 +249,7 @@ static void parseSchemePayload(std::ostringstream& ss, const std::string& scheme
 }
 
 static void parseSourceStampV1Payload(std::ostringstream& ss, const std::vector<uint8_t>& payload) {
-    ss << "\n========== [ Source Stamp V1 (0x6dff800d) ] ==========\n";
+    ss << "\n [ Source Stamp V1 (0x6dff800d) ] \n";
     ss << "    * Block Size       : " << std::dec << payload.size() << " bytes\n";
     try {
         BufferReader reader(payload.data(), payload.size());
@@ -272,7 +272,7 @@ static void parseSourceStampV1Payload(std::ostringstream& ss, const std::vector<
 }
 
 static void parseSourceStampV2Payload(std::ostringstream& ss, const std::vector<uint8_t>& payload) {
-    ss << "\n========== [ Source Stamp V2 / Lineage (0x2146444e) ] ==========\n";
+    ss << "\n [ Source Stamp V2 / Lineage (0x2146444e) ] \n";
     ss << "    * Block Size       : " << std::dec << payload.size() << " bytes\n";
     try {
         BufferReader reader(payload.data(), payload.size());
@@ -476,18 +476,22 @@ static std::string parseApkSigningBlock(const std::string& apkPath) {
                 parseSourceStampV2Payload(ss, value);
                 break;
             case APK_BUILD_METADATA_ID:
-                ss << "\n========== [ APK Build Metadata (0x42726577) ] ==========\n";
+                ss << "\n [ APK Build Metadata (0x42726577) ] \n";
+                ss << "    * Description      : AGP / R8 Compiler Build Metadata (Brew)\n";
                 ss << "    * Raw Payload Size : " << std::dec << value.size() << " bytes\n";
+                if (!value.empty()) {
+                    ss << "    * Full Hex Data    : " << bytesToFullHex(value.data(), value.size()) << "\n";
+                }
                 break;
             case APK_SDK_DEPENDENCY_INFO_ID:
-                ss << "\n========== [ SDK Dependency Info (0x504b4453) ] ==========\n";
+                ss << "\n [ SDK Dependency Info (0x504b4453) ] \n";
                 ss << "    * Description      : AGP / Google Play SDK Dependency Metadata (Encrypted)\n";
                 ss << "    * Raw Payload Size : " << std::dec << value.size() << " bytes\n";
                 break;
             default: {
                 std::stringstream idSs;
                 idSs << "0x" << std::hex << id;
-                ss << "\n========== [ Block ID " << idSs.str() << " ] ==========\n";
+                ss << "\n [ Block ID " << idSs.str() << " ] \n";
                 ss << "    * Raw Payload Size : " << std::dec << value.size() << " bytes\n";
                 if (!value.empty()) {
                     size_t previewLen = std::min(value.size(), (size_t)32);
