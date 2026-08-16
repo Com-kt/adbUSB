@@ -34,9 +34,9 @@ fun SignatureResultBottomSheet(
 ) {
     val clipboard = LocalClipboard.current
     val coroutineScope = rememberCoroutineScope()
+    
     val sheetState = rememberBottomSheetState(
-        initialValue = SheetValue.Hidden,
-        skipPartiallyExpanded = true
+        initialValue = SheetValue.Hidden
     )
 
     ModalBottomSheet(
