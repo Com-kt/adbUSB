@@ -499,53 +499,45 @@ void parseSourceStampBlock(std::ostringstream& ss, const std::vector<uint8_t>& p
     ss << "    * Description      : Source Signature Tag Block\n";
     ss << "    * Block Size       : " << std::dec << payload.size() << " bytes\n";
 
+    if (payload.size() < 4) return;
+
     try {
-        BufferReader reader(payload.data(), payload.size());
+        const uint8_t* data = payload.data();
+        size_t size = payload.size();
 
-        if (!reader.hasRemaining()) return;
-        BufferReader signedDataSlice = reader.readLengthPrefixedSlice();
-        ss << "    * Signed Data Size : " << std::dec << signedDataSlice.remaining() << " bytes\n";
-
-        if (signedDataSlice.hasRemaining()) {
-            BufferReader digestsSlice = signedDataSlice.readLengthPrefixedSlice();
-            int digestIdx = 1;
-            while (digestsSlice.hasRemaining()) {
-                BufferReader digestEntry = digestsSlice.readLengthPrefixedSlice();
-                uint32_t sigAlgId = digestEntry.readU32();
-                BufferReader digestValue = digestEntry.readLengthPrefixedSlice();
-                
-                ss << "      - Digest #" << digestIdx++ << " (Alg: 0x" 
-                   << std::hex << sigAlgId << "): "
-                   << toHexString(digestValue.readBytes(digestValue.remaining())) << "\n";
-            }
+        uint32_t innerLen = data[0] | (data[1] << 8) | (data[2] << 16) | (data[3] << 24);
+        if (innerLen == size - 4) {
+            data += 4;
+            size = innerLen;
+            ss << "    * Payload Content  : " << std::dec << size << " bytes\n";
         }
 
-        if (signedDataSlice.hasRemaining()) {
-            BufferReader certsSlice = signedDataSlice.readLengthPrefixedSlice();
+        if (size > 0 && data[0] == 0x30) {
+            const uint8_t* p = data;
+            long remaining = static_cast<long>(size);
             int certIdx = 1;
-            while (certsSlice.hasRemaining()) {
-                BufferReader certSlice = certsSlice.readLengthPrefixedSlice();
-                std::vector<uint8_t> certBytes = certSlice.readBytes(certSlice.remaining());
-                
-                ss << "\n    --- Stamp Certificate #" << certIdx++ << " ---\n";
-                ss << "    * Cert Raw Size    : " << std::dec << certBytes.size() << " bytes\n";
-                
-                printCertDetails(ss, certBytes);
-            }
-        }
 
-        if (reader.hasRemaining()) {
-            BufferReader signaturesSlice = reader.readLengthPrefixedSlice();
-            int sigIdx = 1;
-            while (signaturesSlice.hasRemaining()) {
-                BufferReader sigEntry = signaturesSlice.readLengthPrefixedSlice();
-                uint32_t sigAlgId = sigEntry.readU32();
-                BufferReader signatureValue = sigEntry.readLengthPrefixedSlice();
+            while (remaining > 0 && *p == 0x30) {
+                const uint8_t* certStart = p;
+                X509* cert = d2i_X509(NULL, &p, remaining);
+                if (!cert) break;
+
+                long certLen = p - certStart;
+                remaining -= certLen;
+
+                ss << "\n    --- Stamp Certificate #" << certIdx++ << " (" << std::dec << certLen << " bytes) ---\n";
                 
-                ss << "\n    --- Stamp Signature #" << sigIdx++ << " ---\n";
-                ss << "    * Sig Alg ID       : 0x" << std::hex << sigAlgId << "\n";
-                ss << "    * Signature Size   : " << std::dec << signatureValue.remaining() << " bytes\n";
+                std::vector<uint8_t> certBytes(certStart, certStart + certLen);
+                printCertDetails(ss, certBytes);
+                
+                X509_free(cert);
             }
+
+            if (remaining > 0) {
+                ss << "\n    * Signatures/Attrs : " << std::dec << remaining << " bytes remaining\n";
+            }
+        } else {
+            ss << "    * [!] Unsupported Source Stamp internal format\n";
         }
 
     } catch (const std::exception& e) {
