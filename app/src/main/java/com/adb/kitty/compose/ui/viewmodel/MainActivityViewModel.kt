@@ -436,31 +436,4 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
         FbCommand("尝试解锁 Bootloader", "oem unlock"),
         FbCommand("尝试解锁 Bootloader", "flashing unlock")
     )
-    
-    val warnMessage = """
-        adbd 命令使用说明:
-           •adb pair [IP:配对端口] [配对码]
-           •adb connect [IP:无线调试端口]
-           •adb push [本地文件名] [远端路径]
-           •adb pull [远端路径] (可选本地落地名)
-           •adb install [本地文件名]
-           •adb uninstall [包名]
-        fastboot 命令使用说明:
-           •flash <分区> <路径>
-           •boot <文件名>
-           •reboot <可选参数>
-           •oem <参数>
-           •getvar <参数>
-           •erase <分区>
-           •format <分区>
-           •set_active <a或b>
-        1. adb使用kadb库实现，感谢github@[flyfishxu/Kadb]
-        2. fastboot原生链路实现，不保证所有设备可用
-        3. 我的个人项目github@[deleteFAILunknown/usbFlash]
-        4. 应用自身没有签名校验机制，随时都有可能会被寡改
-        5. fastboot线刷之前做好售后9008的准备，如果你拿不到9008免授权的话
-        6. 免责声明：开发者没有任何义务对所有人进行服务
-        7. 线刷文件夹路径：/storage/emulated/0/Android/data/com.adb.kitty.compose/files/flash/
-        8. 开发者正在计划怎么适配9008模式/紧急下载模式
-    """.trimIndent()
 }

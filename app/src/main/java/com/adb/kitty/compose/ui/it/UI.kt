@@ -277,7 +277,7 @@ fun CenterAlignedTopAppBarExample(
                                 },
                                 leadingIcon = { Icon(Icons.Outlined.Info, null) },
                                 onClick = {
-                                    viewModel.appendLog("\n" +viewModel.warnMessage)
+                                    // 使用说明
                                     showMenu = false
                                 }
                             )

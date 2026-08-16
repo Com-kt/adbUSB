@@ -61,9 +61,11 @@ public:
     }
     
     BufferReader readSlice(size_t len) {
-        if (len > remaining()) throw std::runtime_error("Buffer underflow in readSlice");
-        BufferReader slice(data_ + offset_, len);
-        offset_ += len;
+        if (len > remaining()) {
+            throw std::runtime_error("Buffer underflow in readSlice");
+        }
+        BufferReader slice(data + pos, len);
+        pos += len;
         return slice;
     }
 
