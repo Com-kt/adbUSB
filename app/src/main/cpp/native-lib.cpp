@@ -10,6 +10,7 @@
 
 #include <openssl/x509.h>
 #include <openssl/evp.h>
+#include <openssl/ec.h>
 #include <openssl/bn.h>
 #include <openssl/bio.h>
 #include <openssl/asn1.h>
@@ -104,33 +105,78 @@ static std::string getSignatureAlgorithm(X509* cert) {
     return "Unknown";
 }
 
-static std::string getPublicKeyDetails(X509* cert) {
-    EVP_PKEY* pkey = X509_get0_pubkey(cert);
-    if (!pkey) return "Unknown Key";
+static std::string getEcCurveName(EVP_PKEY* pkey) {
+    char group_name[64] = {0};
+    size_t glen = 0;
 
-    int type = EVP_PKEY_base_id(pkey);
-    int bits = EVP_PKEY_bits(pkey);
-
-    if (type == EVP_PKEY_RSA) {
-        return std::to_string(bits) + "-bit RSA key";
-    } 
-    else if (type == EVP_PKEY_EC) {
-        char group_name[64] = {0};
-        size_t glen = 0;
-        std::string curveName = "secp384r1";
-        if (EVP_PKEY_get_utf8_string_param(pkey, OSSL_PKEY_PARAM_GROUP_NAME, group_name, sizeof(group_name), &glen)) {
-            curveName = group_name;
-        }
-        return std::to_string(bits) + "-bit EC (" + curveName + ") key";
-    } 
-    else {
-        int pkey_id = EVP_PKEY_id(pkey);
-        if (pkey_id != NID_undef) {
-            const char* name = OBJ_nid2sn(pkey_id);
-            if (name) return std::string(name) + " key";
-        }
-        return "Custom/Unknown key";
+    if (EVP_PKEY_get_utf8_string_param(pkey, OSSL_PKEY_PARAM_GROUP_NAME, group_name, sizeof(group_name), &glen) && glen > 0) {
+        std::string name(group_name);
+        if (name == "prime256v1") return "secp256r1";
+        return name;
     }
+
+    EC_KEY* ec = EVP_PKEY_get1_EC_KEY(pkey);
+    if (ec) {
+        const EC_GROUP* group = EC_KEY_get0_group(ec);
+        if (group) {
+            int nid = EC_GROUP_get_curve_name(group);
+            if (nid != NID_undef) {
+                const char* sn = OBJ_nid2sn(nid);
+                if (sn) {
+                    std::string curveStr(sn);
+                    if (curveStr == "prime256v1") curveStr = "secp256r1";
+                    EC_KEY_free(ec);
+                    return curveStr;
+                }
+            }
+        }
+        EC_KEY_free(ec);
+    }
+
+    int bits = EVP_PKEY_bits(pkey);
+    if (bits == 256) return "secp256r1";
+    if (bits == 384) return "secp384r1";
+    if (bits == 521) return "secp521r1";
+
+    return "Unknown Curve";
+}
+
+static std::string getPublicKeyDetails(X509* cert) {
+    if (!cert) return "Unknown Key";
+
+    EVP_PKEY* pkey = X509_get0_pubkey(cert);
+    if (pkey) {
+        int type = EVP_PKEY_base_id(pkey);
+        int bits = EVP_PKEY_bits(pkey);
+
+        if (type == EVP_PKEY_RSA) {
+            return std::to_string(bits) + "-bit RSA key";
+        } 
+        else if (type == EVP_PKEY_EC) {
+            std::string curveName = getEcCurveName(pkey);
+            return std::to_string(bits) + "-bit EC (" + curveName + ") key";
+        }
+    }
+
+    X509_PUBKEY* pubkey = X509_get_X509_PUBKEY(cert);
+    if (pubkey) {
+        const ASN1_OBJECT* algOid = nullptr;
+        X509_PUBKEY_get0_param(const_cast<ASN1_OBJECT**>(&algOid), nullptr, nullptr, nullptr, pubkey);
+        if (algOid) {
+            int nid = OBJ_obj2nid(algOid);
+            if (nid != NID_undef) {
+                const char* sn = OBJ_nid2sn(nid);
+                const char* ln = OBJ_nid2ln(nid);
+                if (sn) return std::string(sn) + " key";
+                if (ln) return std::string(ln) + " key";
+            }
+            char oidBuf[128] = {0};
+            OBJ_obj2txt(oidBuf, sizeof(oidBuf), algOid, 1);
+            return std::string("OID: ") + oidBuf + " key";
+        }
+    }
+
+    return "Custom/Unknown key";
 }
 
 static std::string getCertDigest(X509* cert, const EVP_MD* mdType) {
