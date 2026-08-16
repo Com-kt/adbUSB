@@ -10,7 +10,6 @@
 
 #include <openssl/x509.h>
 #include <openssl/evp.h>
-#include <openssl/ec.h>
 #include <openssl/bn.h>
 #include <openssl/bio.h>
 #include <openssl/asn1.h>
@@ -106,31 +105,15 @@ static std::string getSignatureAlgorithm(X509* cert) {
 }
 
 static std::string getEcCurveName(EVP_PKEY* pkey) {
-    char group_name[64] = {0};
-    size_t glen = 0;
+    if (!pkey) return "Unknown Curve";
 
-    if (EVP_PKEY_get_utf8_string_param(pkey, OSSL_PKEY_PARAM_GROUP_NAME, group_name, sizeof(group_name), &glen) && glen > 0) {
-        std::string name(group_name);
-        if (name == "prime256v1") return "secp256r1";
-        return name;
-    }
+    char groupName[64] = {0};
+    size_t len = 0;
 
-    EC_KEY* ec = EVP_PKEY_get1_EC_KEY(pkey);
-    if (ec) {
-        const EC_GROUP* group = EC_KEY_get0_group(ec);
-        if (group) {
-            int nid = EC_GROUP_get_curve_name(group);
-            if (nid != NID_undef) {
-                const char* sn = OBJ_nid2sn(nid);
-                if (sn) {
-                    std::string curveStr(sn);
-                    if (curveStr == "prime256v1") curveStr = "secp256r1";
-                    EC_KEY_free(ec);
-                    return curveStr;
-                }
-            }
-        }
-        EC_KEY_free(ec);
+    if (EVP_PKEY_get_utf8_string_param(pkey, OSSL_PKEY_PARAM_GROUP_NAME, groupName, sizeof(groupName), &len) && len > 0) {
+        std::string curveStr(groupName);
+        if (curveStr == "prime256v1") return "secp256r1";
+        return curveStr;
     }
 
     int bits = EVP_PKEY_bits(pkey);
@@ -158,10 +141,10 @@ static std::string getPublicKeyDetails(X509* cert) {
         }
     }
 
-    X509_PUBKEY* pubkey = X509_get_X509_PUBKEY(cert);
+    const X509_PUBKEY* pubkey = X509_get_X509_PUBKEY(cert);
     if (pubkey) {
         const ASN1_OBJECT* algOid = nullptr;
-        X509_PUBKEY_get0_param(const_cast<ASN1_OBJECT**>(&algOid), nullptr, nullptr, nullptr, pubkey);
+        X509_PUBKEY_get0_param(const_cast<ASN1_OBJECT**>(&algOid), nullptr, nullptr, nullptr, const_cast<X509_PUBKEY*>(pubkey));
         if (algOid) {
             int nid = OBJ_obj2nid(algOid);
             if (nid != NID_undef) {
