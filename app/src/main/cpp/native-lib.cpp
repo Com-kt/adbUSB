@@ -437,13 +437,17 @@ static void parseSourceStampV1Payload(std::ostringstream& ss, const std::vector<
         if (reader.hasRemaining()) {
             BufferReader signedData = reader.readLengthPrefixedSlice();
             if (signedData.hasRemaining()) {
-                BufferReader certs = signedData.readLengthPrefixedSlice();
-                int certIdx = 1;
-                while (certs.hasRemaining()) {
-                    BufferReader certSlice = certs.readLengthPrefixedSlice();
-                    std::vector<uint8_t> certBytes = certSlice.readBytes(certSlice.remaining());
-                    ss << " Stamp Certificate #" << certIdx++ << ":\n";
-                    printCertDetails(ss, certBytes);
+                BufferReader digests = signedData.readLengthPrefixedSlice();
+                
+                if (signedData.hasRemaining()) {
+                    BufferReader certs = signedData.readLengthPrefixedSlice();
+                    int certIdx = 1;
+                    while (certs.hasRemaining()) {
+                        BufferReader certSlice = certs.readLengthPrefixedSlice();
+                        std::vector<uint8_t> certBytes = certSlice.readBytes(certSlice.remaining());
+                        ss << "    Stamp Certificate #" << certIdx++ << ":\n";
+                        printCertDetails(ss, certBytes);
+                    }
                 }
             }
         }
@@ -452,14 +456,85 @@ static void parseSourceStampV1Payload(std::ostringstream& ss, const std::vector<
     }
 }
 
+static std::string decodeLineageFlags(uint32_t flags) {
+    std::vector<std::string> parts;
+    if (flags & 0x01) parts.push_back("PERMISSIONS");
+    if (flags & 0x02) parts.push_back("SHARED_USER_ID");
+    if (flags & 0x04) parts.push_back("AUTH");
+    if (flags & 0x08) parts.push_back("ROLLBACK");
+    
+    if (parts.empty()) return "NONE";
+    std::string res;
+    for (size_t i = 0; i < parts.size(); ++i) {
+        if (i > 0) res += " | ";
+        res += parts[i];
+    }
+    return res;
+}
+
+static std::string decodeSigAlgId(uint32_t algId) {
+    switch (algId) {
+        case 0x0101: return "RSA-PSS + SHA256";
+        case 0x0102: return "RSA-PSS + SHA512";
+        case 0x0103: return "ECDSA + SHA256";
+        case 0x0104: return "ECDSA + SHA512";
+        case 0x0201: return "RSA-PKCS1-v1_5 + SHA256";
+        default: return "Unknown (0x" + [] (uint32_t v) {
+            std::ostringstream h; h << std::hex << v; return h.str();
+        }(algId) + ")";
+    }
+}
+
 static void parseSourceStampV2Payload(std::ostringstream& ss, const std::vector<uint8_t>& payload) {
     ss << "\n [ Source Stamp V2 / Lineage (0x2146444e) ] \n";
     ss << "    * Block Size       : " << std::dec << payload.size() << " bytes\n";
     try {
         BufferReader reader(payload.data(), payload.size());
-        if (reader.hasRemaining()) {
-            BufferReader lineageSlice = reader.readLengthPrefixedSlice();
-            ss << "    * Lineage Data Size: " << std::dec << lineageSlice.remaining() << " bytes\n";
+        if (reader.remaining() >= 4) {
+            uint32_t version = reader.readUint32();
+            ss << "    * Lineage Version  : " << std::dec << version << "\n";
+
+            BufferReader nodesReader = reader.readSlice(reader.remaining());
+            int nodeIdx = 1;
+
+            while (nodesReader.hasRemaining()) {
+                ss << "\n    --- Lineage Node #" << nodeIdx++ << " ---\n";
+
+                BufferReader signedData = nodesReader.readLengthPrefixedSlice();
+                if (signedData.hasRemaining()) {
+                    BufferReader certSlice = signedData.readLengthPrefixedSlice();
+                    std::vector<uint8_t> certBytes = certSlice.readBytes(certSlice.remaining());
+                    ss << "    * Certificate:\n";
+                    printCertDetails(ss, certBytes);
+                }
+
+                if (nodesReader.remaining() >= 4) {
+                    uint32_t flags = nodesReader.readUint32();
+                    ss << "    * Capability Flags : 0x" << std::hex << flags 
+                       << " [" << decodeLineageFlags(flags) << "]\n";
+                }
+
+                if (nodesReader.remaining() >= 4) {
+                    uint32_t sigAlgId = nodesReader.readUint32();
+                    ss << "    * Sig Algorithm ID : 0x" << std::hex << sigAlgId 
+                       << " (" << decodeSigAlgId(sigAlgId) << ")\n";
+                }
+
+                if (nodesReader.hasRemaining()) {
+                    BufferReader sigSlice = nodesReader.readLengthPrefixedSlice();
+                    ss << "    * Parent Signature : " << std::dec << sigSlice.remaining() << " bytes";
+                    
+                    std::vector<uint8_t> sigBytes = sigSlice.readBytes(sigSlice.remaining());
+                    if (!sigBytes.empty()) {
+                        ss << " [Preview: ";
+                        for (size_t i = 0; i < std::min<size_t>(8, sigBytes.size()); ++i) {
+                            ss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(sigBytes[i]);
+                        }
+                        ss << "...]";
+                    }
+                    ss << "\n";
+                }
+            }
         }
     } catch (const std::exception& e) {
         ss << "    * [!] Stamp V2 Parse Note: " << e.what() << "\n";
