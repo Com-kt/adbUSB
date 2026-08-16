@@ -363,6 +363,8 @@ class MainActivity : ComponentActivity() {
         setContent {
             val useDynamicColor by viewModel.useDynamicColor.collectAsStateWithLifecycle()
             var showIntentShareDialog by remember { mutableStateOf(false) }
+            var selectedSigReport by remember { mutableStateOf<String?>(null) }
+            var selectedSchemeText by remember { mutableStateOf("") }
             NekoTheme(dynamicColor = useDynamicColor) {
                 CenterAlignedTopAppBarExample(
                     viewModel = viewModel,
@@ -434,7 +436,9 @@ class MainActivity : ComponentActivity() {
 
                             lifecycleScope.launch(Dispatchers.IO) {
                                 val report = NativeLibs.ApkSignature(selectedApp.apkPath)
+                                val schemeText = NativeLibs.getSupportedSchemesText(selectedApp.apkPath)
                                 withContext(Dispatchers.Main) {
+                                    selectedSchemeText = schemeText
                                     selectedSigReport = report
                                     appendLog("[系统] 签名解析完成")
                                 }
@@ -444,11 +448,9 @@ class MainActivity : ComponentActivity() {
                 }
                 
                 selectedSigReport?.let { report ->
-                    val schemeText = NativeLibs.getSupportedSchemesText(selectedApp.apkPath)
-                    
                     SignatureResultBottomSheet(
                         reportText = report,
-                        schemeText = schemeText,
+                        schemeText = selectedSchemeText,
                         onDismiss = { selectedSigReport = null }
                     )
                 }
