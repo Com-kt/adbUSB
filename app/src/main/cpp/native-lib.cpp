@@ -498,7 +498,7 @@ void parseSourceStampBlock(std::ostringstream& ss, const std::vector<uint8_t>& p
     ss << "\n [ Source Stamp (0x6dff800d) ] \n";
     ss << "    * Description      : Source Signature Tag Block\n";
     ss << "    * Block Size       : " << std::dec << payload.size() << " bytes\n";
-    ss << "    * Raw Data Hex     : " << bytesToFullHex(value.data(), value.size()) << "\n";
+    ss << "    * Raw Data Hex     : " << bytesToFullHex(payload.data(), payload.size()) << "\n";
 
     try {
         BufferReader reader(payload.data(), payload.size());
