@@ -486,6 +486,14 @@ static bool checkBlockIdPresent(const std::string& apkPath, uint32_t targetId) {
     return false;
 }
 
+std::string toHexString(const std::vector<uint8_t>& bytes) {
+    std::ostringstream ss;
+    for (uint8_t b : bytes) {
+        ss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(b);
+    }
+    return ss.str();
+}
+
 void parseSourceStampBlock(std::ostringstream& ss, const std::vector<uint8_t>& payload) {
     ss << "\n [ Source Stamp (0x6dff800d) ] \n";
     ss << "    * Description      : Source Signature Tag Block\n";
