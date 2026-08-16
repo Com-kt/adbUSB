@@ -1,7 +1,6 @@
 # Version
-- Release Version = [release](https://github.com/deleteFAILunknown/usbFlash/releases)
-- Beta Version = [beta](https://github.com/deleteFAILunknown/usbFlash/actions)
-- linux Tools = [android-sdk](https://github.com/HomuHomu833/android-sdk-custom)
+- [android-release-version-app](https://github.com/deleteFAILunknown/usbFlash/releases)
+- [android-beta-version-app](https://github.com/deleteFAILunknown/usbFlash/actions)
 
 # apk support range
 - Android 17 - Android 7.0
@@ -54,6 +53,11 @@ Number of signers: 1
 ## Acknowledgements
 
 - [Kadb](https://github.com/flyfishxu/Kadb)
-- [android-sdk](https://github.com/HomuHomu833/android-sdk-custom)
+- [OpenSSL](https://github.com/openssl/openssl)
 - [libsu](https://github.com/topjohnwu/libsu)
-- [AndroidHiddenApiBypass](https://github.com/LSPosed/AndroidHiddenApiBypass)
+- [android-Kernel-su](https://github.com/tiann/KernelSU)
+- [android-Hidden-api](https://github.com/LSPosed/AndroidHiddenApiBypass)
+- [Termux-app](https://github.com/termux/termux-app)
+- [Termux-ubuntu](https://github.com/termux/proot-distro)
+- [android-sdk-aarch64](https://github.com/HomuHomu833/android-sdk-custom)
+- [android-ndk-aarch64](https://github.com/HomuHomu833/android-ndk-custom)
