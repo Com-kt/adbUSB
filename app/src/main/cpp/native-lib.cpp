@@ -486,52 +486,61 @@ static bool checkBlockIdPresent(const std::string& apkPath, uint32_t targetId) {
     return false;
 }
 
-std::string toHexString(const std::vector<uint8_t>& bytes) {
+std::string toHexString(const uint8_t* data, size_t len) {
     std::ostringstream ss;
-    for (uint8_t b : bytes) {
-        ss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(b);
+    for (size_t i = 0; i < len; ++i) {
+        ss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(data[i]);
     }
     return ss.str();
+}
+
+std::string toHexString(const std::vector<uint8_t>& bytes) {
+    return toHexString(bytes.data(), bytes.size());
 }
 
 void parseSourceStampBlock(std::ostringstream& ss, const std::vector<uint8_t>& payload) {
     ss << "\n [ Source Stamp (0x6dff800d) ] \n";
     ss << "    * Description      : Source Signature Tag Block\n";
     ss << "    * Block Size       : " << std::dec << payload.size() << " bytes\n";
-    ss << "    * Raw Data Hex     : " << bytesToFullHex(payload.data(), payload.size()) << "\n";
 
     try {
         BufferReader reader(payload.data(), payload.size());
         if (!reader.hasRemaining()) return;
 
         BufferReader signedData = reader.readLengthPrefixedSlice();
-        size_t signedDataSize = signedData.remaining();
-        ss << "    * Signed Data Size : " << std::dec << signedDataSize << " bytes\n";
+        ss << "    * Signed Data Size : " << std::dec << signedData.remaining() << " bytes\n";
 
-        std::vector<uint8_t> signedDataBytes = signedData.readBytes(signedDataSize);
+        if (signedData.hasRemaining()) {
+            BufferReader certsSlice = signedData.readLengthPrefixedSlice();
+            int certIdx = 1;
 
-        const uint8_t* p = signedDataBytes.data();
-        long remaining = static_cast<long>(signedDataBytes.size());
-        int certIdx = 1;
+            while (certsSlice.hasRemaining()) {
+                std::vector<uint8_t> certBytes = certsSlice.readBytes(certsSlice.remaining());
+                const uint8_t* p = certBytes.data();
+                long remaining = static_cast<long>(certBytes.size());
 
-        while (remaining > 0 && *p == 0x30) {
-            const uint8_t* certStart = p;
-            X509* cert = d2i_X509(NULL, &p, remaining);
-            if (!cert) break;
+                while (remaining > 0 && *p == 0x30) {
+                    const uint8_t* certStart = p;
+                    X509* cert = d2i_X509(NULL, &p, remaining);
+                    if (!cert) break;
 
-            long certLen = p - certStart;
-            remaining -= certLen;
+                    long certLen = p - certStart;
+                    remaining -= certLen;
 
-            ss << "\n    --- Stamp Certificate #" << certIdx++ << " (" << std::dec << certLen << " bytes) ---\n";
-
-            std::vector<uint8_t> certBytes(certStart, certStart + certLen);
-            printCertDetails(ss, certBytes);
-
-            X509_free(cert);
+                    ss << "\n    --- Stamp Certificate #" << certIdx++ << " (" << std::dec << certLen << " bytes) ---\n";
+                    std::vector<uint8_t> rawCert(certStart, certStart + certLen);
+                    printCertDetails(ss, rawCert);
+                    X509_free(cert);
+                }
+            }
         }
 
-        if (remaining > 0) {
-            ss << "\n    * Remaining Signatures/Attrs : " << std::dec << remaining << " bytes\n";
+        if (signedData.hasRemaining()) {
+            ss << "    * Stamp Attributes : " << std::dec << signedData.remaining() << " bytes\n";
+        }
+        if (reader.hasRemaining()) {
+            BufferReader sigsSlice = reader.readLengthPrefixedSlice();
+            ss << "    * Stamp Signatures : " << std::dec << sigsSlice.remaining() << " bytes\n";
         }
 
     } catch (const std::exception& e) {
