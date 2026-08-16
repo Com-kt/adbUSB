@@ -22,7 +22,7 @@ constexpr uint32_t APK_V31_SIGNATURE_SCHEME_ID  = 0x1b93ad61;
 constexpr uint32_t APK_V32_SIGNATURE_SCHEME_ID  = 0x70e1c89f;
 constexpr uint32_t APK_SOURCE_STAMP_V1_ID       = 0x6dff800d;
 constexpr uint32_t APK_SOURCE_STAMP_V2_ID       = 0x2146444e;
-constexpr uint32_t APK_BUILD_METADATA_ID        = 0x42726577;
+constexpr uint32_t APK_VERITY_PADDING_BLOCK_ID        = 0x42726577;
 constexpr uint32_t APK_SDK_DEPENDENCY_INFO_ID   = 0x504b4453;
 
 class BufferReader {
@@ -475,13 +475,10 @@ static std::string parseApkSigningBlock(const std::string& apkPath) {
             case APK_SOURCE_STAMP_V2_ID:
                 parseSourceStampV2Payload(ss, value);
                 break;
-            case APK_BUILD_METADATA_ID:
-                ss << "\n [ APK Build Metadata (0x42726577) ] \n";
-                ss << "    * Description      : AGP / R8 Compiler Build Metadata (Brew)\n";
-                ss << "    * Raw Payload Size : " << std::dec << value.size() << " bytes\n";
-                if (!value.empty()) {
-                    ss << "    * Full Hex Data    : " << bytesToFullHex(value.data(), value.size()) << "\n";
-                }
+            case APK_VERITY_PADDING_BLOCK_ID:
+                ss << "\n [ Verity Padding Block (0x42726577) ] \n";
+                ss << "    * Description      : 4KB Alignment Padding for fs-verity\n";
+                ss << "    * Raw Payload Size : " << std::dec << value.size() << " bytes (All 0x00 Padding)\n";
                 break;
             case APK_SDK_DEPENDENCY_INFO_ID:
                 ss << "\n [ SDK Dependency Info (0x504b4453) ] \n";

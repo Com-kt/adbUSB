@@ -7,20 +7,23 @@ import com.adb.kitty.compose.data.*
 import com.adb.kitty.compose.*
 import com.adb.kitty.compose.R
 
+import android.content.ClipData
+import androidx.annotation.Keep
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Error
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalClipboardManager
-import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.platform.ClipEntry
+import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.launch
 
 @Keep
 @OptIn(ExperimentalMaterial3Api::class)
@@ -30,8 +33,12 @@ fun SignatureResultBottomSheet(
     schemeText: String,
     onDismiss: () -> Unit
 ) {
-    val clipboardManager = LocalClipboardManager.current
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val clipboard = LocalClipboard.current
+    val coroutineScope = rememberCoroutineScope()
+    val sheetState = rememberBottomSheetState(
+        initialValue = SheetValue.Hidden,
+        skipPartiallyExpanded = true
+    )
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -86,7 +93,10 @@ fun SignatureResultBottomSheet(
             ) {
                 OutlinedButton(
                     onClick = {
-                        clipboardManager.setText(AnnotatedString(reportText))
+                        coroutineScope.launch {
+                            val clipData = ClipData.newPlainText("Signature Report", reportText)
+                            clipboard.setClipEntry(ClipEntry(clipData))
+                        }
                     },
                     modifier = Modifier.padding(end = 8.dp)
                 ) {
