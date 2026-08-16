@@ -69,6 +69,10 @@ public:
         pos += len;
         return slice;
     }
+    
+    std::vector<uint8_t> peekRemainingBytes() const {
+        return std::vector<uint8_t>(data + pos, data + size);
+    }
 
     std::vector<uint8_t> readBytes(size_t len) {
         if (pos + len > size) throw std::runtime_error("Read bytes out of bounds");
@@ -586,10 +590,7 @@ static void parseSourceStampV2Payload(std::ostringstream& ss, const std::vector<
                     ss << "\n    --- Lineage Node #" << nodeIdx++ << " ---\n";
 
                     BufferReader signedDataSlice = lineageSlice.readLengthPrefixedSlice();
-                    std::vector<uint8_t> rawSignedData(
-                        signedDataSlice.data + signedDataSlice.pos,
-                        signedDataSlice.data + signedDataSlice.pos + signedDataSlice.remaining()
-                    );
+                    std::vector<uint8_t> rawSignedData = signedDataSlice.peekRemainingBytes();
 
                     BufferReader certSlice = signedDataSlice.readLengthPrefixedSlice();
                     std::vector<uint8_t> certBytes = certSlice.readBytes(certSlice.remaining());
