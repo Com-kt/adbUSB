@@ -102,14 +102,21 @@ static std::string getCertCrc32(const std::vector<uint8_t>& derCert) {
 }
 
 static std::string getCertSignatureValue(X509* cert) {
+    if (!cert) return "";
+
     const ASN1_BIT_STRING* sig = nullptr;
     const X509_ALGOR* alg = nullptr;
     X509_get0_signature(&sig, &alg, cert);
-    if (!sig || !sig->data) return "";
+    if (!sig) return "";
+
+    const unsigned char* sigData = ASN1_STRING_get0_data(sig);
+    int sigLen = ASN1_STRING_length(sig);
+
+    if (!sigData || sigLen <= 0) return "";
 
     std::ostringstream ss;
-    for (int i = 0; i < sig->length; ++i) {
-        ss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(sig->data[i]);
+    for (int i = 0; i < sigLen; ++i) {
+        ss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(sigData[i]);
     }
     return ss.str();
 }
