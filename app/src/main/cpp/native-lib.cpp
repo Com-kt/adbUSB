@@ -3,6 +3,7 @@
 #include <fstream>
 #include <vector>
 #include <cstdint>
+#include <string>
 #include <cstring>
 #include <iomanip>
 #include <sstream>
@@ -104,6 +105,36 @@ static std::string getSignatureAlgorithm(X509* cert) {
     return "Unknown";
 }
 
+static std::string getSignatureAlgorithmDetails(X509* cert) {
+    if (!cert) return "Unknown";
+
+    const X509_ALGOR* sigAlg = nullptr;
+    X509_get0_signature(nullptr, &sigAlg, cert);
+    if (!sigAlg) return "Unknown";
+
+    const ASN1_OBJECT* sigOid = nullptr;
+    X509_ALGOR_get0(&sigOid, nullptr, nullptr, sigAlg);
+    if (!sigOid) return "Unknown";
+
+    char oidNumBuf[128] = {0};
+    OBJ_obj2txt(oidNumBuf, sizeof(oidNumBuf), sigOid, 1);
+
+    std::string charStringName;
+    int nid = OBJ_obj2nid(sigOid);
+    if (nid != NID_undef) {
+        const char* ln = OBJ_nid2ln(nid);
+        const char* sn = OBJ_nid2sn(nid);
+        if (ln) charStringName = ln;
+        else if (sn) charStringName = sn;
+    }
+
+    if (!charStringName.empty()) {
+        return charStringName + " (OID: " + oidNumBuf + ")";
+    } else {
+        return std::string("OID: ") + oidNumBuf;
+    }
+}
+
 static std::string getEcCurveName(EVP_PKEY* pkey) {
     if (!pkey) return "Unknown Curve";
 
@@ -173,15 +204,32 @@ static std::string getCertDigest(X509* cert, const EVP_MD* mdType) {
     return ss.str();
 }
 
+std::string getCertCharString(X509* cert) {
+    if (!cert) return "";
+
+    unsigned char* derBuf = nullptr;
+    int len = i2d_X509(cert, &derBuf);
+    if (len <= 0 || !derBuf) return "";
+
+    std::ostringstream ss;
+    for (int i = 0; i < len; ++i) {
+        ss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(derBuf[i]);
+    }
+
+    OPENSSL_free(derBuf);
+
+    return ss.str();
+}
+
 static void printCertDetails(std::ostringstream& ss, const std::vector<uint8_t>& derCert) {
     const uint8_t* p = derCert.data();
-    X509* cert = d2i_X509(nullptr, &p, derCert.size());
+    X509* cert = d2i_X509(nullptr, &p, static_cast<long>(derCert.size()));
     if (!cert) {
         ss << "    * [!] Certificate DER parse failed\n";
         return;
     }
 
-    char subject[512], issuer[512];
+    char subject[512] = {0}, issuer[512] = {0};
     X509_NAME_oneline(X509_get_subject_name(cert), subject, sizeof(subject));
     X509_NAME_oneline(X509_get_issuer_name(cert), issuer, sizeof(issuer));
 
@@ -189,18 +237,23 @@ static void printCertDetails(std::ostringstream& ss, const std::vector<uint8_t>&
     ss << "    * Issuer           : " << issuer << "\n";
 
     ASN1_INTEGER* serial = X509_get_serialNumber(cert);
-    BIGNUM* bn = ASN1_INTEGER_to_BN(serial, nullptr);
-    if (bn) {
-        char* hexSerial = BN_bn2hex(bn);
-        ss << "    * Serial Number    : " << hexSerial << "\n";
-        OPENSSL_free(hexSerial);
-        BN_free(bn);
+    if (serial) {
+        BIGNUM* bn = ASN1_INTEGER_to_BN(serial, nullptr);
+        if (bn) {
+            char* hexSerial = BN_bn2hex(bn);
+            ss << "    * Serial Number    : " << (hexSerial ? hexSerial : "Unknown") << "\n";
+            if (hexSerial) OPENSSL_free(hexSerial);
+            BN_free(bn);
+        }
     }
+
+    std::string charString = getCertCharString(cert);
 
     ss << "    * Valid From       : " << asn1TimeToStr(X509_get0_notBefore(cert)) << "\n";
     ss << "    * Valid Until      : " << asn1TimeToStr(X509_get0_notAfter(cert)) << "\n";
-    ss << "    * Signature Algo   : " << getSignatureAlgorithm(cert) << "\n";
+    ss << "    * Signature Algo   : " << getSignatureAlgorithmDetails(cert) << "\n";
     ss << "    * Public Key Algo  : " << getPublicKeyDetails(cert) << "\n";
+    ss << "    * CharString       : " << charString << "\n";
     ss << "    * SHA-256 Digest   : " << getCertDigest(cert, EVP_sha256()) << "\n";
     ss << "    * SHA-1 Digest     : " << getCertDigest(cert, EVP_sha1()) << "\n";
 
