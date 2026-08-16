@@ -10,6 +10,7 @@
 #include <algorithm>
 
 #include <openssl/x509.h>
+#include <openssl/x509v3.h>
 #include <openssl/evp.h>
 #include <openssl/bn.h>
 #include <openssl/bio.h>
@@ -85,6 +86,34 @@ static std::string asn1TimeToStr(const ASN1_TIME* time) {
     return std::string(buffer);
 }
 
+static std::string getCertCrc32(const std::vector<uint8_t>& derCert) {
+    uint32_t crc = 0xFFFFFFFF;
+    for (uint8_t byte : derCert) {
+        crc ^= byte;
+        for (int i = 0; i < 8; ++i) {
+            crc = (crc >> 1) ^ (0xEDB88320 & (-(crc & 1)));
+        }
+    }
+    crc = ~crc;
+
+    std::ostringstream ss;
+    ss << std::hex << std::setw(8) << std::setfill('0') << crc;
+    return ss.str();
+}
+
+static std::string getCertSignatureValue(X509* cert) {
+    const ASN1_BIT_STRING* sig = nullptr;
+    const X509_ALGOR* alg = nullptr;
+    X509_get0_signature(&sig, &alg, cert);
+    if (!sig || !sig->data) return "";
+
+    std::ostringstream ss;
+    for (int i = 0; i < sig->length; ++i) {
+        ss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(sig->data[i]);
+    }
+    return ss.str();
+}
+
 static std::string getSignatureAlgorithm(X509* cert) {
     int sig_nid = X509_get_signature_nid(cert);
     if (sig_nid != NID_undef) {
@@ -155,6 +184,25 @@ static std::string getEcCurveName(EVP_PKEY* pkey) {
     return "Unknown Curve";
 }
 
+static std::string getPublicKeyType(X509* cert) {
+    if (!cert) return "Unknown";
+    EVP_PKEY* pkey = X509_get0_pubkey(cert);
+    if (!pkey) return "Unknown";
+
+    const char* typeName = EVP_PKEY_get0_type_name(pkey);
+    if (typeName) return typeName;
+
+    int nid = EVP_PKEY_base_id(pkey);
+    if (nid != NID_undef) {
+        const char* sn = OBJ_nid2sn(nid);
+        if (sn) return sn;
+        const char* ln = OBJ_nid2ln(nid);
+        if (ln) return ln;
+    }
+
+    return "Unknown";
+}
+
 static std::string getPublicKeyDetails(X509* cert) {
     if (!cert) return "Unknown Key";
 
@@ -221,6 +269,34 @@ std::string getCertCharString(X509* cert) {
     return ss.str();
 }
 
+static std::string getSubjectAltNames(X509* cert) {
+    STACK_OF(GENERAL_NAME)* names = static_cast<STACK_OF(GENERAL_NAME)*>(
+        X509_get_ext_d2i(cert, NID_subject_alt_name, nullptr, nullptr)
+    );
+    if (!names) return "None";
+
+    std::ostringstream ss;
+    int numNames = sk_GENERAL_NAME_num(names);
+    for (int i = 0; i < numNames; ++i) {
+        const GENERAL_NAME* name = sk_GENERAL_NAME_value(names, i);
+        if (i > 0) ss << ", ";
+        if (name->type == GEN_DNS) {
+            const char* dns = reinterpret_cast<const char*>(ASN1_STRING_get0_data(name->d.dNSName));
+            ss << "DNS:" << (dns ? dns : "");
+        } else if (name->type == GEN_IPADD) {
+            const unsigned char* ipData = ASN1_STRING_get0_data(name->d.iPAddress);
+            int ipLen = ASN1_STRING_length(name->d.iPAddress);
+            if (ipLen == 4) {
+                ss << "IP:" << (int)ipData[0] << "." << (int)ipData[1] << "." << (int)ipData[2] << "." << (int)ipData[3];
+            } else {
+                ss << "IP:[IPv6]";
+            }
+        }
+    }
+    GENERAL_NAMES_free(names);
+    return ss.str();
+}
+
 static void printCertDetails(std::ostringstream& ss, const std::vector<uint8_t>& derCert) {
     const uint8_t* p = derCert.data();
     X509* cert = d2i_X509(nullptr, &p, static_cast<long>(derCert.size()));
@@ -233,6 +309,7 @@ static void printCertDetails(std::ostringstream& ss, const std::vector<uint8_t>&
     X509_NAME_oneline(X509_get_subject_name(cert), subject, sizeof(subject));
     X509_NAME_oneline(X509_get_issuer_name(cert), issuer, sizeof(issuer));
 
+    ss << "    * Version          : v" << (X509_get_version(cert) + 1) << "\n";
     ss << "    * Owner / Subject  : " << subject << "\n";
     ss << "    * Issuer           : " << issuer << "\n";
 
@@ -247,15 +324,30 @@ static void printCertDetails(std::ostringstream& ss, const std::vector<uint8_t>&
         }
     }
 
-    std::string charString = getCertCharString(cert);
-
+    ss << "    * Is CA            : " << (X509_check_ca(cert) ? "Yes" : "No") << "\n";
+    ss << "    * Key Usage        : 0x" << std::hex << X509_get_key_usage(cert) << std::dec << "\n";
+    ss << "    * SAN (Alt Names)  : " << getSubjectAltNames(cert) << "\n";
     ss << "    * Valid From       : " << asn1TimeToStr(X509_get0_notBefore(cert)) << "\n";
     ss << "    * Valid Until      : " << asn1TimeToStr(X509_get0_notAfter(cert)) << "\n";
+    
     ss << "    * Signature Algo   : " << getSignatureAlgorithmDetails(cert) << "\n";
+    ss << "    * Public Key Type  : " << getPublicKeyType(cert) << "\n";
     ss << "    * Public Key Algo  : " << getPublicKeyDetails(cert) << "\n";
-    ss << "    * CharString       : " << charString << "\n";
-    ss << "    * SHA-256 Digest   : " << getCertDigest(cert, EVP_sha256()) << "\n";
+
+    unsigned long certHash = X509_subject_name_hash(cert);
+    std::ostringstream hashSs;
+    hashSs << "0x" << std::hex << std::setw(8) << std::setfill('0') << certHash;
+
+    ss << "    * Cert Hash        : " << hashSs.str() << "\n";
+    ss << "    * CRC32            : " << getCertCrc32(derCert) << "\n";
+    ss << "    * CharString       : " << getCertCharString(cert) << "\n";
+    ss << "    * Signature Value  : " << getCertSignatureValue(cert) << "\n";
+
+    ss << "    * MD5 Digest       : " << getCertDigest(cert, EVP_md5()) << "\n";
     ss << "    * SHA-1 Digest     : " << getCertDigest(cert, EVP_sha1()) << "\n";
+    ss << "    * SHA-256 Digest   : " << getCertDigest(cert, EVP_sha256()) << "\n";
+    ss << "    * SHA-384 Digest   : " << getCertDigest(cert, EVP_sha384()) << "\n";
+    ss << "    * SHA-512 Digest   : " << getCertDigest(cert, EVP_sha512()) << "\n";
 
     X509_free(cert);
 }
