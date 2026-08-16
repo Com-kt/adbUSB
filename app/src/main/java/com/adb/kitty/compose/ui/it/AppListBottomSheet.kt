@@ -51,7 +51,7 @@ fun AppListBottomSheet(
 
     ModalBottomSheet(
         onDismissRequest = onDismissRequest,
-        modifier = Modifier.fillMaxHeight(0.85f)
+        modifier = Modifier.fillMaxHeight(1f)
     ) {
         Column(
             modifier = Modifier

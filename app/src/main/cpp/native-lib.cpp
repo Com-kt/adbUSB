@@ -176,7 +176,7 @@ static void printCertDetails(std::ostringstream& ss, const std::vector<uint8_t>&
 }
 
 static void parseSchemePayload(std::ostringstream& ss, const std::string& schemeName, const std::vector<uint8_t>& payload, bool isV3Family) {
-    ss << "\n================ [ " << schemeName << " ] ================\n";
+    ss << "\n========== [ " << schemeName << " ] ==========\n";
     try {
         BufferReader reader(payload.data(), payload.size());
         BufferReader signers = reader.readLengthPrefixedSlice();
