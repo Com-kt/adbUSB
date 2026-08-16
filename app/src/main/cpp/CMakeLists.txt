@@ -30,8 +30,7 @@ add_library(native-lib SHARED
       verifier.cpp
 )
 
-target_link_libraries(native-lib
-    PRIVATE
+target_link_libraries(native-lib PRIVATE
     ssl
     crypto
     log

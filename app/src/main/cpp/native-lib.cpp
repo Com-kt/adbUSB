@@ -12,6 +12,7 @@
 #include <openssl/x509.h>
 #include <openssl/x509v3.h>
 #include <openssl/evp.h>
+#include <openssl/rsa.h>
 #include <openssl/bn.h>
 #include <openssl/bio.h>
 #include <openssl/asn1.h>
@@ -443,26 +444,89 @@ static void parseSourceStampV1Payload(std::ostringstream& ss, const std::vector<
     ss << "    * Block Size       : " << std::dec << payload.size() << " bytes\n";
     try {
         BufferReader reader(payload.data(), payload.size());
-        if (reader.hasRemaining()) {
-            BufferReader signedData = reader.readLengthPrefixedSlice();
-            if (signedData.hasRemaining()) {
-                BufferReader digests = signedData.readLengthPrefixedSlice();
-                
-                if (signedData.hasRemaining()) {
-                    BufferReader certs = signedData.readLengthPrefixedSlice();
-                    int certIdx = 1;
-                    while (certs.hasRemaining()) {
-                        BufferReader certSlice = certs.readLengthPrefixedSlice();
-                        std::vector<uint8_t> certBytes = certSlice.readBytes(certSlice.remaining());
-                        ss << "    Stamp Certificate #" << certIdx++ << ":\n";
-                        printCertDetails(ss, certBytes);
-                    }
-                }
-            }
+        int certIdx = 1;
+        while (reader.hasRemaining()) {
+            BufferReader certSlice = reader.readLengthPrefixedSlice();
+            std::vector<uint8_t> certBytes = certSlice.readBytes(certSlice.remaining());
+            
+            ss << "    Stamp Certificate #" << certIdx++ << ":\n";
+            printCertDetails(ss, certBytes);
         }
     } catch (const std::exception& e) {
         ss << "    * [!] Stamp V1 Parse Note: " << e.what() << "\n";
     }
+}
+
+static X509* parseX509(const std::vector<uint8_t>& certBytes) {
+    const unsigned char* p = certBytes.data();
+    return d2i_X509(nullptr, &p, static_cast<long>(certBytes.size()));
+}
+
+bool verifyLineageNodeSignature(
+    X509* parentCert,
+    uint32_t sigAlgId,
+    const std::vector<uint8_t>& signedContent,
+    const std::vector<uint8_t>& signature
+) {
+    if (!parentCert || signedContent.empty() || signature.empty()) {
+        return false;
+    }
+
+    EVP_PKEY* pubKey = X509_get0_pubkey(parentCert);
+    if (!pubKey) return false;
+
+    EVP_MD_CTX* mdCtx = EVP_MD_CTX_new();
+    if (!mdCtx) return false;
+
+    const EVP_MD* md = nullptr;
+    bool isRsaPss = false;
+
+    switch (sigAlgId) {
+        case 0x0101: // RSA-PSS + SHA-256
+            md = EVP_sha256();
+            isRsaPss = true;
+            break;
+        case 0x0102: // RSA-PSS + SHA-512
+            md = EVP_sha512();
+            isRsaPss = true;
+            break;
+        case 0x0103: // ECDSA + SHA-256
+            md = EVP_sha256();
+            break;
+        case 0x0104: // ECDSA + SHA-512
+            md = EVP_sha512();
+            break;
+        case 0x0201: // RSA-PKCS1-v1_5 + SHA-256
+            md = EVP_sha256();
+            break;
+        default:
+            EVP_MD_CTX_free(mdCtx);
+            return false;
+    }
+
+    EVP_PKEY_CTX* pctx = nullptr;
+    if (EVP_DigestVerifyInit(mdCtx, &pctx, md, nullptr, pubKey) <= 0) {
+        EVP_MD_CTX_free(mdCtx);
+        return false;
+    }
+
+    if (isRsaPss) {
+        if (EVP_PKEY_CTX_set_rsa_padding(pctx, RSA_PKCS1_PSS_PADDING) <= 0 ||
+            EVP_PKEY_CTX_set_rsa_pss_saltlen(pctx, RSA_PSS_SALTLEN_DIGEST) <= 0) {
+            EVP_MD_CTX_free(mdCtx);
+            return false;
+        }
+    }
+
+    if (EVP_DigestVerifyUpdate(mdCtx, signedContent.data(), signedContent.size()) <= 0) {
+        EVP_MD_CTX_free(mdCtx);
+        return false;
+    }
+
+    int ret = EVP_DigestVerifyFinal(mdCtx, signature.data(), signature.size());
+    EVP_MD_CTX_free(mdCtx);
+
+    return (ret == 1);
 }
 
 static std::string decodeLineageFlags(uint32_t flags) {
@@ -497,51 +561,77 @@ static std::string decodeSigAlgId(uint32_t algId) {
 static void parseSourceStampV2Payload(std::ostringstream& ss, const std::vector<uint8_t>& payload) {
     ss << "\n [ Source Stamp V2 / Lineage (0x2146444e) ] \n";
     ss << "    * Block Size       : " << std::dec << payload.size() << " bytes\n";
+
     try {
         BufferReader reader(payload.data(), payload.size());
-        if (reader.remaining() >= 4) {
-            uint32_t version = reader.readU32();
-            ss << "    * Lineage Version  : " << std::dec << version << "\n";
 
-            BufferReader nodesReader = reader.readSlice(reader.remaining());
-            int nodeIdx = 1;
+        if (reader.hasRemaining()) {
+            BufferReader stampCertSlice = reader.readLengthPrefixedSlice();
+            std::vector<uint8_t> certBytes = stampCertSlice.readBytes(stampCertSlice.remaining());
+            ss << "\n    * Source Stamp Certificate:\n";
+            printCertDetails(ss, certBytes);
+        }
 
-            while (nodesReader.hasRemaining()) {
-                ss << "\n    --- Lineage Node #" << nodeIdx++ << " ---\n";
+        if (reader.hasRemaining()) {
+            BufferReader lineageSlice = reader.readLengthPrefixedSlice();
+            
+            if (lineageSlice.remaining() >= 4) {
+                uint32_t version = lineageSlice.readU32();
+                ss << "\n    * Lineage Version  : " << std::dec << version << "\n";
 
-                BufferReader signedData = nodesReader.readLengthPrefixedSlice();
-                if (signedData.hasRemaining()) {
-                    BufferReader certSlice = signedData.readLengthPrefixedSlice();
+                int nodeIdx = 1;
+                X509* parentCert = nullptr;
+
+                while (lineageSlice.hasRemaining()) {
+                    ss << "\n    --- Lineage Node #" << nodeIdx++ << " ---\n";
+
+                    BufferReader signedDataSlice = lineageSlice.readLengthPrefixedSlice();
+                    std::vector<uint8_t> rawSignedData(
+                        signedDataSlice.data + signedDataSlice.pos,
+                        signedDataSlice.data + signedDataSlice.pos + signedDataSlice.remaining()
+                    );
+
+                    BufferReader certSlice = signedDataSlice.readLengthPrefixedSlice();
                     std::vector<uint8_t> certBytes = certSlice.readBytes(certSlice.remaining());
-                    ss << "    * Certificate:\n";
+                    X509* currentCert = parseX509(certBytes);
+                    
+                    ss << "    * Node Certificate:\n";
                     printCertDetails(ss, certBytes);
-                }
 
-                if (nodesReader.remaining() >= 4) {
-                    uint32_t flags = nodesReader.readU32();
+                    uint32_t flags = lineageSlice.readU32();
                     ss << "    * Capability Flags : 0x" << std::hex << flags 
                        << " [" << decodeLineageFlags(flags) << "]\n";
-                }
 
-                if (nodesReader.remaining() >= 4) {
-                    uint32_t sigAlgId = nodesReader.readU32();
+                    uint32_t sigAlgId = lineageSlice.readU32();
                     ss << "    * Sig Algorithm ID : 0x" << std::hex << sigAlgId 
                        << " (" << decodeSigAlgId(sigAlgId) << ")\n";
+
+                    BufferReader sigSlice = lineageSlice.readLengthPrefixedSlice();
+                    std::vector<uint8_t> signature = sigSlice.readBytes(sigSlice.remaining());
+
+                    std::vector<uint8_t> dataToVerify = rawSignedData;
+                    uint8_t flagsBytes[4] = {
+                        static_cast<uint8_t>(flags & 0xFF),
+                        static_cast<uint8_t>((flags >> 8) & 0xFF),
+                        static_cast<uint8_t>((flags >> 16) & 0xFF),
+                        static_cast<uint8_t>((flags >> 24) & 0xFF)
+                    };
+                    dataToVerify.insert(dataToVerify.end(), flagsBytes, flagsBytes + 4);
+
+                    if (parentCert != nullptr) {
+                        bool isValid = verifyLineageNodeSignature(parentCert, sigAlgId, dataToVerify, signature);
+                        ss << "    * Parent Signature Verification: " 
+                           << (isValid ? "[ PASSED ]" : "[ FAILED ]") << "\n";
+                        X509_free(parentCert);
+                    } else {
+                        ss << "    * Parent Signature Verification: [ Root Node - Self Signed ]\n";
+                    }
+
+                    parentCert = currentCert;
                 }
 
-                if (nodesReader.hasRemaining()) {
-                    BufferReader sigSlice = nodesReader.readLengthPrefixedSlice();
-                    ss << "    * Parent Signature : " << std::dec << sigSlice.remaining() << " bytes";
-                    
-                    std::vector<uint8_t> sigBytes = sigSlice.readBytes(sigSlice.remaining());
-                    if (!sigBytes.empty()) {
-                        ss << " [Preview: ";
-                        for (size_t i = 0; i < std::min<size_t>(8, sigBytes.size()); ++i) {
-                            ss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(sigBytes[i]);
-                        }
-                        ss << "...]";
-                    }
-                    ss << "\n";
+                if (parentCert) {
+                    X509_free(parentCert);
                 }
             }
         }
