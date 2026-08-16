@@ -19,14 +19,14 @@
 #include <openssl/objects.h>
 #include <openssl/core_names.h>
 
-constexpr uint32_t APK_V2_SIGNATURE_SCHEME_ID   = 0x7109871a;
-constexpr uint32_t APK_V3_SIGNATURE_SCHEME_ID   = 0xf05368c0;
-constexpr uint32_t APK_V31_SIGNATURE_SCHEME_ID  = 0x1b93ad61;
-constexpr uint32_t APK_V32_SIGNATURE_SCHEME_ID  = 0x70e1c89f;
-constexpr uint32_t APK_SOURCE_STAMP_V1_ID       = 0x6dff800d;
-constexpr uint32_t APK_SOURCE_STAMP_V2_ID       = 0x2146444e;
-constexpr uint32_t APK_VERITY_PADDING_BLOCK_ID        = 0x42726577;
-constexpr uint32_t APK_SDK_DEPENDENCY_INFO_ID   = 0x504b4453;
+constexpr uint32_t APK_V2_SIGNATURE_SCHEME_ID      = 0x7109871a;
+constexpr uint32_t APK_V3_SIGNATURE_SCHEME_ID      = 0xf05368c0;
+constexpr uint32_t APK_V31_SIGNATURE_SCHEME_ID     = 0x1b93ad61;
+constexpr uint32_t APK_V32_SIGNATURE_SCHEME_ID     = 0x70e1c89f;
+constexpr uint32_t SOURCE_STAMP_V2_BLOCK_ID        = 0x6dff800d;
+constexpr uint32_t GOOGLE_PLAY_FROSTING_BLOCK_ID  = 0x2146444e;
+constexpr uint32_t APK_VERITY_PADDING_BLOCK_ID      = 0x42726577;
+constexpr uint32_t APK_SDK_DEPENDENCY_INFO_ID      = 0x504b4453;
 
 class BufferReader {
 private:
@@ -486,6 +486,81 @@ static bool checkBlockIdPresent(const std::string& apkPath, uint32_t targetId) {
     return false;
 }
 
+void parseSourceStampBlock(std::ostringstream& ss, const std::vector<uint8_t>& payload) {
+    ss << "\n [ Source Stamp (0x6dff800d) ] \n";
+    ss << "    * Description      : Source Signature Tag Block\n";
+    ss << "    * Block Size       : " << std::dec << payload.size() << " bytes\n";
+
+    try {
+        BufferReader reader(payload.data(), payload.size());
+
+        // 版本号 (Version: 4 字节)
+        if (reader.remaining() < 4) return;
+        uint32_t version = reader.readU32();
+        ss << "    * Version          : " << std::dec << version << "\n";
+
+        // 非对称公钥 (Stamp Public Key: Length-Prefixed Byte Array)
+        if (reader.hasRemaining()) {
+            BufferReader pubKeySlice = reader.readLengthPrefixedSlice();
+            std::vector<uint8_t> pubKeyBytes = pubKeySlice.readBytes(pubKeySlice.remaining());
+            ss << "    * Stamp Public Key : " << std::dec << pubKeyBytes.size() << " bytes\n";
+            ss << "      - Raw Bytes      : " << toHexString(pubKeyBytes) << "\n";
+        }
+
+        // 证书链 (Certificates Sequence: Length-Prefixed)
+        if (reader.hasRemaining()) {
+            BufferReader certsSlice = reader.readLengthPrefixedSlice();
+            int certIdx = 1;
+            while (certsSlice.hasRemaining()) {
+                BufferReader certSlice = certsSlice.readLengthPrefixedSlice();
+                std::vector<uint8_t> certBytes = certSlice.readBytes(certSlice.remaining());
+                
+                ss << "\n    --- Stamp Certificate #" << certIdx++ << " ---\n";
+                printCertDetails(ss, certBytes);
+            }
+        }
+
+        // 签名主体与摘要 (Signed Data & Signatures)
+        if (reader.hasRemaining()) {
+            BufferReader signedDataSlice = reader.readLengthPrefixedSlice();
+            ss << "\n    * Signed Data Size : " << std::dec << signedDataSlice.remaining() << " bytes\n";
+
+            // 摘要列表 (Digests)
+            if (signedDataSlice.hasRemaining()) {
+                BufferReader digestsSlice = signedDataSlice.readLengthPrefixedSlice();
+                int digestIdx = 1;
+                while (digestsSlice.hasRemaining()) {
+                    BufferReader digestEntry = digestsSlice.readLengthPrefixedSlice();
+                    uint32_t sigAlgId = digestEntry.readU32();
+                    BufferReader digestValue = digestEntry.readLengthPrefixedSlice();
+                    
+                    ss << "      - Digest #" << digestIdx++ << " (Alg: 0x" 
+                       << std::hex << sigAlgId << "): "
+                       << toHexString(digestValue.readBytes(digestValue.remaining())) << "\n";
+                }
+            }
+
+            // 签名值 (Signatures)
+            if (reader.hasRemaining()) {
+                BufferReader signaturesSlice = reader.readLengthPrefixedSlice();
+                int sigIdx = 1;
+                while (signaturesSlice.hasRemaining()) {
+                    BufferReader sigEntry = signaturesSlice.readLengthPrefixedSlice();
+                    uint32_t sigAlgId = sigEntry.readU32();
+                    BufferReader signatureValue = sigEntry.readLengthPrefixedSlice();
+                    
+                    ss << "\n    --- Signature #" << sigIdx++ << " ---\n";
+                    ss << "    * Sig Alg ID       : 0x" << std::hex << sigAlgId << "\n";
+                    ss << "    * Signature Size   : " << std::dec << signatureValue.remaining() << " bytes\n";
+                }
+            }
+        }
+
+    } catch (const std::exception& e) {
+        ss << "    * [!] Source Stamp Parse Error: " << e.what() << "\n";
+    }
+}
+
 static bool checkV1Present(const std::string& apkPath) {
     std::ifstream file(apkPath, std::ios::binary | std::ios::ate);
     if (!file.is_open()) return false;
@@ -614,11 +689,13 @@ static std::string parseApkSigningBlock(const std::string& apkPath) {
             case APK_V32_SIGNATURE_SCHEME_ID:
                 parseSchemePayload(ss, "v3.2 Scheme (0x70e1c89f)", value, true);
                 break;
-            case APK_SOURCE_STAMP_V1_ID:
-                parseSchemePayload(ss, "V1 Scheme (0x6dff800d)", value, true);
+            case SOURCE_STAMP_V2_BLOCK_ID:
+                parseSourceStampBlock(ss, value);
                 break;
-            case APK_SOURCE_STAMP_V2_ID:
-                parseSchemePayload(ss, "V2 Scheme / Lineage (0x2146444e)", value, true);
+            case GOOGLE_PLAY_FROSTING_BLOCK_ID:
+                ss << "\n [ Google Play Frosting (0x2146444e) ] \n";
+                ss << "    * Description      : Google Play Security Metadata\n";
+                ss << "    * Raw Payload Size : " << std::dec << value.size() << " bytes\n";
                 break;
             case APK_VERITY_PADDING_BLOCK_ID:
                 ss << "\n [ Verity Padding Block (0x42726577) ] \n";
