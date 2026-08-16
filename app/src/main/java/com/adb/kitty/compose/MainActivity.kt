@@ -445,8 +445,8 @@ class MainActivity : ComponentActivity() {
                 
                 selectedSigReport?.let { report ->
                     SignatureResultBottomSheet(
-                        reportText = report.reportText,
-                        isValid = report.isValid,
+                        reportText = report,
+                        isValid = true,
                         onDismiss = { selectedSigReport = null }
                     )
                 }
