@@ -22,11 +22,12 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 
+@Keep
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SignatureResultBottomSheet(
     reportText: String,
-    isValid: Boolean,
+    schemeText: String,
     onDismiss: () -> Unit
 ) {
     val clipboardManager = LocalClipboardManager.current
@@ -48,14 +49,14 @@ fun SignatureResultBottomSheet(
                 modifier = Modifier.padding(bottom = 16.dp)
             ) {
                 Icon(
-                    imageVector = if (isValid) Icons.Default.CheckCircle else Icons.Default.Error,
+                    imageVector = Icons.Default.CheckCircle,
                     contentDescription = null,
-                    tint = if (isValid) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+                    tint = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(28.dp)
                 )
                 Text(
-                    text = if (isValid) "签名验证通过" else "签名验证异常",
-                    style = MaterialTheme.typography.titleLarge
+                    text = schemeText,
+                    style = MaterialTheme.typography.titleMedium
                 )
             }
 

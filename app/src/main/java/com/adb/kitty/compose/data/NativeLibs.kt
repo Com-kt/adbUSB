@@ -46,6 +46,26 @@ object NativeLibs {
     external fun VerifyAllSignatures(apkPath: String): Boolean
     external fun ApkSignature(apkPath: String): String
     
+    external fun hasV1Scheme(apkPath: String): Boolean
+    external fun hasV2Scheme(apkPath: String): Boolean
+    external fun hasV3Scheme(apkPath: String): Boolean
+    external fun hasV31Scheme(apkPath: String): Boolean
+    external fun hasV32Scheme(apkPath: String): Boolean
+    
+    fun getSupportedSchemesText(apkPath: String): String {
+        val schemes = mutableListOf<String>()
+        if (hasV1Scheme(apkPath)) schemes.add("V1")
+        if (hasV2Scheme(apkPath)) schemes.add("V2")
+        if (hasV3Scheme(apkPath)) schemes.add("V3")
+        if (hasV31Scheme(apkPath)) schemes.add("V3.1")
+        if (hasV32Scheme(apkPath)) schemes.add("V3.2")
+
+        return if (schemes.isNotEmpty()) {
+            "签名方案: " + schemes.joinToString(" + ")
+        } else {
+            "未检测到已知签名方案"
+        }
+    }
 }
 
 @Keep

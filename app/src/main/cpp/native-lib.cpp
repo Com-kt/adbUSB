@@ -20,7 +20,10 @@ constexpr uint32_t APK_V2_SIGNATURE_SCHEME_ID   = 0x7109871a;
 constexpr uint32_t APK_V3_SIGNATURE_SCHEME_ID   = 0xf05368c0;
 constexpr uint32_t APK_V31_SIGNATURE_SCHEME_ID  = 0x1b93ad61;
 constexpr uint32_t APK_V32_SIGNATURE_SCHEME_ID  = 0x70e1c89f;
+constexpr uint32_t APK_SOURCE_STAMP_V1_ID       = 0x6dff800d;
+constexpr uint32_t APK_SOURCE_STAMP_V2_ID       = 0x2146444e;
 constexpr uint32_t APK_BUILD_METADATA_ID        = 0x42726577;
+constexpr uint32_t APK_SDK_DEPENDENCY_INFO_ID   = 0x504b4453;
 
 class BufferReader {
 private:
@@ -245,6 +248,159 @@ static void parseSchemePayload(std::ostringstream& ss, const std::string& scheme
     }
 }
 
+static void parseSourceStampV1Payload(std::ostringstream& ss, const std::vector<uint8_t>& payload) {
+    ss << "\n========== [ Source Stamp V1 (0x6dff800d) ] ==========\n";
+    ss << "    * Block Size       : " << std::dec << payload.size() << " bytes\n";
+    try {
+        BufferReader reader(payload.data(), payload.size());
+        if (reader.hasRemaining()) {
+            BufferReader signedData = reader.readLengthPrefixedSlice();
+            if (signedData.hasRemaining()) {
+                BufferReader certs = signedData.readLengthPrefixedSlice();
+                int certIdx = 1;
+                while (certs.hasRemaining()) {
+                    BufferReader certSlice = certs.readLengthPrefixedSlice();
+                    std::vector<uint8_t> certBytes = certSlice.readBytes(certSlice.remaining());
+                    ss << " Stamp Certificate #" << certIdx++ << ":\n";
+                    printCertDetails(ss, certBytes);
+                }
+            }
+        }
+    } catch (const std::exception& e) {
+        ss << "    * [!] Stamp V1 Parse Note: " << e.what() << "\n";
+    }
+}
+
+static void parseSourceStampV2Payload(std::ostringstream& ss, const std::vector<uint8_t>& payload) {
+    ss << "\n========== [ Source Stamp V2 / Lineage (0x2146444e) ] ==========\n";
+    ss << "    * Block Size       : " << std::dec << payload.size() << " bytes\n";
+    try {
+        BufferReader reader(payload.data(), payload.size());
+        if (reader.hasRemaining()) {
+            BufferReader lineageSlice = reader.readLengthPrefixedSlice();
+            ss << "    * Lineage Data Size: " << std::dec << lineageSlice.remaining() << " bytes\n";
+        }
+    } catch (const std::exception& e) {
+        ss << "    * [!] Stamp V2 Parse Note: " << e.what() << "\n";
+    }
+}
+
+static bool checkBlockIdPresent(const std::string& apkPath, uint32_t targetId) {
+    std::ifstream file(apkPath, std::ios::binary | std::ios::ate);
+    if (!file.is_open()) return false;
+
+    size_t fileSize = file.tellg();
+    if (fileSize < 22) return false;
+
+    size_t maxSearchSize = std::min(fileSize, (size_t)65557);
+    std::vector<uint8_t> buffer(maxSearchSize);
+    file.seekg(fileSize - maxSearchSize);
+    file.read((char*)buffer.data(), maxSearchSize);
+
+    size_t eocdPos = 0;
+    for (size_t i = maxSearchSize - 22; ; i--) {
+        if (buffer[i] == 0x50 && buffer[i+1] == 0x4b && buffer[i+2] == 0x05 && buffer[i+3] == 0x06) {
+            eocdPos = fileSize - maxSearchSize + i;
+            break;
+        }
+        if (i == 0) break;
+    }
+    if (eocdPos == 0) return false;
+
+    file.seekg(eocdPos + 16);
+    uint32_t cdOffset;
+    file.read((char*)&cdOffset, 4);
+    if (cdOffset < 24) return false;
+
+    file.seekg(cdOffset - 16);
+    char magic[16];
+    file.read(magic, 16);
+    if (memcmp(magic, "APK Sig Block 42", 16) != 0) return false;
+
+    file.seekg(cdOffset - 24);
+    uint64_t blockSizeInFooter;
+    file.read((char*)&blockSizeInFooter, 8);
+
+    size_t blockStartPos = cdOffset - 8 - blockSizeInFooter;
+    file.seekg(blockStartPos);
+    
+    std::vector<uint8_t> blockData(blockSizeInFooter - 16);
+    file.read((char*)blockData.data(), blockData.size());
+
+    BufferReader reader(blockData.data() + 8, blockData.size() - 8);
+    while (reader.hasRemaining()) {
+        try {
+            uint64_t pairLen = reader.readU64();
+            uint32_t id = reader.readU32();
+            if (id == targetId) return true;
+            reader.readBytes(pairLen - 4);
+        } catch (...) {
+            break;
+        }
+    }
+    return false;
+}
+
+static bool checkV1Present(const std::string& apkPath) {
+    std::ifstream file(apkPath, std::ios::binary | std::ios::ate);
+    if (!file.is_open()) return false;
+
+    size_t fileSize = file.tellg();
+    if (fileSize < 22) return false;
+
+    size_t maxSearchSize = std::min(fileSize, (size_t)65557);
+    std::vector<uint8_t> buffer(maxSearchSize);
+    file.seekg(fileSize - maxSearchSize);
+    file.read((char*)buffer.data(), maxSearchSize);
+
+    size_t eocdPos = 0;
+    for (size_t i = maxSearchSize - 22; ; i--) {
+        if (buffer[i] == 0x50 && buffer[i+1] == 0x4b && buffer[i+2] == 0x05 && buffer[i+3] == 0x06) {
+            eocdPos = fileSize - maxSearchSize + i;
+            break;
+        }
+        if (i == 0) break;
+    }
+    if (eocdPos == 0) return false;
+
+    file.seekg(eocdPos + 10);
+    uint16_t numEntries;
+    file.read((char*)&numEntries, 2);
+    
+    file.seekg(eocdPos + 16);
+    uint32_t cdOffset;
+    file.read((char*)&cdOffset, 4);
+
+    file.seekg(cdOffset);
+    for (uint16_t i = 0; i < numEntries; ++i) {
+        uint32_t sig;
+        file.read((char*)&sig, 4);
+        if (sig != 0x02014b50) break;
+
+        file.seekg((size_t)file.tellg() + 24);
+        uint16_t nameLen, extraLen, commentLen;
+        file.read((char*)&nameLen, 2);
+        file.read((char*)&extraLen, 2);
+        file.read((char*)&commentLen, 2);
+        file.seekg((size_t)file.tellg() + 12);
+
+        std::string filename(nameLen, '\0');
+        file.read(&filename[0], nameLen);
+        file.seekg((size_t)file.tellg() + extraLen + commentLen);
+
+        if (filename.rfind("META-INF/", 0) == 0) {
+            if (filename.size() > 3 && (
+                filename.substr(filename.size() - 3) == ".SF" ||
+                filename.substr(filename.size() - 4) == ".RSA" ||
+                filename.substr(filename.size() - 4) == ".DSA" ||
+                filename.substr(filename.size() - 3) == ".EC")) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
 static std::string parseApkSigningBlock(const std::string& apkPath) {
     std::ostringstream ss;
     std::ifstream file(apkPath, std::ios::binary | std::ios::ate);
@@ -313,12 +469,32 @@ static std::string parseApkSigningBlock(const std::string& apkPath) {
             case APK_V32_SIGNATURE_SCHEME_ID:
                 parseSchemePayload(ss, "v3.2 Scheme", value, true);
                 break;
+            case APK_SOURCE_STAMP_V1_ID:
+                parseSourceStampV1Payload(ss, value);
+                break;
+            case APK_SOURCE_STAMP_V2_ID:
+                parseSourceStampV2Payload(ss, value);
+                break;
             case APK_BUILD_METADATA_ID:
+                ss << "\n========== [ APK Build Metadata (0x42726577) ] ==========\n";
+                ss << "    * Raw Payload Size : " << std::dec << value.size() << " bytes\n";
+                break;
+            case APK_SDK_DEPENDENCY_INFO_ID:
+                ss << "\n========== [ SDK Dependency Info (0x504b4453) ] ==========\n";
+                ss << "    * Description      : AGP / Google Play SDK Dependency Metadata (Encrypted)\n";
+                ss << "    * Raw Payload Size : " << std::dec << value.size() << " bytes\n";
                 break;
             default: {
                 std::stringstream idSs;
                 idSs << "0x" << std::hex << id;
-                parseSchemePayload(ss, "Block ID " + idSs.str(), value, false);
+                ss << "\n========== [ Block ID " << idSs.str() << " ] ==========\n";
+                ss << "    * Raw Payload Size : " << std::dec << value.size() << " bytes\n";
+                if (!value.empty()) {
+                    size_t previewLen = std::min(value.size(), (size_t)32);
+                    ss << "    * Data Preview     : " << bytesToFullHex(value.data(), previewLen);
+                    if (value.size() > 32) ss << "...";
+                    ss << "\n";
+                }
                 break;
             }
         }
@@ -326,7 +502,8 @@ static std::string parseApkSigningBlock(const std::string& apkPath) {
     return ss.str();
 }
 
-extern "C"
+extern "C" {
+
 JNIEXPORT jstring JNICALL
 Java_com_adb_kitty_compose_data_NativeLibs_ApkSignature(JNIEnv *env, jobject thiz, jstring apk_path) {
     if (!apk_path) {
@@ -338,4 +515,51 @@ Java_com_adb_kitty_compose_data_NativeLibs_ApkSignature(JNIEnv *env, jobject thi
     env->ReleaseStringUTFChars(apk_path, c_apk_path);
 
     return env->NewStringUTF(result.c_str());
+}
+
+JNIEXPORT jboolean JNICALL
+Java_com_adb_kitty_compose_data_NativeLibs_hasV1Scheme(JNIEnv *env, jobject thiz, jstring apk_path) {
+    if (!apk_path) return JNI_FALSE;
+    const char* path = env->GetStringUTFChars(apk_path, nullptr);
+    bool res = checkV1Present(std::string(path));
+    env->ReleaseStringUTFChars(apk_path, path);
+    return res ? JNI_TRUE : JNI_FALSE;
+}
+
+JNIEXPORT jboolean JNICALL
+Java_com_adb_kitty_compose_data_NativeLibs_hasV2Scheme(JNIEnv *env, jobject thiz, jstring apk_path) {
+    if (!apk_path) return JNI_FALSE;
+    const char* path = env->GetStringUTFChars(apk_path, nullptr);
+    bool res = checkBlockIdPresent(std::string(path), APK_V2_SIGNATURE_SCHEME_ID);
+    env->ReleaseStringUTFChars(apk_path, path);
+    return res ? JNI_TRUE : JNI_FALSE;
+}
+
+JNIEXPORT jboolean JNICALL
+Java_com_adb_kitty_compose_data_NativeLibs_hasV3Scheme(JNIEnv *env, jobject thiz, jstring apk_path) {
+    if (!apk_path) return JNI_FALSE;
+    const char* path = env->GetStringUTFChars(apk_path, nullptr);
+    bool res = checkBlockIdPresent(std::string(path), APK_V3_SIGNATURE_SCHEME_ID);
+    env->ReleaseStringUTFChars(apk_path, path);
+    return res ? JNI_TRUE : JNI_FALSE;
+}
+
+JNIEXPORT jboolean JNICALL
+Java_com_adb_kitty_compose_data_NativeLibs_hasV31Scheme(JNIEnv *env, jobject thiz, jstring apk_path) {
+    if (!apk_path) return JNI_FALSE;
+    const char* path = env->GetStringUTFChars(apk_path, nullptr);
+    bool res = checkBlockIdPresent(std::string(path), APK_V31_SIGNATURE_SCHEME_ID);
+    env->ReleaseStringUTFChars(apk_path, path);
+    return res ? JNI_TRUE : JNI_FALSE;
+}
+
+JNIEXPORT jboolean JNICALL
+Java_com_adb_kitty_compose_data_NativeLibs_hasV32Scheme(JNIEnv *env, jobject thiz, jstring apk_path) {
+    if (!apk_path) return JNI_FALSE;
+    const char* path = env->GetStringUTFChars(apk_path, nullptr);
+    bool res = checkBlockIdPresent(std::string(path), APK_V32_SIGNATURE_SCHEME_ID);
+    env->ReleaseStringUTFChars(apk_path, path);
+    return res ? JNI_TRUE : JNI_FALSE;
+}
+
 }

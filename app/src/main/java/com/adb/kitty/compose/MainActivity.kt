@@ -444,9 +444,11 @@ class MainActivity : ComponentActivity() {
                 }
                 
                 selectedSigReport?.let { report ->
+                    val schemeText = NativeLibs.getSupportedSchemesText(selectedApp.apkPath)
+                    
                     SignatureResultBottomSheet(
                         reportText = report,
-                        isValid = true,
+                        schemeText = schemeText,
                         onDismiss = { selectedSigReport = null }
                     )
                 }
