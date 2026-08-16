@@ -498,47 +498,40 @@ void parseSourceStampBlock(std::ostringstream& ss, const std::vector<uint8_t>& p
     ss << "\n [ Source Stamp (0x6dff800d) ] \n";
     ss << "    * Description      : Source Signature Tag Block\n";
     ss << "    * Block Size       : " << std::dec << payload.size() << " bytes\n";
+    ss << "    * Raw Data Hex     : " << bytesToFullHex(value.data(), value.size()) << "\n";
 
     try {
         BufferReader reader(payload.data(), payload.size());
-
         if (!reader.hasRemaining()) return;
-        BufferReader signedDataSlice = reader.readLengthPrefixedSlice();
-        ss << "    * Signed Data Size : " << std::dec << signedDataSlice.remaining() << " bytes\n";
 
-        if (signedDataSlice.hasRemaining()) {
-            BufferReader certsSlice = signedDataSlice.readLengthPrefixedSlice();
-            int certIdx = 1;
-            while (certsSlice.hasRemaining()) {
-                BufferReader certSlice = certsSlice.readLengthPrefixedSlice();
-                std::vector<uint8_t> certBytes = certSlice.readBytes(certSlice.remaining());
-                
-                ss << "\n    --- Stamp Certificate #" << certIdx++ << " (" 
-                   << std::dec << certBytes.size() << " bytes) ---\n";
-                
-                printCertDetails(ss, certBytes);
-            }
+        BufferReader signedData = reader.readLengthPrefixedSlice();
+        size_t signedDataSize = signedData.remaining();
+        ss << "    * Signed Data Size : " << std::dec << signedDataSize << " bytes\n";
+
+        std::vector<uint8_t> signedDataBytes = signedData.readBytes(signedDataSize);
+
+        const uint8_t* p = signedDataBytes.data();
+        long remaining = static_cast<long>(signedDataBytes.size());
+        int certIdx = 1;
+
+        while (remaining > 0 && *p == 0x30) {
+            const uint8_t* certStart = p;
+            X509* cert = d2i_X509(NULL, &p, remaining);
+            if (!cert) break;
+
+            long certLen = p - certStart;
+            remaining -= certLen;
+
+            ss << "\n    --- Stamp Certificate #" << certIdx++ << " (" << std::dec << certLen << " bytes) ---\n";
+
+            std::vector<uint8_t> certBytes(certStart, certStart + certLen);
+            printCertDetails(ss, certBytes);
+
+            X509_free(cert);
         }
 
-        if (signedDataSlice.hasRemaining()) {
-            BufferReader attrsSlice = signedDataSlice.readLengthPrefixedSlice();
-            ss << "    * Stamp Attrs Size : " << std::dec << attrsSlice.remaining() << " bytes\n";
-        }
-
-        if (reader.hasRemaining()) {
-            BufferReader signaturesSlice = reader.readLengthPrefixedSlice();
-            int sigIdx = 1;
-            while (signaturesSlice.hasRemaining()) {
-                BufferReader sigEntry = signaturesSlice.readLengthPrefixedSlice();
-                if (sigEntry.remaining() >= 4) {
-                    uint32_t sigAlgId = sigEntry.readU32();
-                    BufferReader signatureValue = sigEntry.readLengthPrefixedSlice();
-                    
-                    ss << "\n    --- Stamp Signature #" << sigIdx++ << " ---\n";
-                    ss << "    * Sig Alg ID       : 0x" << std::hex << sigAlgId << "\n";
-                    ss << "    * Signature Size   : " << std::dec << signatureValue.remaining() << " bytes\n";
-                }
-            }
+        if (remaining > 0) {
+            ss << "\n    * Remaining Signatures/Attrs : " << std::dec << remaining << " bytes\n";
         }
 
     } catch (const std::exception& e) {
@@ -681,6 +674,7 @@ static std::string parseApkSigningBlock(const std::string& apkPath) {
                 ss << "\n [ Google Play Frosting (0x2146444e) ] \n";
                 ss << "    * Description      : Google Play Security Metadata\n";
                 ss << "    * Raw Payload Size : " << std::dec << value.size() << " bytes\n";
+                ss << "    * Raw Data Hex     : " << bytesToFullHex(value.data(), value.size()) << "\n";
                 break;
             case APK_VERITY_PADDING_BLOCK_ID:
                 ss << "\n [ Verity Padding Block (0x42726577) ] \n";
@@ -691,6 +685,7 @@ static std::string parseApkSigningBlock(const std::string& apkPath) {
                 ss << "\n [ SDK Dependency Info (0x504b4453) ] \n";
                 ss << "    * Description      : AGP / Google Play SDK Dependency Metadata (Encrypted)\n";
                 ss << "    * Raw Payload Size : " << std::dec << value.size() << " bytes\n";
+                ss << "    * Raw Data Hex     : " << bytesToFullHex(value.data(), value.size()) << "\n";
                 break;
             default: {
                 std::stringstream idSs;
