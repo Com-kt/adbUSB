@@ -529,7 +529,8 @@ void parseSourceStampBlock(std::ostringstream& ss, const std::vector<uint8_t>& p
 
                     ss << "\n    --- Stamp Certificate #" << certIdx++ << " (" << std::dec << certLen << " bytes) ---\n";
                     std::vector<uint8_t> rawCert(certStart, certStart + certLen);
-                    printCertDetails(ss, rawCert);
+                  //  printCertDetails(ss, rawCert);
+                    parseSchemePayload(ss, "Source Stamp (0x6dff800d)", rawCert, false);
                     X509_free(cert);
                 }
             }
@@ -666,15 +667,23 @@ static std::string parseApkSigningBlock(const std::string& apkPath) {
         switch (id) {
             case APK_V2_SIGNATURE_SCHEME_ID:
                 parseSchemePayload(ss, "v2 Scheme (0x7109871a)", value, false);
+                ss << "    * Raw Payload Size : " << std::dec << value.size() << " bytes\n";
+                ss << "    * Raw Data Hex     : " << toHexString(value) << "\n";
                 break;
             case APK_V3_SIGNATURE_SCHEME_ID:
                 parseSchemePayload(ss, "v3.0 Scheme (0xf05368c0)", value, true);
+                ss << "    * Raw Payload Size : " << std::dec << value.size() << " bytes\n";
+                ss << "    * Raw Data Hex     : " << toHexString(value) << "\n";
                 break;
             case APK_V31_SIGNATURE_SCHEME_ID:
                 parseSchemePayload(ss, "v3.1 Scheme (0x1b93ad61)", value, true);
+                ss << "    * Raw Payload Size : " << std::dec << value.size() << " bytes\n";
+                ss << "    * Raw Data Hex     : " << toHexString(value) << "\n";
                 break;
             case APK_V32_SIGNATURE_SCHEME_ID:
                 parseSchemePayload(ss, "v3.2 Scheme (0x70e1c89f)", value, true);
+                ss << "    * Raw Payload Size : " << std::dec << value.size() << " bytes\n";
+                ss << "    * Raw Data Hex     : " << toHexString(value) << "\n";
                 break;
             case SOURCE_STAMP_V2_BLOCK_ID:
                 parseSourceStampBlock(ss, value);
@@ -683,7 +692,7 @@ static std::string parseApkSigningBlock(const std::string& apkPath) {
                 ss << "\n [ Google Play Frosting (0x2146444e) ] \n";
                 ss << "    * Description      : Google Play Security Metadata\n";
                 ss << "    * Raw Payload Size : " << std::dec << value.size() << " bytes\n";
-                ss << "    * Raw Data Hex     : " << bytesToFullHex(value.data(), value.size()) << "\n";
+                ss << "    * Raw Data Hex     : " << toHexString(value) << "\n";
                 break;
             case APK_VERITY_PADDING_BLOCK_ID:
                 ss << "\n [ Verity Padding Block (0x42726577) ] \n";
@@ -693,8 +702,9 @@ static std::string parseApkSigningBlock(const std::string& apkPath) {
             case APK_SDK_DEPENDENCY_INFO_ID:
                 ss << "\n [ SDK Dependency Info (0x504b4453) ] \n";
                 ss << "    * Description      : AGP / Google Play SDK Dependency Metadata (Encrypted)\n";
+                ss << "    * Kind tips      : This Hex data is an encrypted information that can only be decrypted by the private key in the Google Play backend.\n";
                 ss << "    * Raw Payload Size : " << std::dec << value.size() << " bytes\n";
-                ss << "    * Raw Data Hex     : " << bytesToFullHex(value.data(), value.size()) << "\n";
+                ss << "    * Raw Data Hex     : " << toHexString(value) << "\n";
                 break;
             default: {
                 std::stringstream idSs;
