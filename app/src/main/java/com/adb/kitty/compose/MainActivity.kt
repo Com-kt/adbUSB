@@ -533,7 +533,11 @@ class MainActivity : ComponentActivity() {
     
         when {
             cmd.startsWith("neko ") -> {
-                handleLocalShellPipeline(cmd)
+                // 临时保留 neko 指令, 一般情况用不到
+                val localCmd = cmd.removePrefix("neko ").trim()
+                if (localCmd.isNotEmpty()) {
+                    handleLocalShellPipeline(cmd)
+                }
             }
             
             cmd == "neko-sig" || cmd == "apk-sig" -> {
@@ -854,7 +858,7 @@ class MainActivity : ComponentActivity() {
     
     private fun handleLocalShellPipeline(cmd: String) {
         appendLog("[系统] Shell >> $cmd")
-        var realLocalCmd = cmd.removePrefix("neko ").trim()
+        var realLocalCmd = cmd
         var requestRoot = false
 
         if (realLocalCmd == "su -c sh" || realLocalCmd == "su") {
@@ -938,36 +942,72 @@ class MainActivity : ComponentActivity() {
     private fun handlePhysicalFallback(cmd: String) {
         if (isFastbootMode) {
             appendLog("[发送] FB >> $cmd") 
-        
+    
             if (cmd == "usb-selinux") {
                 appendLog("[系统] 正在尝试设置 SeLinux 为宽容模式, 该指令由 app 提供")
                 FbSeLinuxCmd()
                 return
             }
-        
+    
             lifecycleScope.launch(Dispatchers.IO) {
                 runCatching { viewModel.runCommand(cmd) }
                     .onFailure { appendLog("[错误] ${it.message}") } 
             }
         } else {
-            if (!isAdbAuthorized && !cmd.startsWith("adb pair") && !cmd.startsWith("adb connect")) {
-                appendLog("[发送] ADB >> $cmd\n[警告] 默认走 adbd 通道，请更换为 neko 指令，走应用自身权限")
-                return
-            }
             lifecycleScope.launch(Dispatchers.IO) {
                 when {
                     cmd.startsWith("adb pair") -> handleLocalAdbPair(cmd)
                     cmd.startsWith("adb connect") -> handleLocalAdbConnect(cmd)
-                    cmd.startsWith("adb push") -> handleLocalAdbPush(cmd)
-                    cmd.startsWith("adb pull") -> handleLocalAdbPull(cmd)
-                    cmd.startsWith("adb install") -> handleLocalAdbInstall(this@MainActivity, cmd)
-                    cmd.startsWith("adb uninstall") -> handleLocalAdbUninstall(cmd)
-                    else -> sendAdbShell(cmd)
+
+                    cmd.startsWith("adb shell") -> {
+                        if (!isAdbAuthorized) {
+                            appendLog("[错误] ADB 未授权，无法执行 adb shell")
+                            return@launch
+                        }
+                        sendAdbShell(cmd)
+                    }
+                    
+                    cmd.startsWith("adb push") -> {
+                        if (!isAdbAuthorized) {
+                            appendLog("[错误] ADB 未授权，无法执行 adb push")
+                            return@launch
+                        }
+                        handleLocalAdbPush(cmd)
+                    }
+                    
+                    cmd.startsWith("adb pull") -> {
+                        if (!isAdbAuthorized) {
+                            appendLog("[错误] ADB 未授权，无法执行 adb pull")
+                            return@launch
+                        }
+                        handleLocalAdbPull(cmd)
+                    }
+                    
+                    cmd.startsWith("adb install") -> {
+                        if (!isAdbAuthorized) {
+                            appendLog("[错误] ADB 未授权，无法执行 adb install")
+                            return@launch
+                        }
+                        handleLocalAdbInstall(this@MainActivity, cmd)
+                    }
+                    
+                    cmd.startsWith("adb uninstall") -> {
+                        if (!isAdbAuthorized) {
+                            appendLog("[错误] ADB 未授权，无法执行 adb uninstall")
+                            return@launch
+                        }
+                        handleLocalAdbUninstall(cmd)
+                    }
+
+                    // 兜底：未加 adb 前缀的所有普通命令均走本地 Shell 管道（不受 adbd 状态限制）
+                    else -> {
+                        handleLocalShellPipeline(cmd)
+                    }
                 }
             }
         }
     }
-    
+
     fun triggerStoragePermissionCheck() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             if (Environment.isExternalStorageManager()) {

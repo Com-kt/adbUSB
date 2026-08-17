@@ -23,6 +23,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 
 @Keep
@@ -33,43 +34,132 @@ fun CommandHelpBottomSheet(
     onDismissRequest: () -> Unit
 ) {
     if (!isVisible) return
-
     val commandList = remember {
         listOf(
             CommandHelp(
+                title = "ADB 无线/有线调试",
+                command = "adb",
+                description = "使用有线/无线连接到adbd",
+                options = listOf(
+                    CommandOption(
+                        flag = "adb pair [IP:配对端口] [配对码]",
+                        description = "使用 adb pair 在同一 Wi-Fi 下进行 ADB 无线配对"
+                    ),
+                    CommandOption(
+                        flag = "adb connect [IP:无线调试端口]",
+                        description = "无线配对完成之后，使用 adb connect 连接到目标IP地址设备的 adbd, 进行无线调试"
+                    ),
+                    CommandOption(
+                        flag = "adb push [本地文件名] [远端路径]",
+                        description = "使用 adb push 将文件推送至目标设备的adb可访问的位置"
+                    ),
+                    CommandOption(
+                        flag = "adb pull [远端路径] (可选本地落地名)",
+                        description = "使用 adb pull 拉取目标设备的文件, 前提是adb可访问"
+                    ),
+                    CommandOption(
+                        flag = "adb install [本地文件名]",
+                        description = "使用 adb install 将apk、apks、xapk安装到目标设备上"
+                    ),
+                    CommandOption(
+                        flag = "adb uninstall [包名]",
+                        description = "使用 adb uninstall 卸载目标设备上的应用"
+                    ),
+                    CommandOption(
+                        flag = "adb shell [指令] [选项] [参数]",
+                        description = "使用 adb shell 通过 adbd 调用 Shell, 将拥有 uid 2000 的特权"
+                    )
+                )
+            ),
+            CommandHelp(
+                title = "fastboot 刷机",
+                command = "fastboot",
+                description = "使用 fastboot 原生底层链路进行有线刷机, 高级玩法请迁移至 Termux 使用 fastboot 可执行文件来完成",
+                options = listOf(
+                    CommandOption(
+                        flag = "reboot <可选参数>",
+                        description = "进入 fastboot 后, 使用 reboot 进行重启操作"
+                    ),
+                    CommandOption(
+                        flag = "getvar <参数>",
+                        description = "进入 fastboot 后, 使用 getvar 进行查询操作"
+                    ),
+                    CommandOption(
+                        flag = "oem <参数>",
+                        description = "进入 fastboot 后, 使用 oem 进行解锁、回锁或查询操作"
+                    ),
+                    CommandOption(
+                        flag = "erase <分区>",
+                        description = "进入 fastboot 后, 使用 erase 进行擦除数据操作"
+                    ),
+                    CommandOption(
+                        flag = "format <分区>",
+                        description = "进入 fastboot 后, 使用 format 进行格式化操作"
+                    ),
+                    CommandOption(
+                        flag = "set_active <a或b>",
+                        description = "进入 fastboot 后, 使用 set_active 进行切换活跃插槽操作"
+                    ),
+                    CommandOption(
+                        flag = "flash <分区> <路径>",
+                        description = "进入 fastboot 后, 使用 flash 进行线刷操作"
+                    ),
+                    CommandOption(
+                        flag = "boot <文件名>",
+                        description = "进入 fastboot 后, 使用 boot 进行临时引导数据操作"
+                    )
+                )
+            ),
+            CommandHelp(
+                title = "Shell",
+                command = "id",
+                description = "普通 Shell",
+                options = listOf(
+                    CommandOption(
+                        flag = "su -c id",
+                        description = "Root Shell, 需要授权 root 权限和传统 su 命令支持"
+                    )
+                )
+            ),
+            CommandHelp(
                 title = "解析 APK 签名",
-                command = "sig-parse <apk_path>",
-                description = "分析指定 APK 的签名方案（V1-V4）与证书属性。",
+                command = "apk-sig 或 neko-sig",
+                description = "使用 apk-sig 或 neko-sig 可调出底部对话框来从应用列表选择或从本地选择 APK 进行签名解析",
+                options = emptyList()
+            ),
+            CommandHelp(
+                title = "下载",
+                command = "download <链接>",
+                description = "使用 download 指令下载文件, 仅限 http/https 链接",
+                options = emptyList()
+            ),
+            CommandHelp(
+                title = "查询高级保护模式",
+                command = "query-apm",
+                description = "使用 query-apm 查询设备上的高级保护模式是否启用, Android 16+ 专属",
+                options = emptyList()
+            ),
+            CommandHelp(
+                title = "生成 QR 二维码",
+                command = "qr-gen <文本>",
+                description = "使用 qr-gen 可生成二维码, 最多 2000 字节",
+                options = emptyList()
+            ),
+            CommandHelp(
+                title = "二维码解码",
+                command = "qr-decode <文件>",
+                description = "使用 qr-decode 进行二维码解码操作",
                 options = listOf(
                     CommandOption(
-                        flag = "-l, --lineage",
-                        description = "提取包含 0x3ba06f8c 属性的 V3/V3.1 密钥轮转链卡"
-                    ),
-                    CommandOption(
-                        flag = "-v, --verbose",
-                        description = "输出算法公钥明细、证书 DER 原始十六进制数据"
-                    ),
-                    CommandOption(
-                        flag = "-j, --json",
-                        description = "将解析结果格式化为 JSON 文本输出"
+                        flag = "qr-decode --system",
+                        description = "从系统图片选择器选择二维码图片来进行解码操作"
                     )
                 )
             ),
             CommandHelp(
-                title = "导出证书文件",
-                command = "dump-cert <apk_path>",
-                description = "从 APK 签名块中提取原始 X.509 数字证书。",
-                options = listOf(
-                    CommandOption(
-                        flag = "-o, --out <dir>",
-                        description = "指定导出证书保存的目标文件夹路径"
-                    )
-                )
-            ),
-            CommandHelp(
-                title = "清空控制台与缓存",
-                command = "clear-log",
-                description = "重置日志面板，并清理系统缓存目录下的临时解析文件。",
+                title = "提取视频中的音频",
+                command = "neko-audio",
+                description = "使用 neko-audio 可唤起系统的视频选择器来选择视频进行提取音频的操作",
                 options = emptyList()
             )
         )
@@ -77,7 +167,7 @@ fun CommandHelpBottomSheet(
 
     ModalBottomSheet(
         onDismissRequest = onDismissRequest,
-        modifier = Modifier.fillMaxHeight(0.85f)
+        modifier = Modifier.fillMaxHeight(1f)
     ) {
         Column(
             modifier = Modifier
@@ -244,11 +334,18 @@ private fun SupportAndDependencySection() {
                 )
             }
 
-            InfoRow(label = "系统支持", value = "Android 7.0 - Android 17")
-            InfoRow(label = "架构支持", value = "arm64-v8a, armeabi-v7a, x86, x86_64, riscv64")
-            InfoRow(label = "签名方案", value = "V2 + V3 + V3.1 + V3.2")
-            InfoRow(label = "核心依赖", value = "Jetpack Compose, Material3, OpenSSL")
-            InfoRow(label = "文件格式", value = ".apk, .apks")
+            InfoRow(label = "Android Support", value = "Android 7.0 - Android 17")
+            InfoRow(label = "SDK Support", value = "24 - 37")
+            InfoRow(label = "Android TV Support", value = "Yes")
+            InfoRow(label = "abi Support", value = "arm64-v8a, armeabi-v7a, x86, x86_64, riscv64")
+            InfoRow(label = "签名方案", value = "V2 + V3 + V3.1 + V3.2 + V4(扩展签名)")
+            InfoRow(label = "签名算法", value = "SHA384 + EC-384 + EC-512 + ML-DSA-87")
+            InfoRow(label = "签名校验", value = "已启用")
+            InfoRow(label = "implementation", value = "Jetpack Compose, androidx, kotlinx, Material3, OpenSSL, Kadb, HiddenApiBypass, libsu")
+            InfoRow(label = "备案情况", value = "GitHub个人开发项目, 开发者拒绝备案, 如介意, 可随时卸载, 开发者不会剥夺用户的使用权")
+            InfoRow(label = "云端接入情况", value = "APP不接入任何云端以及任何会泄露隐私的远程API, 如果您安装的APP接入了云端以及远程API, 那么您使用的APP极有可能是来自三方编译或来自GitHub的其他叉子编译构建的版本")
+            InfoRow(label = "GitHub", value = "https://github.com/deleteFAILunknown/usbFlash")
+            InfoRow(label = "正在使用的外部存储目录", value = "/storage/emulated/0/Android/data/com.adb.kitty.compose/files/flash/")
         }
     }
 }
@@ -260,18 +357,23 @@ private fun InfoRow(label: String, value: String) {
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 2.dp),
-        horizontalArrangement = Arrangement.SpaceBetween
+        verticalAlignment = Alignment.Top
     ) {
         Text(
             text = label,
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.outline
         )
+
+        Spacer(modifier = Modifier.width(12.dp))
+
         Text(
             text = value,
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurface,
-            fontFamily = FontFamily.Monospace
+            fontFamily = FontFamily.Monospace,
+            textAlign = TextAlign.End,
+            modifier = Modifier.weight(1f)
         )
     }
 }
