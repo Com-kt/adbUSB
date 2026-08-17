@@ -119,7 +119,8 @@ fun CenterAlignedTopAppBarExample(
     viewModel: MainActivityViewModel,
     activity: MainActivity,
     onExecuteCommand: (String) -> Unit,
-    onOpenIntentDialog: () -> Unit
+    onOpenIntentDialog: () -> Unit,
+    onHelpBottomSheet: () -> Unit
 ) {
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior(rememberTopAppBarState())
     var showMenu by remember { mutableStateOf(false) }
@@ -279,7 +280,7 @@ fun CenterAlignedTopAppBarExample(
                                 leadingIcon = { Icon(Icons.Outlined.Info, null) },
                                 onClick = {
                                     showMenu = false
-                                    showHelpBottomSheet = true
+                                    onHelpBottomSheet()
                                 }
                             )
                             HorizontalDivider()

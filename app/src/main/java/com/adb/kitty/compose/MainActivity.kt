@@ -377,6 +377,9 @@ class MainActivity : ComponentActivity() {
                     },
                     onOpenIntentDialog = { 
                         showIntentShareDialog = true
+                    },
+                    onHelpBottomSheet = { 
+                        showHelpBottomSheet = true
                     }
                 )
             
