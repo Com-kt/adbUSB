@@ -588,6 +588,7 @@
         <service 
             android:name="LocalShellService"
             android:process=":shell"
+            android:shell="true"
             android:exported="true"
             android:directBootAware="true"
             android:permission="android.permission.INTERACT_ACROSS_USERS_FULL" />
