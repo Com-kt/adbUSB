@@ -360,7 +360,7 @@ static void printCertDetails(std::ostringstream& ss, const std::vector<uint8_t>&
 
     ss << "    * Cert Hash        : " << hashSs.str() << "\n";
     ss << "    * CRC32            : " << getCertCrc32(derCert) << "\n";
-    ss << "    * CharString Size : " << std::dec << derCert.size() << " bytes\n";
+    ss << "    * CharString Size  : " << std::dec << derCert.size() << " bytes\n";
     ss << "    * CharString       : " << getCertCharString(cert) << "\n";
     ss << "    * Signature Value  : " << getCertSignatureValue(cert) << "\n";
 
@@ -412,6 +412,43 @@ static void parseSchemePayload(std::ostringstream& ss, const std::string& scheme
                 }
                 if (signedData.hasRemaining()) {
                     BufferReader additionalAttrs = signedData.readLengthPrefixedSlice();
+                    int attrIdx = 1;
+                    while (additionalAttrs.hasRemaining()) {
+                        BufferReader attrItem = additionalAttrs.readLengthPrefixedSlice();
+                        if (attrItem.remaining() < 4) break;
+
+                        uint32_t attrId = attrItem.readU32();
+                        BufferReader attrValue = attrItem.readLengthPrefixedSlice();
+                        std::vector<uint8_t> valBytes = attrValue.readBytes(attrValue.remaining());
+
+                        ss << "    * Additional Attr #" << attrIdx++ << " : [ID 0x" << std::hex << attrId << "] ";
+
+                        switch (attrId) {
+                            case 0x3ba06f8c:
+                                ss << "PROOF_OF_ROTATION (Lineage, " << std::dec << valBytes.size() << " bytes)\n";
+                                break;
+                            case 0xbeeff00d:
+                                ss << "STRIPPING_PROTECTION (" << std::dec << valBytes.size() << " bytes)\n";
+                                if (valBytes.size() >= 8) {
+                                    uint32_t minSdk = valBytes[0] | (valBytes[1] << 8) | (valBytes[2] << 16) | (valBytes[3] << 24);
+                                    uint32_t maxSdk = valBytes[4] | (valBytes[5] << 8) | (valBytes[6] << 16) | (valBytes[7] << 24);
+                                    ss << "        -> minSdkVersion=" << std::dec << minSdk << ", maxSdkVersion=" << maxSdk << "\n";
+                                }
+                                break;
+                            case 0x559f8b02:
+                                ss << "ROTATION_MIN_SDK_VERSION (" << std::dec << valBytes.size() << " bytes)\n";
+                                break;
+                            case 0xc2a6b3ba:
+                                ss << "ROTATION_ON_DEV_RELEASE (" << std::dec << valBytes.size() << " bytes)\n";
+                                break;
+                            default:
+                                ss << "Unknown Attribute (" << std::dec << valBytes.size() << " bytes)\n";
+                                break;
+                        }
+                        if (!valBytes.empty()) {
+                            ss << "      " << bytesToFullHex(valBytes.data(), valBytes.size()) << "\n";
+                        }
+                    }
                 }
                 
                 if (signer.remaining() >= 8) {
