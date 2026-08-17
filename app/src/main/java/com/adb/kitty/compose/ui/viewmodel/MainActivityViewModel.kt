@@ -314,7 +314,7 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
         AdbCommand("adb pull [远端路径] (可选本地落地名)", "adb pull "),
         AdbCommand("adb install [本地文件名]", "adb install "),
         AdbCommand("adb uninstall [包名]", "adb uninstall "),
-        AdbCommand("查看 adbd 用户组", "id"),
+        AdbCommand("查看应用自身域", "id"),
         AdbCommand("查看SeLinux状态", "getenforce"),
         AdbCommand("重启", "reboot"),
         AdbCommand("重启到系统", "reboot system"),

@@ -941,7 +941,7 @@ class MainActivity : ComponentActivity() {
 
     private fun handlePhysicalFallback(cmd: String) {
         if (isFastbootMode) {
-            appendLog("[发送] FB >> $cmd") 
+            appendLog("[发送] FB >> $cmd")
     
             if (cmd == "usb-selinux") {
                 appendLog("[系统] 正在尝试设置 SeLinux 为宽容模式, 该指令由 app 提供")
@@ -961,6 +961,7 @@ class MainActivity : ComponentActivity() {
 
                     cmd.startsWith("adb shell") -> {
                         if (!isAdbAuthorized) {
+                            appendLog("[发送] ADB >> $cmd")
                             appendLog("[错误] ADB 未授权，无法执行 adb shell")
                             return@launch
                         }
@@ -969,6 +970,7 @@ class MainActivity : ComponentActivity() {
                     
                     cmd.startsWith("adb push") -> {
                         if (!isAdbAuthorized) {
+                            appendLog("[发送] ADB >> $cmd")
                             appendLog("[错误] ADB 未授权，无法执行 adb push")
                             return@launch
                         }
@@ -977,6 +979,7 @@ class MainActivity : ComponentActivity() {
                     
                     cmd.startsWith("adb pull") -> {
                         if (!isAdbAuthorized) {
+                            appendLog("[发送] ADB >> $cmd")
                             appendLog("[错误] ADB 未授权，无法执行 adb pull")
                             return@launch
                         }
@@ -985,6 +988,7 @@ class MainActivity : ComponentActivity() {
                     
                     cmd.startsWith("adb install") -> {
                         if (!isAdbAuthorized) {
+                            appendLog("[发送] ADB >> $cmd")
                             appendLog("[错误] ADB 未授权，无法执行 adb install")
                             return@launch
                         }
@@ -993,6 +997,7 @@ class MainActivity : ComponentActivity() {
                     
                     cmd.startsWith("adb uninstall") -> {
                         if (!isAdbAuthorized) {
+                            appendLog("[发送] ADB >> $cmd")
                             appendLog("[错误] ADB 未授权，无法执行 adb uninstall")
                             return@launch
                         }
