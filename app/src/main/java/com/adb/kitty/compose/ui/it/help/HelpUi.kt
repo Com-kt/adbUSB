@@ -7,6 +7,7 @@ import com.adb.kitty.compose.data.help.*
 import com.adb.kitty.compose.*
 import com.adb.kitty.compose.R
 
+import androidx.annotation.Keep
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -119,6 +120,7 @@ fun CommandHelpBottomSheet(
     }
 }
 
+@Keep
 @Composable
 private fun CommandHelpItem(help: CommandHelp) {
     Card(
@@ -212,6 +214,7 @@ private fun CommandHelpItem(help: CommandHelp) {
     }
 }
 
+@Keep
 @Composable
 private fun SupportAndDependencySection() {
     OutlinedCard(
@@ -250,6 +253,7 @@ private fun SupportAndDependencySection() {
     )
 }
 
+@Keep
 @Composable
 private fun InfoRow(label: String, value: String) {
     Row(
