@@ -52,6 +52,10 @@ Number of signers: 1
 
 ## Acknowledgements
 
+- [Android](https://github.com/Android)
+- [Kotlin-lang](https://github.com/jetbrains/kotlin)
+- [Gradle-Builds](https://github.com/gradle/gradle)
+- [Cmake](https://github.com/Kitware/CMake)
 - [Kadb](https://github.com/flyfishxu/Kadb)
 - [OpenSSL](https://github.com/openssl/openssl)
 - [libsu](https://github.com/topjohnwu/libsu)

@@ -1,5 +1,15 @@
 package com.adb.kitty.compose.ui.it
 
+import com.adb.kitty.compose.ui.theme.*
+import com.adb.kitty.compose.ui.viewmodel.*
+import com.adb.kitty.compose.data.*
+import com.adb.kitty.compose.*
+import com.adb.kitty.compose.R
+
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.annotation.Keep
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -8,6 +18,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Android
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -18,12 +29,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.graphics.drawable.toBitmap
-import androidx.annotation.Keep
-import com.adb.kitty.compose.ui.theme.*
-import com.adb.kitty.compose.ui.viewmodel.*
-import com.adb.kitty.compose.data.*
-import com.adb.kitty.compose.*
-import com.adb.kitty.compose.R
 
 @Keep
 @OptIn(ExperimentalMaterial3Api::class)
@@ -32,12 +37,22 @@ fun AppListBottomSheet(
     appList: List<AppInfo>,
     isVisible: Boolean,
     onDismissRequest: () -> Unit,
-    onAppSelected: (AppInfo) -> Unit
+    onAppSelected: (AppInfo) -> Unit,
+    onStorageApkSelected: (Uri) -> Unit
 ) {
     if (!isVisible) return
 
     var searchQuery by remember { mutableStateOf("") }
     var hideSystemApps by remember { mutableStateOf(true) }
+
+    val apkPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        uri?.let {
+            onStorageApkSelected(it)
+            onDismissRequest()
+        }
+    }
 
     val filteredApps = remember(appList, searchQuery, hideSystemApps) {
         appList.filter { app ->
@@ -78,6 +93,7 @@ fun AppListBottomSheet(
 
             Row(
                 verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
                 FilterChip(
@@ -87,6 +103,20 @@ fun AppListBottomSheet(
                     leadingIcon = if (hideSystemApps) {
                         { Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp)) }
                     } else null
+                )
+
+                AssistChip(
+                    onClick = {
+                        apkPickerLauncher.launch("application/vnd.android.package-archive")
+                    },
+                    label = { Text("本地选取 APK") },
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Default.FolderOpen,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
                 )
 
                 Spacer(modifier = Modifier.weight(1f))

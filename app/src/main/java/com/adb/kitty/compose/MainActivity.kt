@@ -425,7 +425,7 @@ class MainActivity : ComponentActivity() {
                 if (showAppSigBottomSheet) {
                     val context = LocalContext.current
                     val appList = remember { getInstalledApps(context) }
-
+                    
                     AppListBottomSheet(
                         appList = appList,
                         isVisible = showAppSigBottomSheet,
@@ -433,7 +433,7 @@ class MainActivity : ComponentActivity() {
                         onAppSelected = { selectedApp ->
                             showAppSigBottomSheet = false
                             appendLog("[系统] 正在解析 ${selectedApp.appName} [${selectedApp.packageName}] 的 APK 签名...")
-
+                            
                             lifecycleScope.launch(Dispatchers.IO) {
                                 val report = NativeLibs.ApkSignature(selectedApp.apkPath)
                                 val schemeText = NativeLibs.getSupportedSchemesText(selectedApp.apkPath)
@@ -441,6 +441,35 @@ class MainActivity : ComponentActivity() {
                                     selectedSchemeText = schemeText
                                     selectedSigReport = report
                                     appendLog("[系统] 签名解析完成")
+                                }
+                            }
+                        },
+                        onStorageApkSelected = { uri ->
+                            showAppSigBottomSheet = false
+                            appendLog("[系统] 正在读取本地 APK 并解析签名...")
+                            
+                            lifecycleScope.launch(Dispatchers.IO) {
+                                val cacheFile = File(context.cacheDir, "temp_parse.apk")
+                                val isCopySuccess = runCatching {
+                                    context.contentResolver.openInputStream(uri)?.use { input ->
+                                        cacheFile.outputStream().use { output -> input.copyTo(output) }
+                                    }
+                                }.isSuccess
+                                
+                                if (isCopySuccess) {
+                                    val apkPath = cacheFile.absolutePath
+                                    val report = NativeLibs.ApkSignature(apkPath)
+                                    val schemeText = NativeLibs.getSupportedSchemesText(apkPath)
+                                    
+                                    withContext(Dispatchers.Main) {
+                                        selectedSchemeText = schemeText
+                                        selectedSigReport = report
+                                        appendLog("[系统] 本地 APK 签名解析完成")
+                                    }
+                                } else {
+                                    withContext(Dispatchers.Main) {
+                                        appendLog("[错误] 无法读取选中的本地文件")
+                                    }
                                 }
                             }
                         }
