@@ -360,6 +360,7 @@ static void printCertDetails(std::ostringstream& ss, const std::vector<uint8_t>&
 
     ss << "    * Cert Hash        : " << hashSs.str() << "\n";
     ss << "    * CRC32            : " << getCertCrc32(derCert) << "\n";
+    ss << "    * CharString Size : " << std::dec << derCert.size() << " bytes\n";
     ss << "    * CharString       : " << getCertCharString(cert) << "\n";
     ss << "    * Signature Value  : " << getCertSignatureValue(cert) << "\n";
 
@@ -368,8 +369,6 @@ static void printCertDetails(std::ostringstream& ss, const std::vector<uint8_t>&
     ss << "    * SHA-256 Digest   : " << getCertDigest(cert, EVP_sha256()) << "\n";
     ss << "    * SHA-384 Digest   : " << getCertDigest(cert, EVP_sha384()) << "\n";
     ss << "    * SHA-512 Digest   : " << getCertDigest(cert, EVP_sha512()) << "\n";
-    ss << "    * Raw Payload Size : " << std::dec << derCert.size() << " bytes\n";
-    ss << "    * Raw Data Hex     : " << toHexString(derCert) << "\n";
 
     X509_free(cert);
 }
