@@ -411,43 +411,46 @@ static void parseSchemePayload(std::ostringstream& ss, const std::string& scheme
                        << ", maxSdkVersion=" << maxSdkSigned << "\n";
                 }
                 if (signedData.hasRemaining()) {
-                    BufferReader additionalAttrs = signedData.readLengthPrefixedSlice();
-                    int attrIdx = 1;
-                    while (additionalAttrs.hasRemaining()) {
-                        BufferReader attrItem = additionalAttrs.readLengthPrefixedSlice();
-                        if (attrItem.remaining() < 4) break;
+                    try {
+                        BufferReader additionalAttrs = signedData.readLengthPrefixedSlice();
+                        int attrIdx = 1;
+                        while (additionalAttrs.hasRemaining()) {
+                            BufferReader attrItem = additionalAttrs.readLengthPrefixedSlice();
+                            if (attrItem.remaining() < 4) break;
 
-                        uint32_t attrId = attrItem.readU32();
-                        BufferReader attrValue = attrItem.readLengthPrefixedSlice();
-                        std::vector<uint8_t> valBytes = attrValue.readBytes(attrValue.remaining());
+                            uint32_t attrId = attrItem.readU32();
+                            std::vector<uint8_t> valBytes = attrItem.readBytes(attrItem.remaining());
 
-                        ss << "    * Additional Attr #" << attrIdx++ << " : [ID 0x" << std::hex << attrId << "] ";
+                            ss << "    * Additional Attr #" << attrIdx++ << " : [ID 0x" << std::hex << attrId << "] ";
 
-                        switch (attrId) {
-                            case 0x3ba06f8c:
-                                ss << "PROOF_OF_ROTATION (Lineage, " << std::dec << valBytes.size() << " bytes)\n";
-                                break;
-                            case 0xbeeff00d:
-                                ss << "STRIPPING_PROTECTION (" << std::dec << valBytes.size() << " bytes)\n";
-                                if (valBytes.size() >= 8) {
-                                    uint32_t minSdk = valBytes[0] | (valBytes[1] << 8) | (valBytes[2] << 16) | (valBytes[3] << 24);
-                                    uint32_t maxSdk = valBytes[4] | (valBytes[5] << 8) | (valBytes[6] << 16) | (valBytes[7] << 24);
-                                    ss << "        -> minSdkVersion=" << std::dec << minSdk << ", maxSdkVersion=" << maxSdk << "\n";
-                                }
-                                break;
-                            case 0x559f8b02:
-                                ss << "ROTATION_MIN_SDK_VERSION (" << std::dec << valBytes.size() << " bytes)\n";
-                                break;
-                            case 0xc2a6b3ba:
-                                ss << "ROTATION_ON_DEV_RELEASE (" << std::dec << valBytes.size() << " bytes)\n";
-                                break;
-                            default:
-                                ss << "Unknown Attribute (" << std::dec << valBytes.size() << " bytes)\n";
-                                break;
+                            switch (attrId) {
+                                case 0x3ba06f8c:
+                                    ss << "PROOF_OF_ROTATION (Lineage, " << std::dec << valBytes.size() << " bytes)\n";
+                                    break;
+                                case 0xbeeff00d:
+                                    ss << "STRIPPING_PROTECTION (" << std::dec << valBytes.size() << " bytes)\n";
+                                    if (valBytes.size() >= 8) {
+                                        uint32_t minSdk = valBytes[0] | (valBytes[1] << 8) | (valBytes[2] << 16) | (valBytes[3] << 24);
+                                        uint32_t maxSdk = valBytes[4] | (valBytes[5] << 8) | (valBytes[6] << 16) | (valBytes[7] << 24);
+                                        ss << "        -> minSdkVersion=" << std::dec << minSdk << ", maxSdkVersion=" << maxSdk << "\n";
+                                    }
+                                    break;
+                                case 0x559f8b02:
+                                    ss << "ROTATION_MIN_SDK_VERSION (" << std::dec << valBytes.size() << " bytes)\n";
+                                    break;
+                                case 0xc2a6b3ba:
+                                    ss << "PROOF_OF_ROTATION_DEV_RELEASE (" << std::dec << valBytes.size() << " bytes)\n";
+                                    break;
+                                default:
+                                    ss << "Unknown Attribute (" << std::dec << valBytes.size() << " bytes)\n";
+                                    break;
+                            }
+                            if (!valBytes.empty()) {
+                                ss << "      " << bytesToFullHex(valBytes.data(), valBytes.size()) << "\n";
+                            }
                         }
-                        if (!valBytes.empty()) {
-                            ss << "      " << bytesToFullHex(valBytes.data(), valBytes.size()) << "\n";
-                        }
+                    } catch (const std::exception& e) {
+                        ss << "    [!] Attr Parsing Error: " << e.what() << "\n";
                     }
                 }
                 
