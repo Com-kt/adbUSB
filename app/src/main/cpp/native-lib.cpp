@@ -77,6 +77,18 @@ static std::string bytesToFullHex(const uint8_t* data, size_t len) {
     return ss.str();
 }
 
+std::string toHexString(const uint8_t* data, size_t len) {
+    std::ostringstream ss;
+    for (size_t i = 0; i < len; ++i) {
+        ss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(data[i]);
+    }
+    return ss.str();
+}
+
+std::string toHexString(const std::vector<uint8_t>& bytes) {
+    return toHexString(bytes.data(), bytes.size());
+}
+
 static std::string asn1TimeToStr(const ASN1_TIME* time) {
     if (!time) return "Unknown";
     BIO* bio = BIO_new(BIO_s_mem());
@@ -486,18 +498,6 @@ static bool checkBlockIdPresent(const std::string& apkPath, uint32_t targetId) {
         }
     }
     return false;
-}
-
-std::string toHexString(const uint8_t* data, size_t len) {
-    std::ostringstream ss;
-    for (size_t i = 0; i < len; ++i) {
-        ss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(data[i]);
-    }
-    return ss.str();
-}
-
-std::string toHexString(const std::vector<uint8_t>& bytes) {
-    return toHexString(bytes.data(), bytes.size());
 }
 
 void parseSourceStampBlock(std::ostringstream& ss, const std::vector<uint8_t>& payload) {
