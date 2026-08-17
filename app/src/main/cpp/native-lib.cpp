@@ -357,6 +357,7 @@ static void printCertDetails(std::ostringstream& ss, const std::vector<uint8_t>&
     ss << "    * SHA-384 Digest   : " << getCertDigest(cert, EVP_sha384()) << "\n";
     ss << "    * SHA-512 Digest   : " << getCertDigest(cert, EVP_sha512()) << "\n";
     ss << "    * Raw Payload Size : " << std::dec << derCert.size() << " bytes\n";
+    ss << "    * Raw Data Hex     : " << toHexString(derCert) << "\n";
 
     X509_free(cert);
 }
@@ -700,6 +701,7 @@ static std::string parseApkSigningBlock(const std::string& apkPath) {
                 ss << "\n [ Verity Padding Block (0x42726577) ] \n";
                 ss << "    * Description      : 4KB Alignment Padding for fs-verity\n";
                 ss << "    * Raw Payload Size : " << std::dec << value.size() << " bytes (All 0x00 Padding)\n";
+                ss << "    * Raw Data Hex     : " << toHexString(value) << "\n";
                 break;
             case APK_SDK_DEPENDENCY_INFO_ID:
                 ss << "\n [ SDK Dependency Info (0x504b4453) ] \n";
