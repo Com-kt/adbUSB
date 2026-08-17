@@ -1,4 +1,4 @@
-package com.adb.kitty.compose.data
+package com.adb.kitty.compose.data.help
 
 import androidx.annotation.Keep
 
