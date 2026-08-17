@@ -250,7 +250,7 @@ private fun SupportAndDependencySection() {
             InfoRow(label = "核心依赖", value = "Jetpack Compose, Material3, OpenSSL")
             InfoRow(label = "文件格式", value = ".apk, .apks")
         }
-    )
+    }
 }
 
 @Keep
