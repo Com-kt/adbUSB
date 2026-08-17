@@ -356,6 +356,7 @@ static void printCertDetails(std::ostringstream& ss, const std::vector<uint8_t>&
     ss << "    * SHA-256 Digest   : " << getCertDigest(cert, EVP_sha256()) << "\n";
     ss << "    * SHA-384 Digest   : " << getCertDigest(cert, EVP_sha384()) << "\n";
     ss << "    * SHA-512 Digest   : " << getCertDigest(cert, EVP_sha512()) << "\n";
+    ss << "    * Raw Payload Size : " << std::dec << derCert.size() << " bytes\n";
 
     X509_free(cert);
 }
@@ -530,7 +531,7 @@ void parseSourceStampBlock(std::ostringstream& ss, const std::vector<uint8_t>& p
                     ss << "\n    --- Stamp Certificate #" << certIdx++ << " (" << std::dec << certLen << " bytes) ---\n";
                     std::vector<uint8_t> rawCert(certStart, certStart + certLen);
                   //  printCertDetails(ss, rawCert);
-                    parseSchemePayload(ss, "Source Stamp (0x6dff800d)", rawCert, false);
+                    parseSchemePayload(ss, "Source Stamp (0x6dff800d)", rawCert, true);
                     X509_free(cert);
                 }
             }
