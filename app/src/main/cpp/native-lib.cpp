@@ -530,8 +530,7 @@ void parseSourceStampBlock(std::ostringstream& ss, const std::vector<uint8_t>& p
 
                     ss << "\n    --- Stamp Certificate #" << certIdx++ << " (" << std::dec << certLen << " bytes) ---\n";
                     std::vector<uint8_t> rawCert(certStart, certStart + certLen);
-                  //  printCertDetails(ss, rawCert);
-                    parseSchemePayload(ss, "Source Stamp (0x6dff800d)", rawCert, true);
+                    printCertDetails(ss, rawCert);
                     X509_free(cert);
                 }
             }
@@ -688,6 +687,8 @@ static std::string parseApkSigningBlock(const std::string& apkPath) {
                 break;
             case SOURCE_STAMP_V2_BLOCK_ID:
                 parseSourceStampBlock(ss, value);
+                ss << "    * Raw Payload Size : " << std::dec << value.size() << " bytes\n";
+                ss << "    * Raw Data Hex     : " << toHexString(value) << "\n";
                 break;
             case GOOGLE_PLAY_FROSTING_BLOCK_ID:
                 ss << "\n [ Google Play Frosting (0x2146444e) ] \n";
