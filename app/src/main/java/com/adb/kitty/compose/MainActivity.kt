@@ -100,7 +100,9 @@ import androidx.compose.ui.text.input.*
 import com.adb.kitty.compose.ui.theme.*
 import com.adb.kitty.compose.ui.viewmodel.*
 import com.adb.kitty.compose.ui.it.*
+import com.adb.kitty.compose.ui.it.help.*
 import com.adb.kitty.compose.data.*
+import com.adb.kitty.compose.data.help.*
 import com.adb.kitty.compose.R
 
 @Keep
@@ -364,6 +366,7 @@ class MainActivity : ComponentActivity() {
             val useDynamicColor by viewModel.useDynamicColor.collectAsStateWithLifecycle()
             var showIntentShareDialog by remember { mutableStateOf(false) }
             var selectedSigReport by remember { mutableStateOf<String?>(null) }
+            var showHelpBottomSheet by remember { mutableStateOf(false) }
             var selectedSchemeText by remember { mutableStateOf("") }
             NekoTheme(dynamicColor = useDynamicColor) {
                 CenterAlignedTopAppBarExample(
@@ -422,6 +425,13 @@ class MainActivity : ComponentActivity() {
                     )
                 }
                 
+                if (showHelpBottomSheet) {
+                    CommandHelpBottomSheet(
+                        isVisible = showHelpBottomSheet,
+                        onDismissRequest = { showHelpBottomSheet = false }
+                    )
+                }
+                
                 if (showAppSigBottomSheet) {
                     val context = LocalContext.current
                     val appList = remember { getInstalledApps(context) }
@@ -449,7 +459,7 @@ class MainActivity : ComponentActivity() {
                             appendLog("[系统] 正在读取本地 APK 并解析签名...")
                             
                             lifecycleScope.launch(Dispatchers.IO) {
-                                val cacheFile = File(context.cacheDir, "temp_parse.apk")
+                                val cacheFile = File(context.cacheDir, "target_file.apk")
                                 val isCopySuccess = runCatching {
                                     context.contentResolver.openInputStream(uri)?.use { input ->
                                         cacheFile.outputStream().use { output -> input.copyTo(output) }

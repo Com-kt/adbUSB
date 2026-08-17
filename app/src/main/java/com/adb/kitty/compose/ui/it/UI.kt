@@ -108,6 +108,7 @@ import androidx.compose.ui.text.input.*
 import com.adb.kitty.compose.ui.theme.*
 import com.adb.kitty.compose.ui.viewmodel.*
 import com.adb.kitty.compose.data.*
+import com.adb.kitty.compose.ui.it.help.*
 import com.adb.kitty.compose.*
 import com.adb.kitty.compose.R
 
@@ -277,8 +278,8 @@ fun CenterAlignedTopAppBarExample(
                                 },
                                 leadingIcon = { Icon(Icons.Outlined.Info, null) },
                                 onClick = {
-                                    // 使用说明
                                     showMenu = false
+                                    showHelpBottomSheet = true
                                 }
                             )
                             HorizontalDivider()
