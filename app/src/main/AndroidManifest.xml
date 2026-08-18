@@ -591,14 +591,13 @@
             android:process=":task"
             android:exported="true"
             android:directBootAware="true"
-            android:permission="android.permission.INTERACT_ACROSS_USERS_FULL" />
+            android:permission="android.permission.INTERACT_ACROSS_USERS" />
         <service 
             android:name="LocalShellService"
-            android:process=":shell"
-            android:shell="true"
-            android:exported="true"
+            android:process=":task"
+            android:exported="false"
             android:directBootAware="true"
-            android:permission="android.permission.INTERACT_ACROSS_USERS_FULL" />
+            android:permission="android.permission.INTERACT_ACROSS_USERS" />
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"
