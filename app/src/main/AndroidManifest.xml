@@ -502,6 +502,13 @@
                 android:name="android.intent.category.BROWSABLE" />
             <data android:scheme="ssh" />
         </intent>
+        <intent>
+            <action
+                android:name="android.intent.action.VIEW" />
+            <category
+                android:name="android.intent.category.BROWSABLE" />
+            <data android:scheme="vpn" />
+        </intent>
     </queries>
     <application
         android:process=":task"
