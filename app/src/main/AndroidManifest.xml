@@ -545,6 +545,9 @@
             android:name="android.linux.support"
             android:value="true" />
         <meta-data 
+            android:name="android.tv.support"
+            android:value="true" />
+        <meta-data 
             android:name="android.abi.level"
             android:resource="@xml/android_abi_version" />
         <meta-data 
@@ -554,7 +557,7 @@
             android:name="android.kernel.level"
             android:resource="@xml/android_gki_kernel_version" />
         <meta-data 
-            android:name="android_ramdisk_api_level"
+            android:name="android.ramdisk.level"
             android:resource="@xml/android_ramdisk_api_level" />
         <meta-data 
             android:name="apex"
