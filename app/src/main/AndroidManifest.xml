@@ -563,47 +563,8 @@
             android:name="riscv64"
             android:value="libs/riscv64/so" />
         <meta-data 
-            android:name="android.sdk.level 24"
-            android:value="android 7.0" />
-        <meta-data 
-            android:name="android.sdk.level 25"
-            android:value="android 7.1" />
-        <meta-data 
-            android:name="android.sdk.level 26"
-            android:value="android 8.0" />
-        <meta-data 
-            android:name="android.sdk.level 27"
-            android:value="android 8.1" />
-        <meta-data 
-            android:name="android.sdk.level 28"
-            android:value="android 9" />
-        <meta-data 
-            android:name="android.sdk.level 29"
-            android:value="android 10" />
-        <meta-data 
-            android:name="android.sdk.level 30"
-            android:value="android 11" />
-        <meta-data 
-            android:name="android.sdk.level 31"
-            android:value="android 12" />
-        <meta-data 
-            android:name="android.sdk.level 32"
-            android:value="android 12L" />
-        <meta-data 
-            android:name="android.sdk.level 33"
-            android:value="android 13" />
-        <meta-data 
-            android:name="android.sdk.level 34"
-            android:value="android 14" />
-        <meta-data 
-            android:name="android.sdk.level 35"
-            android:value="android 15" />
-        <meta-data 
-            android:name="android.sdk.level 36"
-            android:value="android 16" />
-        <meta-data 
-            android:name="android.sdk.level 37"
-            android:value="android 17" />
+            android:name="android.sdk.level"
+            android:resource="@xml/android_sdk_version" />
         <meta-data 
             android:name="android.kernel.gki.version"
             android:resource="@xml/android_gki_kernel_version" />

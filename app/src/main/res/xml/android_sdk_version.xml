@@ -1,0 +1,194 @@
+<?xml version="1.0" encoding="utf-8"?>
+<android>
+    <sdk>
+        <level>
+            <version>
+                <android-sdk
+                    android-sdk-level="1"
+                    android-version="Android 1.0"
+                    android-name="Base"
+                    android-release-time="2008.09" />
+                <android-sdk
+                    android-sdk-level="2"
+                    android-version="Android 1.1"
+                    android-name="Base MR1"
+                    android-release-time="2009.02" />
+                <android-sdk
+                    android-sdk-level="3"
+                    android-version="Android 1.5"
+                    android-name="Cupcake"
+                    android-release-time="2009.04" />
+                <android-sdk
+                    android-sdk-level="4"
+                    android-version="Android 1.6"
+                    android-name="Donut"
+                    android-release-time="2009.09" />
+                <android-sdk
+                    android-sdk-level="5"
+                    android-version="Android 2.0"
+                    android-name="Eclair"
+                    android-release-time="2009.10" />
+                <android-sdk
+                    android-sdk-level="6"
+                    android-version="Android 2.0.1"
+                    android-name="Eclair"
+                    android-release-time="2009.12" />
+                <android-sdk
+                    android-sdk-level="7"
+                    android-version="Android 2.1"
+                    android-name="Eclair MR1"
+                    android-release-time="2010.01" />
+                <android-sdk
+                    android-sdk-level="8"
+                    android-version="Android 2.2"
+                    android-name="Froyo"
+                    android-release-time="2010.05" />
+                <android-sdk
+                    android-sdk-level="9"
+                    android-version="Android 2.3"
+                    android-name="Gingerbread"
+                    android-release-time="2010.12" />
+                <android-sdk
+                    android-sdk-level="10"
+                    android-version="Android 2.3.3"
+                    android-name="Gingerbread MR1"
+                    android-release-time="2011.02" />
+                <android-sdk
+                    android-sdk-level="11"
+                    android-version="Android 3.0"
+                    android-name="Honeycomb"
+                    android-release-time="2011.02" />
+                <android-sdk
+                    android-sdk-level="12"
+                    android-version="Android 3.1"
+                    android-name="Honeycomb MR1"
+                    android-release-time="2011.05" />
+                <android-sdk
+                    android-sdk-level="13"
+                    android-version="Android 3.2"
+                    android-name="Honeycomb MR2"
+                    android-release-time="2011.07" />
+                <android-sdk
+                    android-sdk-level="14"
+                    android-version="Android 4.0.1"
+                    android-name="Ice Cream Sandwich"
+                    android-release-time="2011.10" />
+                <android-sdk
+                    android-sdk-level="15"
+                    android-version="Android 4.0.3"
+                    android-name="Ice Cream Sandwich MR1"
+                    android-release-time="2011.12" />
+                <android-sdk
+                    android-sdk-level="16"
+                    android-version="Android 4.1"
+                    android-name="Jelly Bean"
+                    android-release-time="2012.07" />
+                <android-sdk
+                    android-sdk-level="17"
+                    android-version="Android 4.2"
+                    android-name="Jelly Bean MR1"
+                    android-release-time="2012.11" />
+                <android-sdk
+                    android-sdk-level="18"
+                    android-version="Android 4.3"
+                    android-name="Jelly Bean MR2"
+                    android-release-time="2013.07" />
+                <android-sdk
+                    android-sdk-level="19"
+                    android-version="Android 4.4"
+                    android-name="KitKat"
+                    android-release-time="2013.10" />
+                <android-sdk
+                    android-sdk-level="20"
+                    android-version="Android 4.4W"
+                    android-name="KitKat Watch"
+                    android-release-time="2014.06" />
+                <android-sdk
+                    android-sdk-level="21"
+                    android-version="Android 5.0"
+                    android-name="Lollipop"
+                    android-release-time="2014.11" />
+                <android-sdk
+                    android-sdk-level="22"
+                    android-version="Android 5.1"
+                    android-name="Lollipop MR1"
+                    android-release-time="2015.03" />
+                <android-sdk
+                    android-sdk-level="23"
+                    android-version="Android 6.0"
+                    android-name="Marshmallow"
+                    android-release-time="2015.10" />
+                <android-sdk
+                    android-sdk-level="24"
+                    android-version="Android 7.0"
+                    android-name="Nougat"
+                    android-release-time="2016.08" />
+                <android-sdk
+                    android-sdk-level="25"
+                    android-version="Android 7.1"
+                    android-name="Nougat MR1"
+                    android-release-time="2016.10" />
+                <android-sdk
+                    android-sdk-level="26"
+                    android-version="Android 8.0"
+                    android-name="Oreo"
+                    android-release-time="2017.08" />
+                <android-sdk
+                    android-sdk-level="27"
+                    android-version="Android 8.1"
+                    android-name="Oreo MR1"
+                    android-release-time="2017.12" />
+                <android-sdk
+                    android-sdk-level="28"
+                    android-version="Android 9"
+                    android-name="Pie"
+                    android-release-time="2018.08" />
+                <android-sdk
+                    android-sdk-level="29"
+                    android-version="Android 10"
+                    android-name="Quince Tart"
+                    android-release-time="2019.09" />
+                <android-sdk
+                    android-sdk-level="30"
+                    android-version="Android 11"
+                    android-name="Red Velvet Cake"
+                    android-release-time="2020.09" />
+                <android-sdk
+                    android-sdk-level="31"
+                    android-version="Android 12"
+                    android-name="Snow Cone"
+                    android-release-time="2021.10" />
+                <android-sdk
+                    android-sdk-level="32"
+                    android-version="Android 12L"
+                    android-name="Snow Cone v2"
+                    android-release-time="2022.03" />
+                <android-sdk
+                    android-sdk-level="33"
+                    android-version="Android 13"
+                    android-name="Tiramisu"
+                    android-release-time="2022.08" />
+                <android-sdk
+                    android-sdk-level="34"
+                    android-version="Android 14"
+                    android-name="Upside Down Cake"
+                    android-release-time="2023.10" />
+                <android-sdk
+                    android-sdk-level="35"
+                    android-version="Android 15"
+                    android-name="Vanilla Ice Cream"
+                    android-release-time="2024.10" />
+                <android-sdk
+                    android-sdk-level="36"
+                    android-version="Android 16"
+                    android-name="Baklava"
+                    android-release-time="2025.06" />
+                <android-sdk
+                    android-sdk-level="37"
+                    android-version="Android 17"
+                    android-name="Cinnamon Bun"
+                    android-release-time="2026.06" />
+            </version>
+        </level>
+    </sdk>
+</android>
