@@ -1,0 +1,161 @@
+<?xml version="1.0" encoding="utf-8"?>
+<android>
+    <no-gki>
+        <kernel>
+            <no-gki-kernel
+                linux-kernel-lts="2.6.25"
+                android-level="android1"
+                kernel-page-size="4k" />
+            <no-gki-kernel
+                linux-kernel-lts="2.6.29"
+                android-level="android2.0"
+                kernel-page-size="4k" />
+            <no-gki-kernel
+                linux-kernel-lts="2.6.29"
+                android-level="android2.1"
+                kernel-page-size="4k" />
+            <no-gki-kernel
+                linux-kernel-lts="2.6.32"
+                android-level="android2.2"
+                kernel-page-size="4k" />
+            <no-gki-kernel
+                linux-kernel-lts="2.6.35"
+                android-level="android2.3"
+                kernel-page-size="4k" />
+            <no-gki-kernel
+                linux-kernel-lts="2.6.36"
+                android-level="android3"
+                kernel-page-size="4k" />
+            <no-gki-kernel
+                linux-kernel-lts="3.0.1"
+                android-level="android4.0"
+                kernel-page-size="4k" />
+            <no-gki-kernel
+                linux-kernel-lts="3.0.31"
+                android-level="android4.1"
+                kernel-page-size="4k" />
+            <no-gki-kernel
+                linux-kernel-lts="3.0.31"
+                android-level="android4.2"
+                kernel-page-size="4k" />
+            <no-gki-kernel
+                linux-kernel-lts="3.0.31"
+                android-level="android4.3"
+                kernel-page-size="4k" />
+            <no-gki-kernel
+                linux-kernel-lts="3.10"
+                android-level="android4.4"
+                kernel-page-size="4k" />
+            <no-gki-kernel
+                linux-kernel-lts="3.16"
+                android-level="android5.0"
+                kernel-page-size="4k" />
+            <no-gki-kernel
+                linux-kernel-lts="3.16"
+                android-level="android5.1"
+                kernel-page-size="4k" />
+            <no-gki-kernel
+                linux-kernel-lts="3.18"
+                android-level="android6"
+                kernel-page-size="4k" />
+            <no-gki-kernel
+                linux-kernel-lts="4.4"
+                android-level="android7.0"
+                kernel-page-size="4k" />
+            <no-gki-kernel
+                linux-kernel-lts="4.4"
+                android-level="android7.1"
+                kernel-page-size="4k" />
+            <no-gki-kernel
+                linux-kernel-lts="4.10"
+                android-level="android8.0"
+                kernel-page-size="4k" />
+            <no-gki-kernel
+                linux-kernel-lts="4.10"
+                android-level="android8.1"
+                kernel-page-size="4k" />
+            <no-gki-kernel
+                linux-kernel-lts="4.9"
+                android-level="android9"
+                kernel-page-size="4k" />
+            <no-gki-kernel
+                linux-kernel-lts="4.14"
+                android-level="android10"
+                kernel-page-size="4k" />
+        </kernel>
+    </no-gki>
+    <gki version="1">
+        <kernel>
+            <gki-kernel
+                linux-kernel-lts="4.19"
+                android-level="android11"
+                android-functional-kernel="false"
+                functional-kernel-target-android-level="android10"
+                kernel-page-size="4k" />
+            <gki-kernel
+                linux-kernel-lts="5.4"
+                android-level="android11"
+                android-functional-kernel="true"
+                functional-kernel-target-android-level="android11"
+                kernel-page-size="4k" />
+            <gki-kernel
+                linux-kernel-lts="5.4"
+                android-level="android12"
+                android-functional-kernel="true"
+                functional-kernel-target-android-level="android12"
+                kernel-page-size="4k" />
+        </kernel>
+    </gki>
+    <gki version="2">
+        <kernel>
+            <gki-kernel
+                linux-kernel-lts="5.10"
+                android-level="android12"
+                android-functional-kernel="true"
+                functional-kernel-target-android-level="android12"
+                kernel-page-size="4k" />
+            <gki-kernel
+                linux-kernel-lts="5.10"
+                android-level="android13"
+                android-functional-kernel="true"
+                functional-kernel-target-android-level="android13"
+                kernel-page-size="4k" />
+            <gki-kernel
+                linux-kernel-lts="5.15"
+                android-level="android13"
+                android-functional-kernel="true"
+                functional-kernel-target-android-level="android13"
+                kernel-page-size="4k" />
+            <gki-kernel
+                linux-kernel-lts="5.15"
+                android-level="android14"
+                android-functional-kernel="true"
+                functional-kernel-target-android-level="android14"
+                kernel-page-size="4k" />
+            <gki-kernel
+                linux-kernel-lts="6.1"
+                android-level="android14"
+                android-functional-kernel="true"
+                functional-kernel-target-android-level="android14"
+                kernel-page-size="4k" />
+            <gki-kernel
+                linux-kernel-lts="6.6"
+                android-level="android15"
+                android-functional-kernel="true"
+                functional-kernel-target-android-level="android15"
+                kernel-page-size="4k,16k" />
+            <gki-kernel
+                linux-kernel-lts="6.12"
+                android-level="android16"
+                android-functional-kernel="true"
+                functional-kernel-target-android-level="android16"
+                kernel-page-size="4k,16k" />
+            <gki-kernel
+                linux-kernel-lts="6.18"
+                android-level="android17"
+                android-functional-kernel="true"
+                functional-kernel-target-android-level="android17"
+                kernel-page-size="4k,16k" />
+        </kernel>
+    </gki>
+</android>

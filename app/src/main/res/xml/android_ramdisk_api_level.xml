@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<android>
+    <launch>
+        <api>
+            <level>
+                <boot-partition
+                    ramdisk="true"
+                    kernel="true"
+                    launch-api-level="32"
+                    getprop="ro.product.first_api_level"
+                    android-level="android-12" />
+                <boot-partition
+                    ramdisk="false"
+                    kernel="true"
+                    launch-api-level="33"
+                    getprop="ro.product.first_api_level"
+                    android-level="android-13" />
+                <init-boot-partition
+                    ramdisk="true"
+                    kernel="false"
+                    launch-api-level="33"
+                    getprop="ro.product.first_api_level"
+                    android-level="android-13" />
+            </level>
+        </api>
+    </launch>
+</android>
