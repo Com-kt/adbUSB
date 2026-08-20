@@ -542,83 +542,29 @@
             android:name="android.software.leanback.supports_touch"
             android:value="true" />
         <meta-data 
-            android:name="android"
+            android:name="android.linux.support"
             android:value="true" />
         <meta-data 
-            android:name="linux"
-            android:value="true" />
-        <meta-data 
-            android:name="aarch64"
-            android:value="libs/arm64-v8a/so" />
-        <meta-data 
-            android:name="arm32"
-            android:value="libs/armeabi-v7a/so" />
-        <meta-data 
-            android:name="x86"
-            android:value="libs/x86/so" />
-        <meta-data 
-            android:name="x64"
-            android:value="libs/x86_64/so" />
-        <meta-data 
-            android:name="riscv64"
-            android:value="libs/riscv64/so" />
+            android:name="android.abi.level"
+            android:resource="@xml/android_abi_version" />
         <meta-data 
             android:name="android.sdk.level"
             android:resource="@xml/android_sdk_version" />
         <meta-data 
-            android:name="android.kernel.gki.version"
+            android:name="android.kernel.level"
             android:resource="@xml/android_gki_kernel_version" />
         <meta-data 
             android:name="android_ramdisk_api_level"
             android:resource="@xml/android_ramdisk_api_level" />
         <meta-data 
-            android:name="com.android.future.usb"
-            android:value="true" />
+            android:name="apex"
+            android:value="com.android.shell、com.android.runtime、com.android.adbd、com.android.wifi、com.android.permission、com.android.settings" />
         <meta-data 
-            android:name="com.android.uwb"
-            android:value="true" />
+            android:name="usb.host"
+            android:resource="@xml/usb_device_filter" />
         <meta-data 
-            android:name="com.android.shell"
-            android:value="true" />
-        <meta-data 
-            android:name="com.android.runtime"
-            android:value="true" />
-        <meta-data 
-            android:name="com.android.adbd"
-            android:value="true" />
-        <meta-data 
-            android:name="com.android.wifi"
-            android:value="true" />
-        <meta-data 
-            android:name="com.android.art"
-            android:value="true" />
-        <meta-data 
-            android:name="com.android.permission"
-            android:value="true" />
-        <meta-data 
-            android:name="com.android.ipsec"
-            android:value="true" />
-        <meta-data 
-            android:name="com.android.settings"
-            android:value="true" />
-        <meta-data 
-            android:name="com.android.vndk"
-            android:value="true" />
-        <meta-data 
-            android:name="com.android.media"
-            android:value="true" />
-        <meta-data 
-            android:name="com.android.sdkext"
-            android:value="true" />
-        <meta-data 
-            android:name="usb.fastboot"
-            android:value="usb.host.255.66.3" />
-        <meta-data 
-            android:name="usb.adb"
-            android:value="usb.host.255.66.1" />
-        <meta-data 
-            android:name="wifi.adb"
-            android:value="wifi.ip" />
+            android:name="usb.accessory"
+            android:resource="@xml/accessory_filter" />
         <!-- activity-alias 适配 Pixel 系列的类原生系统桌面 -->
         <activity-alias
              android:name="aliasActivity"

@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<android>
+    <abi>
+        <level>
+            <libs>
+                <version>
+                    <android-abi
+                        android-abi="arm64-v8a"
+                        linux-abi="aarch64"
+                        target-abi-libs="libs/arm64/so"
+                        abi-target-level="24" />
+                    <android-abi
+                        android-abi="armeabi-v7a"
+                        linux-abi="arm32"
+                        target-abi-libs="libs/arm32/so"
+                        abi-target-level="24" />
+                    <android-abi
+                        android-abi="x86"
+                        linux-abi="x86"
+                        target-abi-libs="libs/x86/so"
+                        abi-target-level="24" />
+                    <android-abi
+                        android-abi="x86_64"
+                        linux-abi="x64"
+                        target-abi-libs="libs/x64/so"
+                        abi-target-level="24" />
+                    <android-abi
+                        android-abi="riscv64"
+                        linux-abi="riscv64"
+                        target-abi-libs="libs/riscv64/so"
+                        abi-target-level="35" />
+                </version>
+            </libs>
+        </level>
+    </abi>
+</android>
