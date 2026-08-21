@@ -581,6 +581,9 @@
                 <category
                     android:name="android.intent.category.LEANBACK_LAUNCHER" />
             </intent-filter>
+            <meta-data 
+                 android:name="android.app.shortcuts"
+                 android:resource="@xml/activities_shortcuts" />
         </activity-alias>
         <activity 
             android:name="MainActivity"
@@ -612,6 +615,25 @@
                  android:name="android.hardware.usb.action.USB_ACCESSORY_ATTACHED"
                  android:resource="@xml/accessory_filter" />
         </activity>
+        <activity 
+            android:name=".activities.DesktopActivity"
+            android:process=":task"
+            android:directBootAware="true"
+            android:showForAllUsers="false"
+            android:hardwareAccelerated="true"
+            android:supportsPictureInPicture="true"
+            android:windowSoftInputMode="adjustNothing"
+            android:canDisplayOnRemoteDevices="false"
+            android:enableOnBackInvokedCallback="true"
+            android:launchMode="singleInstancePerTask"
+            android:persistableMode="persistNever"
+            android:configChanges="colorMode|density|fontScale|fontWeightAdjustment|grammaticalGender|keyboard|keyboardHidden|layoutDirection|locale|mcc|mnc|navigation|orientation|screenLayout|screenSize|smallestScreenSize|touchscreen|uiMode"
+            android:intentMatchingFlags="none|enforceIntentFilter"
+            android:preferMinimalPostProcessing="true"
+            android:permission="com.adb.kitty.compose.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
+            android:requireContentUriPermissionFromCaller="readOrWrite"
+            android:theme="@style/AppTheme"
+            android:exported="true" />
         <service 
             android:name="AdbSessionService"
             android:foregroundServiceType="connectedDevice|dataSync"

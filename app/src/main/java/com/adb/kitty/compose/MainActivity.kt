@@ -103,6 +103,7 @@ import com.adb.kitty.compose.ui.it.*
 import com.adb.kitty.compose.ui.it.help.*
 import com.adb.kitty.compose.data.*
 import com.adb.kitty.compose.data.help.*
+import com.adb.kitty.compose.activities.*
 import com.adb.kitty.compose.R
 
 @Keep
