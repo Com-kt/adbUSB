@@ -933,7 +933,14 @@ class MainActivity : ComponentActivity() {
     }
 
     fun onUserClickStopCommand() {
-        currentShellJob?.cancel()
+        val job = currentShellJob
+    
+        if (job == null || !job.isActive) {
+            appendLog("[系统] 当前没有正在执行的命令")
+            return
+        }
+
+        job.cancel()
         currentShellJob = null
 
         lifecycleScope.launch(Dispatchers.IO) {
@@ -948,6 +955,10 @@ class MainActivity : ComponentActivity() {
                     withContext(Dispatchers.Main) {
                         appendLog("[错误] 终止命令失败: ${e.message}")
                     }
+                }
+            } else {
+                withContext(Dispatchers.Main) {
+                    appendLog("[警告] 服务未连接，已取消前端日志读取")
                 }
             }
         }
