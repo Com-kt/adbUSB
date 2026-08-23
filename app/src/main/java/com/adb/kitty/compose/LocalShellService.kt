@@ -13,6 +13,7 @@ import java.io.OutputStreamWriter
 import java.lang.StringBuilder
 import java.util.concurrent.Executors
 import java.util.concurrent.ScheduledFuture
+import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.TimeUnit
 import kotlin.concurrent.thread
 import com.adb.kitty.compose.ui.theme.*
@@ -78,7 +79,7 @@ class LocalShellService : Service() {
             val pipeWriter = OutputStreamWriter(ParcelFileDescriptor.AutoCloseOutputStream(writeSide), "UTF-8")
             
             var watchdogTask: ScheduledFuture<*>? = null
-            @Volatile var lastOutputTime = System.currentTimeMillis()
+            val lastOutputTime = AtomicLong(System.currentTimeMillis())
 
             try {
                 val builder = if (useRoot || cmd.startsWith("su")) {
@@ -107,7 +108,7 @@ class LocalShellService : Service() {
                 val idleTimeoutMs = if (cmd.contains("dumpsys")) 5000L else 15000L
 
                 watchdogTask = watchdogScheduler.scheduleWithFixedDelay({
-                    val idleMillis = System.currentTimeMillis() - lastOutputTime
+                    val idleMillis = System.currentTimeMillis() - lastOutputTime.get()
                     if (idleMillis >= idleTimeoutMs) {
                         if (process?.isAlive == true) {
                             runCatching {
@@ -141,7 +142,7 @@ class LocalShellService : Service() {
                 var line: String?
                 
                 while (reader.readLine().also { line = it } != null) {
-                    lastOutputTime = System.currentTimeMillis()
+                    lastOutputTime.set(System.currentTimeMillis())
                     pipeWriter.write(line + "\n")
                     pipeWriter.flush()
                 }
