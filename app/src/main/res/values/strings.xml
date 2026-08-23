@@ -37,6 +37,6 @@
     <string name="action_service_aaf">Core Service</string>
     <string name="action_service_aag">Front desk core services</string>
     <string name="action_service_aah">This service can ensure that the connection and network are not disconnected when exiting the background or returning to the desktop.</string>
-    <string name="shortcut_short_ladel" translatable="false">desktop</string>
-    <string name="shortcut_long_ladel" translatable="false">Desktop UI</string>
+    <string name="permission_label">Standalone private API</string>
+    <string name="permission_description">This is the private API permission of the application itself. Individual developers’ applications with the same series signature can access and call at will.</string>
 </resources>

@@ -148,7 +148,7 @@ fun NekoIntentDialog(
                                     append("/").append(cleanSub)
                                 }
                             }
-                            IntentMode.TELEGRAM -> "http://t.me/${inputFirst.trim()}"
+                            IntentMode.TELEGRAM -> "https://t.me/${inputFirst.trim()}"
                             IntentMode.X -> "https://x.com/${inputFirst.trim()}"
                             IntentMode.PLAY -> "https://play.google.com/store/apps/details?id=${inputFirst.trim()}"
                         }

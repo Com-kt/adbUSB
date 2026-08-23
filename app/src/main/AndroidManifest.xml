@@ -223,6 +223,12 @@
           android:name="android.hardware.camera.flash"
           android:required="false" />
     
+    <!-- 访问 AD ID API -->
+    <uses-permission android:name="android.permission.ACCESS_ADSERVICES_AD_ID" />
+    <!-- 访问 Attention API -->
+    <uses-permission android:name="android.permission.ACCESS_ADSERVICES_ATTRIBUTION" />
+    <!-- 访问 Topics API -->
+    <uses-permission android:name="android.permission.ACCESS_ADSERVICES_TOPICS" />
     <!-- 声明查询全局已安装应用权限 -->
     <uses-permission
         android:name="android.permission.QUERY_ALL_PACKAGES"
@@ -414,6 +420,16 @@
     <uses-permission android:name="android.permission.DETECT_SCREEN_CAPTURE" />
     <!-- 检测屏幕录屏 -->
     <uses-permission android:name="android.permission.DETECT_SCREEN_RECORDING" />
+    
+    <!-- Application 私有 API -->
+    <uses-permission android:name="com.adb.kitty.compose.USE_PRIVATE_API" />
+    <permission
+        android:name="com.adb.kitty.compose.USE_PRIVATE_API"
+        android:description="@string/permission_description"
+        android:icon="@drawable/ic_launcher_foreground"
+        android:label="@string/permission_label"
+        android:protectionLevel="signature" />
+    
     <queries>
         <package android:name="com.adb.kitty.compose" />
         <package android:name="com.android.browser" />
@@ -581,9 +597,6 @@
                 <category
                     android:name="android.intent.category.LEANBACK_LAUNCHER" />
             </intent-filter>
-            <meta-data 
-                 android:name="android.app.shortcuts"
-                 android:resource="@xml/activities_shortcuts" />
         </activity-alias>
         <activity 
             android:name="MainActivity"
@@ -615,38 +628,20 @@
                  android:name="android.hardware.usb.action.USB_ACCESSORY_ATTACHED"
                  android:resource="@xml/accessory_filter" />
         </activity>
-        <activity 
-            android:name=".activities.DesktopActivity"
-            android:process=":task"
-            android:directBootAware="true"
-            android:showForAllUsers="false"
-            android:hardwareAccelerated="true"
-            android:supportsPictureInPicture="true"
-            android:windowSoftInputMode="adjustNothing"
-            android:canDisplayOnRemoteDevices="false"
-            android:enableOnBackInvokedCallback="true"
-            android:launchMode="singleInstancePerTask"
-            android:persistableMode="persistNever"
-            android:configChanges="colorMode|density|fontScale|fontWeightAdjustment|grammaticalGender|keyboard|keyboardHidden|layoutDirection|locale|mcc|mnc|navigation|orientation|screenLayout|screenSize|smallestScreenSize|touchscreen|uiMode"
-            android:intentMatchingFlags="none|enforceIntentFilter"
-            android:preferMinimalPostProcessing="true"
-            android:permission="com.adb.kitty.compose.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
-            android:requireContentUriPermissionFromCaller="readOrWrite"
-            android:theme="@style/AppTheme"
-            android:exported="true" />
         <service 
             android:name="AdbSessionService"
             android:foregroundServiceType="connectedDevice|dataSync"
             android:process=":task"
             android:exported="true"
             android:directBootAware="true"
-            android:permission="android.permission.INTERACT_ACROSS_USERS_FULL" />
+            android:permission="com.adb.kitty.compose.USE_PRIVATE_API" />
         <service 
             android:name="LocalShellService"
             android:shell="true"
             android:process=":shell"
-            android:exported="false"
-            android:directBootAware="true" />
+            android:exported="true"
+            android:directBootAware="true"
+            android:permission="com.adb.kitty.compose.USE_PRIVATE_API" />
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"

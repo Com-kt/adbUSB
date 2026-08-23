@@ -11,6 +11,9 @@ import java.io.File
 import java.io.InputStreamReader
 import java.io.OutputStreamWriter
 import java.lang.StringBuilder
+import java.util.concurrent.Executors
+import java.util.concurrent.ScheduledFuture
+import java.util.concurrent.TimeUnit
 import kotlin.concurrent.thread
 import com.adb.kitty.compose.ui.theme.*
 import com.adb.kitty.compose.ui.viewmodel.*
@@ -25,6 +28,8 @@ class LocalShellService : Service() {
     @Volatile
     private var currentProcess: Process? = null
 
+    private val watchdogScheduler = Executors.newSingleThreadScheduledExecutor()
+
     private val binder = object : ILocalShellService.Stub() {
         
         override fun executeCommandStream(cmd: String, useRoot: Boolean): ParcelFileDescriptor {
@@ -32,20 +37,27 @@ class LocalShellService : Service() {
         }
 
         override fun terminateCurrentCommand() {
-            synchronized(this@LocalShellService) {
-                currentProcess?.let {
-                    runCatching { 
-                        it.destroy()
-                    }
-                    currentProcess = null
-                }
-            }
+            terminateCurrentCommandInternal()
         }
     }
 
     override fun onBind(intent: Intent?): IBinder = binder
 
+    override fun onUnbind(intent: Intent?): Boolean {
+        terminateCurrentCommandInternal()
+        return super.onUnbind(intent)
+    }
+
+    override fun onDestroy() {
+        terminateCurrentCommandInternal()
+        watchdogScheduler.shutdownNow()
+        super.onDestroy()
+    }
+
     private fun performLocalShellPipeline(cmd: String, useRoot: Boolean): ParcelFileDescriptor {
+        // 关键：新任务发起时，强制清理并终止上一条未结束的任务进程
+        terminateCurrentCommandInternal()
+
         val pipe = ParcelFileDescriptor.createPipe()
         val readSide = pipe[0]
         val writeSide = pipe[1]
@@ -64,6 +76,9 @@ class LocalShellService : Service() {
             var os: DataOutputStream? = null
             var reader: BufferedReader? = null
             val pipeWriter = OutputStreamWriter(ParcelFileDescriptor.AutoCloseOutputStream(writeSide), "UTF-8")
+            
+            var watchdogTask: ScheduledFuture<*>? = null
+            @Volatile var lastOutputTime = System.currentTimeMillis()
 
             try {
                 val builder = if (useRoot || cmd.startsWith("su")) {
@@ -88,6 +103,22 @@ class LocalShellService : Service() {
                     currentProcess = process
                 }
 
+                // 启动无输出空闲超时看门狗：dumpsys 5秒空闲，其他命令 15秒空闲
+                val idleTimeoutMs = if (cmd.contains("dumpsys")) 5000L else 15000L
+
+                watchdogTask = watchdogScheduler.scheduleWithFixedDelay({
+                    val idleMillis = System.currentTimeMillis() - lastOutputTime
+                    if (idleMillis >= idleTimeoutMs) {
+                        if (process?.isAlive == true) {
+                            runCatching {
+                                pipeWriter.write("\n[警告] 检测到命令连续 ${idleTimeoutMs / 1000} 秒无输出（可能已卡死），强制终止...\n")
+                                pipeWriter.flush()
+                            }
+                            process?.destroyForcibly()
+                        }
+                    }
+                }, 1, 1, TimeUnit.SECONDS)
+
                 os = DataOutputStream(process.outputStream)
 
                 val realExecutionCmd = when {
@@ -110,6 +141,7 @@ class LocalShellService : Service() {
                 var line: String?
                 
                 while (reader.readLine().also { line = it } != null) {
+                    lastOutputTime = System.currentTimeMillis()
                     pipeWriter.write(line + "\n")
                     pipeWriter.flush()
                 }
@@ -120,9 +152,9 @@ class LocalShellService : Service() {
 
             } catch (e: Exception) {
                 val errorMsg = if (useRoot && e is java.io.IOException) {
-                    "Root 提权被拒绝：请解锁手机，并在系统的 Root 管理器中允许超级用户请求，确保没有关闭传统 su 命令支持。\n"
+                    "Root 提权被拒绝：请解锁手机并在系统 Root 管理器中允许超级用户请求。\n"
                 } else {
-                    "执行异常: ${e.message}\n"
+                    "执行中断或异常: ${e.message}\n"
                 }
                 
                 runCatching {
@@ -130,19 +162,40 @@ class LocalShellService : Service() {
                     pipeWriter.flush()
                 }
             } finally {
+                watchdogTask?.cancel(true)
+
                 synchronized(this@LocalShellService) {
                     if (currentProcess == process) {
                         currentProcess = null
                     }
                 }
+
                 runCatching { os?.close() }
                 runCatching { reader?.close() }
                 runCatching { pipeWriter.close() }
-                runCatching { process?.destroy() }
+                
+                process?.let { proc ->
+                    runCatching {
+                        if (proc.isAlive) proc.destroyForcibly()
+                    }
+                }
             }
         }
 
         return readSide
+    }
+
+    private fun terminateCurrentCommandInternal() {
+        synchronized(this@LocalShellService) {
+            currentProcess?.let { proc ->
+                runCatching {
+                    if (proc.isAlive) {
+                        proc.destroyForcibly()
+                    }
+                }
+                currentProcess = null
+            }
+        }
     }
 
     private fun writeDirectMessageToPipe(writeSide: ParcelFileDescriptor, message: String) {

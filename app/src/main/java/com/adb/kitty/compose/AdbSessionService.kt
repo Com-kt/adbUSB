@@ -200,8 +200,8 @@ class AdbSessionService : Service() {
         refreshJob = serviceScope.launch {
             while (isActive) {
                 updateTickerNotification()
-                delay(13000)
-                totalSeconds += 13
+                delay(18000)
+                totalSeconds += 18
             }
         }
     }

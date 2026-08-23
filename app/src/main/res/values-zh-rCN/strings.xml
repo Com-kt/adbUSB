@@ -36,4 +36,6 @@
     <string name="action_service_aaf">核心服务</string>
     <string name="action_service_aag">前台核心服务</string>
     <string name="action_service_aah">此服务可以确保在退后台或返回桌面时连接不断开、网络不断开</string>
+    <string name="permission_label">独立私有 API</string>
+    <string name="permission_description">这是应用程序自身的私有 API 权限, 个人开发者的同一系列同签名应用可随意访问、随意调用</string>
 </resources>

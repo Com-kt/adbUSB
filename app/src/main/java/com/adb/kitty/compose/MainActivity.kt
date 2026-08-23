@@ -103,7 +103,6 @@ import com.adb.kitty.compose.ui.it.*
 import com.adb.kitty.compose.ui.it.help.*
 import com.adb.kitty.compose.data.*
 import com.adb.kitty.compose.data.help.*
-import com.adb.kitty.compose.activities.*
 import com.adb.kitty.compose.R
 
 @Keep
@@ -219,6 +218,7 @@ class MainActivity : ComponentActivity() {
             startAndBindAdbService()
         } else {
             handlePermissionDeniedSituation()
+            startAndBindAdbService()
         }
     }
     
@@ -858,6 +858,8 @@ class MainActivity : ComponentActivity() {
     }
     
     private fun handleLocalShellPipeline(cmd: String) {
+        currentShellJob?.cancel()
+
         appendLog("[系统] Shell >> $cmd")
         var realLocalCmd = cmd
         var requestRoot = false
@@ -874,34 +876,37 @@ class MainActivity : ComponentActivity() {
 
         appendLog(if (requestRoot) "[Root管道] 请求身份变更执行实时流..." else "[本地管道] 开始执行流式命令...")
 
-        lifecycleScope.launch(Dispatchers.IO) {
+        currentShellJob = lifecycleScope.launch(Dispatchers.IO) {
             val shell = localShellService
             if (shell != null && isLocalServiceBound) {
                 var pfd: ParcelFileDescriptor? = null
                 var reader: BufferedReader? = null
-            
+
                 try {
                     pfd = shell.executeCommandStream(realLocalCmd, requestRoot)
-                
+
                     if (pfd != null) {
                         val inputStream = ParcelFileDescriptor.AutoCloseInputStream(pfd)
                         reader = BufferedReader(InputStreamReader(inputStream, "UTF-8"))
 
                         var line: String?
                         while (isActive) {
-                            try {
-                                line = reader.readLine()
-                                if (line == null) break
-                            
-                                val currentLine = line
-                                withContext(Dispatchers.Main) {
-                                    appendLog(currentLine)
-                                }
+                            line = try {
+                                reader.readLine()
                             } catch (e: java.io.IOException) {
-                                withContext(Dispatchers.Main) {
-                                    appendLog("[系统] 进程管道流已关闭（进程已被用户手动终止）")
+                                if (isActive) {
+                                    withContext(Dispatchers.Main) {
+                                        appendLog("[系统] 进程管道流已切断")
+                                    }
                                 }
                                 break
+                            }
+
+                            if (line == null) break
+
+                            val currentLine = line
+                            withContext(Dispatchers.Main) {
+                                appendLog(currentLine)
                             }
                         }
                     } else {
@@ -910,8 +915,10 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                 } catch (e: Exception) {
-                    withContext(Dispatchers.Main) {
-                        appendLog("[错误] 执行异常: ${e.message}")
+                    if (isActive) {
+                        withContext(Dispatchers.Main) {
+                            appendLog("[错误] 执行异常: ${e.message}")
+                        }
                     }
                 } finally {
                     runCatching { reader?.close() }
@@ -926,11 +933,17 @@ class MainActivity : ComponentActivity() {
     }
 
     fun onUserClickStopCommand() {
+        currentShellJob?.cancel()
+        currentShellJob = null
+
         lifecycleScope.launch(Dispatchers.IO) {
             val shell = localShellService
             if (shell != null && isLocalServiceBound) {
                 runCatching {
                     shell.terminateCurrentCommand()
+                    withContext(Dispatchers.Main) {
+                        appendLog("[系统] 用户强制终止了当前命令")
+                    }
                 }.onFailure { e ->
                     withContext(Dispatchers.Main) {
                         appendLog("[错误] 终止命令失败: ${e.message}")
@@ -1096,14 +1109,14 @@ class MainActivity : ComponentActivity() {
                 startAndBindAdbService()
             } else {
                 handlePermissionDeniedSituation()
+                startAndBindAdbService()
             }
         }
     }
     
     private fun handlePermissionDeniedSituation() {
         appendLog("[错误] ❌ 通知权限被拦截/拒绝！")
-        appendLog("[警告] ⚠️ 前台服务失去通知将导致服务被系统瞬间抹杀。")
-        appendLog("[警告] 🚨 已自动熔断并禁用核心功能：[adb]、[adb-wlan]、[fastboot]、[usb]")
+        appendLog("[提示] ⚠️ 前台服务将尝试在没有通知权限的情况下静默启动")
     }
     
     private fun startAndBindAdbService() {
