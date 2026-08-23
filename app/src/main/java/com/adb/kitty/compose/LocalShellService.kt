@@ -2,6 +2,7 @@ package com.adb.kitty.compose
 
 import android.app.Service
 import android.content.Intent
+import android.os.Build
 import android.os.Environment
 import android.os.IBinder
 import android.os.ParcelFileDescriptor
@@ -110,12 +111,12 @@ class LocalShellService : Service() {
                 watchdogTask = watchdogScheduler.scheduleWithFixedDelay({
                     val idleMillis = System.currentTimeMillis() - lastOutputTime.get()
                     if (idleMillis >= idleTimeoutMs) {
-                        if (process?.isAlive == true) {
+                        if (process?.isAliveCompat() == true) {
                             runCatching {
                                 pipeWriter.write("\n[警告] 检测到命令连续 ${idleTimeoutMs / 1000} 秒无输出（可能已卡死），强制终止...\n")
                                 pipeWriter.flush()
                             }
-                            process?.destroyForcibly()
+                            process.destroyForciblyCompat()
                         }
                     }
                 }, 1, 1, TimeUnit.SECONDS)
@@ -177,7 +178,7 @@ class LocalShellService : Service() {
                 
                 process?.let { proc ->
                     runCatching {
-                        if (proc.isAlive) proc.destroyForcibly()
+                        if (proc.isAliveCompat()) proc.destroyForciblyCompat()
                     }
                 }
             }
@@ -186,12 +187,33 @@ class LocalShellService : Service() {
         return readSide
     }
 
+    private fun Process.isAliveCompat(): Boolean {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            this.isAlive
+        } else {
+            try {
+                this.exitValue()
+                false
+            } catch (e: IllegalThreadStateException) {
+                true
+            }
+        }
+    }
+
+    private fun Process.destroyForciblyCompat() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            this.destroyForcibly()
+        } else {
+            this.destroy()
+        }
+    }
+
     private fun terminateCurrentCommandInternal() {
         synchronized(this@LocalShellService) {
             currentProcess?.let { proc ->
                 runCatching {
-                    if (proc.isAlive) {
-                        proc.destroyForcibly()
+                    if (proc.isAliveCompat()) {
+                        proc.destroyForciblyCompat()
                     }
                 }
                 currentProcess = null
