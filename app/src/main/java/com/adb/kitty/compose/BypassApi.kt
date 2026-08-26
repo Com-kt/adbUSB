@@ -53,29 +53,21 @@ class BypassApi : Application() {
     }
     
     private fun trackAppOpenInBackground() {
+        val sharedPref = getSharedPreferences("app_analytics_pref", MODE_PRIVATE)
+        var installId = sharedPref.getString("client_id", null)
+        if (installId == null) {
+            installId = UUID.randomUUID().toString()
+            sharedPref.edit().putString("client_id", installId).apply()
+        }
+        
         Thread {
             try {
-                val sharedPref = getSharedPreferences("app_analytics_pref", MODE_PRIVATE)
-                var installId = sharedPref.getString("client_id", null)
-                if (installId == null) {
-                    installId = UUID.randomUUID().toString()
-                    sharedPref.edit().putString("client_id", installId).apply()
-                }
-
-                val baseUrl = "https://digitalplat.org"
-                val encodedId = URLEncoder.encode(installId, Charsets.UTF_8.name())
-                val finalUrlStr = "$baseUrl?event=app_open&version=1.0.1&platform=android&client_id=$encodedId"
-
-                val url = URL(finalUrlStr)
+                val url = URL("https://analytics.digitalplat.org/a/app/dpa_DSc1Bf0vqDpIRYEqEjqm50hm7nzUNgc?event=app_open&version=4.2.0&platform=android&client_id=" +
+                    URLEncoder.encode(installId, Charsets.UTF_8.name()))
                 (url.openConnection() as HttpURLConnection).apply {
                     requestMethod = "GET"
                     connectTimeout = 5000
-                    readTimeout = 5000
-                    
-                    val responseCode = responseCode 
-                    if (responseCode == HttpURLConnection.HTTP_OK) {
-                        inputStream.close()
-                    }
+                    inputStream.close()
                     disconnect()
                 }
             } catch (e: Exception) {
