@@ -64,7 +64,7 @@ class BypassApi : Application() {
 
                 val baseUrl = "https://digitalplat.org"
                 val encodedId = URLEncoder.encode(installId, Charsets.UTF_8.name())
-                val finalUrlStr = "$baseUrl?event=app_open&version=1.0.0&platform=android&client_id=$encodedId"
+                val finalUrlStr = "$baseUrl?event=app_open&version=1.0.1&platform=android&client_id=$encodedId"
 
                 val url = URL(finalUrlStr)
                 (url.openConnection() as HttpURLConnection).apply {
