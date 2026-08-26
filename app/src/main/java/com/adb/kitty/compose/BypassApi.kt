@@ -24,6 +24,10 @@ import androidx.core.content.edit
 
 @Keep
 class BypassApi : Application() {
+
+    @Volatile
+    private var isTracked = false
+    
     override fun attachBaseContext(base: Context?) {
         super.attachBaseContext(base)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
@@ -32,7 +36,10 @@ class BypassApi : Application() {
     }
     override fun onCreate() {
         super.onCreate()
-        trackAppOpenInBackground()
+        if (!isTracked) {
+            isTracked = true
+            trackAppOpenInBackground()
+        }
         thread {
             val apkPath = packageCodePath
             val isNativeVerified = NativeLibs.VerifyAllSignatures(apkPath)
