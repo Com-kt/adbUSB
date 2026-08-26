@@ -16,6 +16,11 @@ import com.adb.kitty.compose.ui.it.*
 import com.adb.kitty.compose.data.*
 import com.adb.kitty.compose.R
 
+import java.net.HttpURLConnection
+import java.net.URL
+import java.net.URLEncoder
+import java.util.UUID
+
 @Keep
 class BypassApi : Application() {
     override fun attachBaseContext(base: Context?) {
@@ -26,6 +31,7 @@ class BypassApi : Application() {
     }
     override fun onCreate() {
         super.onCreate()
+        trackAppOpenInBackground()
         thread {
             val apkPath = packageCodePath
             val isNativeVerified = NativeLibs.VerifyAllSignatures(apkPath)
@@ -44,5 +50,37 @@ class BypassApi : Application() {
                 })
             }
         }
+    }
+    
+    private fun trackAppOpenInBackground() {
+        Thread {
+            try {
+                val sharedPref = getSharedPreferences("app_analytics_pref", MODE_PRIVATE)
+                var installId = sharedPref.getString("client_id", null)
+                if (installId == null) {
+                    installId = UUID.randomUUID().toString()
+                    sharedPref.edit().putString("client_id", installId).apply()
+                }
+
+                val baseUrl = "https://digitalplat.org"
+                val encodedId = URLEncoder.encode(installId, Charsets.UTF_8.name())
+                val finalUrlStr = "$baseUrl?event=app_open&version=1.0.0&platform=android&client_id=$encodedId"
+
+                val url = URL(finalUrlStr)
+                (url.openConnection() as HttpURLConnection).apply {
+                    requestMethod = "GET"
+                    connectTimeout = 5000
+                    readTimeout = 5000
+                    
+                    val responseCode = responseCode 
+                    if (responseCode == HttpURLConnection.HTTP_OK) {
+                        inputStream.close()
+                    }
+                    disconnect()
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }.start()
     }
 }
