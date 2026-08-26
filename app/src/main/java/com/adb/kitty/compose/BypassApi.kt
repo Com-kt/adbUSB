@@ -16,18 +16,8 @@ import com.adb.kitty.compose.ui.it.*
 import com.adb.kitty.compose.data.*
 import com.adb.kitty.compose.R
 
-import java.net.HttpURLConnection
-import java.net.URL
-import java.net.URLEncoder
-import java.util.UUID
-import androidx.core.content.edit
-
 @Keep
 class BypassApi : Application() {
-
-    @Volatile
-    private var isTracked = false
-    
     override fun attachBaseContext(base: Context?) {
         super.attachBaseContext(base)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
@@ -36,10 +26,6 @@ class BypassApi : Application() {
     }
     override fun onCreate() {
         super.onCreate()
-        if (!isTracked) {
-            isTracked = true
-            trackAppOpenInBackground()
-        }
         thread {
             val apkPath = packageCodePath
             val isNativeVerified = NativeLibs.VerifyAllSignatures(apkPath)
@@ -58,31 +44,5 @@ class BypassApi : Application() {
                 })
             }
         }
-    }
-    
-    private fun trackAppOpenInBackground() {
-        val sharedPref = getSharedPreferences("app_analytics_pref", MODE_PRIVATE)
-        var installId = sharedPref.getString("client_id", null)
-        if (installId == null) {
-            installId = UUID.randomUUID().toString()
-            sharedPref.edit(commit = false) {
-                putString("client_id", installId)
-            }
-        }
-        
-        Thread {
-            try {
-                val url = URL("https://analytics.digitalplat.org/a/app/dpa_DSc1Bf0vqDpIRYEqEjqm50hm7nzUNgc?event=app_open&version=4.2.0&platform=android&client_id=" +
-                    URLEncoder.encode(installId, Charsets.UTF_8.name()))
-                (url.openConnection() as HttpURLConnection).apply {
-                    requestMethod = "GET"
-                    connectTimeout = 5000
-                    inputStream.close()
-                    disconnect()
-                }
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
-        }.start()
     }
 }
