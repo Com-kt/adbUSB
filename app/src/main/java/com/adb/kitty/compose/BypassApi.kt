@@ -20,6 +20,7 @@ import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
 import java.util.UUID
+import androidx.core.content.edit
 
 @Keep
 class BypassApi : Application() {
@@ -57,7 +58,9 @@ class BypassApi : Application() {
         var installId = sharedPref.getString("client_id", null)
         if (installId == null) {
             installId = UUID.randomUUID().toString()
-            sharedPref.edit().putString("client_id", installId).apply()
+            sharedPref.edit(commit = false) {
+                putString("client_id", installId)
+            }
         }
         
         Thread {
