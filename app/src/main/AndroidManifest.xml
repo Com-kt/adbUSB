@@ -527,6 +527,7 @@
         </intent>
     </queries>
     <!-- 如果 application 设置了 android:process, 但是 activity、service、provider、receiver 没有设置 android:process, 就得跟着 application 跑在同一个进程里 -->
+    <!-- 通过 android:process 设置的进程来共享同一进程，以冒号开头的是应用私有进程，以非冒号开头的是同签名应用的共享进程 -->
     <application
         android:process=":task"
         android:name="BypassApi"

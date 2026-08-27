@@ -6,6 +6,9 @@
 - Android 17 - Android 7.0
 - Android TV、Android
 
+# DocumentsProvider
+- You don't need to use MT Manager to inject a file provider for your APK to create the corresponding local storage directory
+
 # Signature scheme sample script
 - Now there are not only sample scripts in the project, but also built APKs, which use signature schemes v2, v3, v3.1, and v3.2 respectively.
 - Hope this sample script can help you
@@ -65,3 +68,4 @@ Number of signers: 1
 - [Termux-ubuntu](https://github.com/termux/proot-distro)
 - [android-sdk-aarch64](https://github.com/HomuHomu833/android-sdk-custom)
 - [android-ndk-aarch64](https://github.com/HomuHomu833/android-ndk-custom)
+- [MT-DocumentsProvider](https://github.com/L-JINBIN/MTDataFilesProvider)
