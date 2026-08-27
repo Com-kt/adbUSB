@@ -8,7 +8,6 @@ kotlinxCoroutines = "1.11.0"
 annotation = "1.10.0"
 coreKtx = "1.19.0"
 
-mtDataFilesProvider = "1.0.0"
 jdklibs = "2.1.5"
 
 hiddenapibypassVersion = "6.1"
@@ -41,9 +40,6 @@ androidx-lifecycle-service = { group = "androidx.lifecycle", name = "lifecycle-s
 kotlinx-coroutines-core = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-core", version.ref = "kotlinxCoroutines" }
 kotlinx-coroutines-core-jvm = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-core-jvm", version.ref = "kotlinxCoroutines" }
 kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "kotlinxCoroutines" }
-
-# MT 文件提供者
-mt-dataFilesProvider = { group = "com.github.L-JINBIN", name = "MTDataFilesProvider", version.ref = "mtDataFilesProvider" }
 
 lsposed-hiddenapibypass = { module = "org.lsposed.hiddenapibypass:hiddenapibypass", version.ref = "hiddenapibypassVersion" }
 
