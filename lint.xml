@@ -15,4 +15,9 @@
     <issue id="SoonBlockedPrivateApi">
         <ignore path="**/AdbSessionService.kt" />
     </issue>
+    
+    <!-- I will use hard coding -->
+    <issue id="SdCardPath">
+        <ignore path="**/AppDataFilesProvider.kt" />
+    </issue>
 </lint>

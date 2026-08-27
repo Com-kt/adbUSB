@@ -5,6 +5,7 @@ import android.content.pm.ProviderInfo
 import android.database.Cursor
 import android.database.MatrixCursor
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.os.CancellationSignal
 import android.os.ParcelFileDescriptor
@@ -74,7 +75,15 @@ class AppDataFilesProvider : DocumentsProvider() {
 
         androidDataDir = context.getExternalFilesDir(null)?.parentFile
         androidObbDir = context.obbDir
-        androidMediaDir = context.externalMediaDirs.firstOrNull()
+        
+        androidMediaDir = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            context.getExternalFilesDir(null)?.parentFile?.parentFile?.let { androidDir ->
+                File(androidDir, "media/$packageNameStr")
+            }
+        } else {
+            @Suppress("DEPRECATION")
+            context.externalMediaDirs.firstOrNull()
+        }
     }
 
     override fun onCreate(): Boolean = true
@@ -226,7 +235,13 @@ class AppDataFilesProvider : DocumentsProvider() {
 
         val out = Bundle()
         runCatching {
-            val uri = extras.getParcelable<Uri>("uri") ?: return null
+            val uri = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                extras.getParcelable("uri", Uri::class.java)
+            } else {
+                @Suppress("DEPRECATION")
+                extras.getParcelable("uri")
+            } ?: return null
+
             val pathSegments = uri.pathSegments
             val documentId = if (pathSegments.size >= 4) pathSegments[3] else pathSegments[1]
 
