@@ -197,7 +197,6 @@ abstract class GenerateKotlinMetadataTask : DefaultTask() {
     @get:Input abstract val kadbVersion: Property<String>
     @get:Input abstract val hiddenapibypassVersion: Property<String>
     @get:Input abstract val libsuVersion: Property<String>
-    @get:Input abstract val mtDataFilesProviderVersion: Property<String>
     @get:Input abstract val lifecycleVersion: Property<String>
     @get:Input abstract val nayukiQRVersion: Property<String>
     @get:Input abstract val zxingCodeVersion: Property<String>
@@ -247,7 +246,6 @@ abstract class GenerateKotlinMetadataTask : DefaultTask() {
             "kadbVersion": "${kadbVersion.get()}",
             "org.lsposed.hiddenapibypass:hiddenapibypassVersion": "${hiddenapibypassVersion.get()}",
             "com.github.topjohnwu.libsu:libsuVersion": "${libsuVersion.get()}",
-            "MTDataFilesProviderVersion": "${mtDataFilesProviderVersion.get()}",
             "nayukiQRVersion": "${nayukiQRVersion.get()}",
             "zxingCodeVersion": "${zxingCodeVersion.get()}"
           },
@@ -282,7 +280,6 @@ val injectKotlinMetadataToRoot = tasks.register<GenerateKotlinMetadataTask>("inj
     kadbVersion.set(providers.provider { libs.versions.kadb.get() })
     hiddenapibypassVersion.set(providers.provider { libs.versions.hiddenapibypassVersion.get() })
     libsuVersion.set(providers.provider { libs.versions.libsuVersion.get() })
-    mtDataFilesProviderVersion.set(providers.provider { libs.versions.mtDataFilesProvider.get() })
     lifecycleVersion.set(providers.provider { libs.versions.lifecycle.get() })
     nayukiQRVersion.set(providers.provider { libs.versions.nayukiQR.get() })
     zxingCodeVersion.set(providers.provider { libs.versions.zxing.get() })
