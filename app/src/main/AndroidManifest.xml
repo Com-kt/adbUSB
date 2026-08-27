@@ -526,6 +526,7 @@
             <data android:scheme="vpn" />
         </intent>
     </queries>
+    <!-- 如果 application 设置了 android:process, 但是 activity、service、provider、receiver 没有设置 android:process, 就得跟着 application 跑在同一个进程里 -->
     <application
         android:process=":task"
         android:name="BypassApi"
@@ -599,7 +600,6 @@
         </activity-alias>
         <activity 
             android:name="MainActivity"
-            android:process=":task"
             android:directBootAware="true"
             android:showForAllUsers="false"
             android:hardwareAccelerated="true"
@@ -630,7 +630,6 @@
         <service 
             android:name="AdbSessionService"
             android:foregroundServiceType="connectedDevice|dataSync"
-            android:process=":task"
             android:exported="true"
             android:directBootAware="true"
             android:permission="com.adb.kitty.compose.USE_PRIVATE_API" />
@@ -641,9 +640,19 @@
             android:directBootAware="true"
             android:permission="com.adb.kitty.compose.USE_PRIVATE_API" />
         <provider
+            android:name=".provider.AppDataFilesProvider"
+            android:authorities="${applicationId}.documents"
+            android:exported="true"
+            android:directBootAware="true"
+            android:grantUriPermissions="true"
+            android:permission="android.permission.MANAGE_DOCUMENTS">
+            <intent-filter>
+                <action android:name="android.content.action.DOCUMENTS_PROVIDER" />
+            </intent-filter>
+        </provider>
+        <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"
-            android:process=":task"
             android:exported="false"
             android:grantUriPermissions="true">
             <meta-data
