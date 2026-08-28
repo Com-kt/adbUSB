@@ -81,8 +81,12 @@ class AppDataFilesProvider : DocumentsProvider() {
         androidObbDir = context.obbDir
 
         androidMediaDir = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            context.getExternalFilesDir(null)?.parentFile?.parentFile?.let { androidDir ->
-                File(androidDir, "media/$packageNameStr")
+            context.getExternalFilesDirs(null).firstOrNull()?.absolutePath?.let { dataPath ->
+                val mediaPath = dataPath
+                    .replace("Android/data", "Android/media")
+                    .substringBefore("/files")
+        
+                File(mediaPath)
             }
         } else {
             @Suppress("DEPRECATION")
