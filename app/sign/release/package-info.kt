@@ -1,1 +1,1 @@
-package app.sign.release
+package com.adb.kitty.compose

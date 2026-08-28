@@ -1,1 +1,1 @@
-package app.sign.debug
+package com.adb.kitty.compose
