@@ -123,6 +123,20 @@ jobs:
           path: app/build/outputs/bundle/release/app-release.aab
           archive: false
           
+      - name: Upload Debug APKs
+        uses: actions/upload-artifact@v7
+        with:
+          name: app-debug
+          path: app/build/outputs/apk/debug/*
+          archive: true
+
+      - name: Upload Release APKs
+        uses: actions/upload-artifact@v7
+        with:
+          name: app-release
+          path: app/build/outputs/apk/release/*
+          archive: true
+          
       - name: Sign APKs
         run: |
           chmod +x app/bash/app_sign_apk.sh
@@ -141,18 +155,18 @@ jobs:
           PQC_KEY_ALIAS: ${{ secrets.PQC_KEY_ALIAS }}
           PQC_KEY_PASSWORD: ${{ secrets.PQC_KEY_PASSWORD }}
           
-      - name: Upload Debug APKs
+      - name: Upload Debug Sign APKs
         uses: actions/upload-artifact@v7
         with:
-          name: app-debug
-          path: app/build/outputs/apk/debug/*
+          name: app-sign-debug
+          path: app/sign/debug/*
           archive: true
 
-      - name: Upload Release APKs
+      - name: Upload Release Sign APKs
         uses: actions/upload-artifact@v7
         with:
-          name: app-release
-          path: app/build/outputs/apk/release/*
+          name: app-sign-release
+          path: app/sign/release/*
           archive: true
       
       - name: Builds Splits APKs

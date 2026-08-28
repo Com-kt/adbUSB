@@ -34,7 +34,7 @@ $APKSIGNER sign \
   --signer-lineage app/bash/app_lineage_3.bin \
   --hybrid-signer-role pqc \
   --hybrid-min-sdk-version 37 \
-  --out app/build/outputs/apk/debug/app-debug-sign.apk \
+  --out app/sign/debug/app-debug-sign.apk \
   app/build/outputs/apk/debug/app-debug.apk
 
 $APKSIGNER sign \
@@ -68,5 +68,5 @@ $APKSIGNER sign \
   --signer-lineage app/bash/app_lineage_3.bin \
   --hybrid-signer-role pqc \
   --hybrid-min-sdk-version 37 \
-  --out app/build/outputs/apk/release/app-release-sign.apk \
+  --out app/sign/release/app-release-sign.apk \
   app/build/outputs/apk/release/app-release.apk

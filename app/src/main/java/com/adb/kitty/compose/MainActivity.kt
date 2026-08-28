@@ -578,21 +578,6 @@ class MainActivity : ComponentActivity() {
                 )
             }
 
-            cmd.startsWith("p2p-") -> {
-                appendLog("[系统] 扩展指令 >> $cmd")
-                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
-                    val service = adbService
-                    if (service == null || !isServiceBound) {
-                        appendLog("[错误] 核心前台服务未并网，拒绝执行 P2P 指令")
-                        return
-                    }
-                    @SuppressLint("NewApi")
-                    dispatchP2pSubRoute(cmd, service)
-                } else {
-                    appendLog("Wi-Fi p2p 最低要求 Android 10")
-                }
-            }
-
             cmd.startsWith("download ") -> {
                 appendLog("[系统] 扩展指令 >> $cmd")
                 val urlArg = cmd.removePrefix("download ").trim()
@@ -671,92 +656,6 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    @RequiresApi(Build.VERSION_CODES.Q)
-    private fun dispatchP2pSubRoute(cmd: String, service: AdbSessionService) {
-        when {
-            cmd.startsWith("p2p-start-proxy") -> {
-                val portRegex = "--port=(\\d+)".toRegex()
-                val parsedPort = portRegex.find(cmd)?.groupValues?.get(1)?.toIntOrNull() ?: 1080
-                val port = if (parsedPort in 1024..65535) parsedPort else {
-                    appendLog("[警告] 端口 $parsedPort 不在合法范围 (1024~65535)，已自动安全降级至 1080")
-                    1080
-                }
-                service.startSocks5Proxy(port) { appendLog(it) }
-            }
-        
-            cmd == "p2p-stop-proxy" -> service.stopSocks5Proxy { appendLog(it) }
-        
-            cmd.startsWith("p2p-create-group") -> {
-                val argsStr = cmd.removePrefix("p2p-create-group").trim()
-                if (argsStr.isEmpty()) {
-                    appendLog("[提示] 用法错误！用法: p2p-create-group --ssid=<名字> --pass=<密码>")
-                    return
-                }
-                var ssid: String? = null
-                var pass: String? = null
-                "--ssid=(\\S+)".toRegex().find(cmd)?.let { ssid = it.groupValues[1] }
-                "--pass=(\\S+)".toRegex().find(cmd)?.let { pass = it.groupValues[1] }
-            
-                if ((ssid != null && pass == null) || (pass != null && ssid == null)) {
-                    appendLog("[提示] ❌ 错误：--ssid 和 --pass 必须成对出现！")
-                    return
-                }
-                if (pass != null && pass.length < 8) {
-                    appendLog("[提示] ❌ 错误：Wi-Fi 密码长度不能少于 8 位！")
-                    return
-                }
-                service.startP2pGroup(ssid, pass) { appendLog(it) }
-            }
-        
-            cmd.startsWith("p2p-reset") -> service.resetP2pGroup { appendLog(it) }
-            cmd.startsWith("p2p-search") -> service.discoverP2pDevices { appendLog(it) }
-            cmd.startsWith("p2p-list") -> service.requestP2pPeers { appendLog(it) }
-        
-            cmd.startsWith("p2p-connect") -> {
-                var argsStr = cmd.removePrefix("p2p-connect").trim()
-                if (argsStr.isEmpty()) {
-                    appendLog("[提示] 用法错误！用法: p2p-connect <对方的MAC地址> [--GO|--GC]")
-                    return
-                }
-                var intentValue = 7
-                if (argsStr.contains("--GO", ignoreCase = true)) {
-                    intentValue = 15
-                    argsStr = argsStr.replace("--GO", "", ignoreCase = true).trim()
-                } else if (argsStr.contains("--GC", ignoreCase = true)) {
-                    intentValue = 0
-                    argsStr = argsStr.replace("--GC", "", ignoreCase = true).trim()
-                }
-                if (argsStr.isEmpty()) {
-                    appendLog("[提示] 错误：未检测到有效的 MAC 地址！")
-                    return
-                }
-                service.connectToP2pDevice(argsStr, intentValue) { appendLog(it) }
-            }
-        
-            cmd.startsWith("p2p-status") -> service.checkP2pConnectionState { appendLog(it) }
-        
-            cmd.startsWith("p2p-receive") -> {
-                val (userPort, _) = extractUserPortAndClean(cmd)
-                service.autoP2pReceive(flashFolder, userPort) { appendLog(it) }
-            }
-        
-            cmd.startsWith("p2p-send") -> {
-                val (userPort, cleanedCmd) = extractUserPortAndClean(cmd)
-                val fileArg = cleanedCmd.removePrefix("p2p-send").trim()
-                if (fileArg.isEmpty() || fileArg == "p2p-send") {
-                    appendLog("[提示] 用法错误！用法: p2p-send <文件/文件夹> [--port=自定义端口]")
-                    return
-                }
-                val file = File(flashFolder, fileArg)
-                if (!file.exists()) {
-                    appendLog("[错误] 未在 flash 目录下找到该文件或文件夹: $fileArg")
-                    return
-                }
-                service.autoP2pSend(file, userPort) { appendLog(it) }
-            }
-        }
-    }
-    
     private fun handleCryptoCommand(cmd: String, isEncrypt: Boolean) {
         appendLog("[系统] 扩展指令 >> $cmd")
         val prefix = if (isEncrypt) "encrypt " else "decrypt "
@@ -1064,18 +963,6 @@ class MainActivity : ComponentActivity() {
             } else {
                 legacyStorageLauncher.launch(permissions)
             }
-        }
-    }
-    
-    fun extractUserPortAndClean(cmdStr: String): kotlin.Pair<Int?, String> {
-        val portRegex = "--port=(\\d+)".toRegex()
-        val matchResult = portRegex.find(cmdStr)
-        return if (matchResult != null) {
-            val portValue = matchResult.groupValues[1].toIntOrNull()
-            val cleanedText = cmdStr.replace(portRegex, "").replace("\\s+".toRegex(), " ").trim()
-            kotlin.Pair(portValue, cleanedText)
-        } else {
-            kotlin.Pair(null, cmdStr.trim())
         }
     }
     
