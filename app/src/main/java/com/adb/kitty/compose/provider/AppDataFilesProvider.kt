@@ -10,6 +10,7 @@ import android.os.Bundle
 import android.os.CancellationSignal
 import android.os.ParcelFileDescriptor
 import android.os.StatFs
+import android.provider.DocumentsContract
 import android.provider.DocumentsContract.Document
 import android.provider.DocumentsContract.Root
 import android.provider.DocumentsProvider
@@ -17,6 +18,7 @@ import android.system.Os
 import android.system.OsConstants
 import android.system.StructStat
 import android.webkit.MimeTypeMap
+import com.adb.kitty.compose.R
 import java.io.File
 import java.io.FileNotFoundException
 
@@ -55,6 +57,7 @@ class AppDataFilesProvider : DocumentsProvider() {
     }
 
     private lateinit var packageNameStr: String
+    private lateinit var authority: String
     private lateinit var dataDir: File
     private var userDeDataDir: File? = null
     private var androidDataDir: File? = null
@@ -64,6 +67,7 @@ class AppDataFilesProvider : DocumentsProvider() {
     override fun attachInfo(context: Context, info: ProviderInfo) {
         super.attachInfo(context, info)
         packageNameStr = context.packageName
+        authority = info.authority
 
         val filesDir = context.filesDir
         dataDir = filesDir.parentFile ?: filesDir
@@ -75,7 +79,7 @@ class AppDataFilesProvider : DocumentsProvider() {
 
         androidDataDir = context.getExternalFilesDir(null)?.parentFile
         androidObbDir = context.obbDir
-        
+
         androidMediaDir = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             context.getExternalFilesDir(null)?.parentFile?.parentFile?.let { androidDir ->
                 File(androidDir, "media/$packageNameStr")
@@ -103,13 +107,16 @@ class AppDataFilesProvider : DocumentsProvider() {
             add(Root.COLUMN_ROOT_ID, packageNameStr)
             add(Root.COLUMN_DOCUMENT_ID, packageNameStr)
             add(Root.COLUMN_TITLE, appName)
-            add(Root.COLUMN_SUMMARY, packageNameStr)
+            add(Root.COLUMN_SUMMARY, ctx.getString(R.string.documents_name))
             add(Root.COLUMN_ICON, appInfo.icon)
             add(Root.COLUMN_MIME_TYPES, "*/*")
             add(Root.COLUMN_FLAGS, Root.FLAG_SUPPORTS_CREATE or Root.FLAG_SUPPORTS_IS_CHILD)
             add(Root.COLUMN_AVAILABLE_BYTES, availableBytes)
             add(Root.COLUMN_CAPACITY_BYTES, capacityBytes)
         }
+
+        val rootsUri = DocumentsContract.buildRootsUri(authority)
+        result.setNotificationUri(ctx.contentResolver, rootsUri)
         return result
     }
 
@@ -138,6 +145,11 @@ class AppDataFilesProvider : DocumentsProvider() {
             parent.listFiles()?.forEach { child ->
                 includeFile(result, "$cleanParentId/${child.name}", child)
             }
+        }
+
+        context?.let { ctx ->
+            val childrenUri = DocumentsContract.buildChildDocumentsUri(authority, cleanParentId)
+            result.setNotificationUri(ctx.contentResolver, childrenUri)
         }
         return result
     }
@@ -173,6 +185,7 @@ class AppDataFilesProvider : DocumentsProvider() {
         }.getOrDefault(false)
 
         if (succeeded) {
+            notifyChildDocumentsChanged(parentDocumentId)
             val prefix = if (parentDocumentId.endsWith("/")) parentDocumentId else "$parentDocumentId/"
             return prefix + newFile.name
         }
@@ -180,10 +193,12 @@ class AppDataFilesProvider : DocumentsProvider() {
     }
 
     override fun deleteDocument(documentId: String) {
+        val parentDocId = getParentDocId(documentId)
         val file = getFileForDocId(documentId)
         if (file == null || !recursiveDelete(file)) {
             throw FileNotFoundException("Failed to delete document $documentId")
         }
+        parentDocId?.let { notifyChildDocumentsChanged(it) }
     }
 
     override fun removeDocument(documentId: String, parentDocumentId: String) {
@@ -195,6 +210,7 @@ class AppDataFilesProvider : DocumentsProvider() {
             ?: throw FileNotFoundException("Document $documentId not found")
         val target = File(file.parentFile, displayName)
         if (file.renameTo(target)) {
+            getParentDocId(documentId)?.let { notifyChildDocumentsChanged(it) }
             val lastSlash = documentId.lastIndexOf('/', documentId.length - 2)
             return documentId.substring(0, lastSlash + 1) + displayName
         }
@@ -211,6 +227,8 @@ class AppDataFilesProvider : DocumentsProvider() {
         if (sourceFile != null && targetDir != null) {
             val targetFile = File(targetDir, sourceFile.name)
             if (!targetFile.exists() && sourceFile.renameTo(targetFile)) {
+                notifyChildDocumentsChanged(sourceParentDocumentId)
+                notifyChildDocumentsChanged(targetParentDocumentId)
                 val prefix = if (targetParentDocumentId.endsWith("/")) targetParentDocumentId else "$targetParentDocumentId/"
                 return prefix + targetFile.name
             }
@@ -281,6 +299,23 @@ class AppDataFilesProvider : DocumentsProvider() {
             out.putString("message", e.message ?: e.toString())
         }
         return out
+    }
+
+    fun notifyRootsChanged() {
+        val ctx = context ?: return
+        val rootsUri = DocumentsContract.buildRootsUri(authority)
+        ctx.contentResolver.notifyChange(rootsUri, null)
+    }
+
+    private fun notifyChildDocumentsChanged(parentDocumentId: String) {
+        val ctx = context ?: return
+        val childrenUri = DocumentsContract.buildChildDocumentsUri(authority, parentDocumentId)
+        ctx.contentResolver.notifyChange(childrenUri, null)
+    }
+
+    private fun getParentDocId(docId: String): String? {
+        val lastSlash = docId.lastIndexOf('/')
+        return if (lastSlash != -1) docId.substring(0, lastSlash) else null
     }
 
     private fun getFileForDocId(docId: String, checkExists: Boolean = true): File? {
