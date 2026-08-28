@@ -80,18 +80,8 @@ class AppDataFilesProvider : DocumentsProvider() {
         androidDataDir = context.getExternalFilesDir(null)?.parentFile
         androidObbDir = context.obbDir
 
-        androidMediaDir = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            context.getExternalFilesDirs(null).firstOrNull()?.absolutePath?.let { dataPath ->
-                val mediaPath = dataPath
-                    .replace("Android/data", "Android/media")
-                    .substringBefore("/files")
-        
-                File(mediaPath)
-            }
-        } else {
-            @Suppress("DEPRECATION")
-            context.externalMediaDirs.firstOrNull()
-        }
+        @Suppress("DEPRECATION")
+        androidMediaDir = context.externalMediaDirs.firstOrNull()
     }
 
     override fun onCreate(): Boolean = true
