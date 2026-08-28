@@ -158,14 +158,14 @@ jobs:
       - name: Upload Debug Sign APKs
         uses: actions/upload-artifact@v7
         with:
-          name: app-sign-debug
+          name: app-debug-sign
           path: app/sign/debug/*
           archive: true
 
       - name: Upload Release Sign APKs
         uses: actions/upload-artifact@v7
         with:
-          name: app-sign-release
+          name: app-release-sign
           path: app/sign/release/*
           archive: true
       
