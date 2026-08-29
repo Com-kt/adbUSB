@@ -79,9 +79,9 @@ fun LogSection(
                 }
             },
             update = { recyclerView ->
-                val oldSize = adapter.itemCount
+                val oldSize = adapter.getItemCount()
                 val newSize = currentCountState
-                adapter.itemCount = newSize
+                adapter.totalItemCount = newSize
 
                 if (newSize > oldSize) {
                     // 局部增量通知，避免重布局卡顿
@@ -113,7 +113,7 @@ private class LogRecyclerViewAdapter(
     val colors: NativeLogColors
 ) : RecyclerView.Adapter<LogRecyclerViewAdapter.LogViewHolder>() {
 
-    var itemCount: Int = 0
+    var totalItemCount: Int = 0
 
     class LogViewHolder(val textView: TextView) : RecyclerView.ViewHolder(textView)
 
@@ -137,7 +137,7 @@ private class LogRecyclerViewAdapter(
         holder.textView.setTextColor(determineNativeLogColor(line, colors))
     }
 
-    override fun getItemCount(): Int = itemCount
+    override fun getItemCount(): Int = totalItemCount
 
     private fun determineNativeLogColor(line: String, colors: NativeLogColors): Int {
         if (line.isEmpty()) return 0xFF888888.toInt()
