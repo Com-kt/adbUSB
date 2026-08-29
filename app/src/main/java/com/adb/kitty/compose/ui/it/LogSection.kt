@@ -8,10 +8,14 @@ import com.adb.kitty.compose.*
 import com.adb.kitty.compose.service.*
 import com.adb.kitty.compose.R
 
-import android.annotation.SuppressLint
 import android.graphics.Typeface
+import android.text.SpannableStringBuilder
+import android.text.Spanned
+import android.text.style.ForegroundColorSpan
+import android.view.View
 import android.view.ViewGroup
 import android.widget.HorizontalScrollView
+import android.widget.ScrollView
 import android.widget.TextView
 import androidx.annotation.Keep
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -20,8 +24,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.recyclerview.widget.LinearLayoutManager
-import androidx.recyclerview.widget.RecyclerView
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.collectLatest
 
@@ -36,7 +38,6 @@ class NativeLogColors(
 )
 
 @Keep
-@SuppressLint("NotifyDataSetChanged")
 @Composable
 fun LogSection(
     getLogCount: () -> Int,
@@ -57,20 +58,17 @@ fun LogSection(
         NativeLogColors(errorColor, warnColor, successColor, infoColor, debugColor, traceColor)
     }
 
-    var currentCountState by remember { mutableIntStateOf(getLogCount()) }
+    var updateTrigger by remember { mutableIntStateOf(0) }
 
     LaunchedEffect(logUpdateFlow) {
         logUpdateFlow.collectLatest {
-            currentCountState = getLogCount()
+            updateTrigger++
         }
-    }
-
-    val adapter = remember(getLogLineAt, nativeColors) {
-        LogRecyclerViewAdapter(getLogLineAt, nativeColors)
     }
 
     AndroidView(
         factory = { context ->
+            // 外层：横向滚动条
             HorizontalScrollView(context).apply {
                 layoutParams = ViewGroup.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
@@ -78,88 +76,82 @@ fun LogSection(
                 )
                 isFillViewport = true
 
-                val recyclerView = RecyclerView(context).apply {
+                // 中层：纵向滚动条
+                val verticalScrollView = ScrollView(context).apply {
                     layoutParams = ViewGroup.LayoutParams(
                         ViewGroup.LayoutParams.WRAP_CONTENT,
                         ViewGroup.LayoutParams.MATCH_PARENT
                     )
-                    layoutManager = LinearLayoutManager(context)
-                    this.adapter = adapter
-                    setItemViewCacheSize(20)
+                    isFillViewport = true
+
+                    // 内层：单一 TextView，承载所有文本，支持原生跨行选择
+                    val textView = TextView(context).apply {
+                        tag = "LOG_TEXT_VIEW"
+                        layoutParams = ViewGroup.LayoutParams(
+                            ViewGroup.LayoutParams.WRAP_CONTENT,
+                            ViewGroup.LayoutParams.WRAP_CONTENT
+                        )
+                        typeface = Typeface.MONOSPACE
+                        textSize = 12f
+                        setPadding(16, 16, 16, 16)
+                        
+                        // 核心：开启原生文本选择，单一 TextView 可完美跨多行框选复制
+                        setTextIsSelectable(true)
+                    }
+                    addView(textView)
                 }
-                addView(recyclerView)
+                addView(verticalScrollView)
             }
         },
         update = { horizontalScrollView ->
-            val recyclerView = horizontalScrollView.getChildAt(0) as RecyclerView
-            val oldSize = adapter.itemCount
-            val newSize = currentCountState
-            adapter.totalItemCount = newSize
+            // 读取触发依赖，确保 ViewModel 数据更新时重新构建富文本
+            @Suppress("UNUSED_VARIABLE")
+            val trigger = updateTrigger
 
-            if (newSize > oldSize) {
-                adapter.notifyItemRangeInserted(oldSize, newSize - oldSize)
+            val verticalScrollView = horizontalScrollView.getChildAt(0) as ScrollView
+            val textView = verticalScrollView.findViewWithTag<TextView>("LOG_TEXT_VIEW") ?: return@AndroidView
 
-                val layoutManager = recyclerView.layoutManager as LinearLayoutManager
-                val lastVisibleIndex = layoutManager.findLastVisibleItemPosition()
-                if (newSize - 1 - lastVisibleIndex < 15) {
-                    recyclerView.post {
-                        recyclerView.scrollToPosition(newSize - 1)
-                    }
+            val count = getLogCount()
+            val ssb = SpannableStringBuilder()
+
+            // 拼装带有颜色的富文本
+            for (i in 0 until count) {
+                val line = getLogLineAt(i)
+                val start = ssb.length
+                ssb.append(line)
+                val end = ssb.length
+                
+                val color = determineNativeLogColor(line, nativeColors)
+                ssb.setSpan(
+                    ForegroundColorSpan(color),
+                    start,
+                    end,
+                    Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+                )
+                
+                if (i < count - 1) {
+                    ssb.append("\n")
                 }
-            } else if (newSize < oldSize) {
-                if (newSize == 0 && oldSize > 0) {
-                    adapter.notifyItemRangeRemoved(0, oldSize)
-                } else {
-                    adapter.notifyDataSetChanged()
-                }
+            }
+
+            textView.text = ssb
+
+            // 产生新日志时，自动平滑滚动到底部
+            verticalScrollView.post {
+                verticalScrollView.fullScroll(View.FOCUS_DOWN)
             }
         },
         modifier = modifier
     )
 }
 
-private class LogRecyclerViewAdapter(
-    private val getLogLineAt: (Int) -> String,
-    val colors: NativeLogColors
-) : RecyclerView.Adapter<LogRecyclerViewAdapter.LogViewHolder>() {
-
-    var totalItemCount: Int = 0
-
-    class LogViewHolder(val textView: TextView) : RecyclerView.ViewHolder(textView)
-
-    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): LogViewHolder {
-        val textView = TextView(parent.context).apply {
-            layoutParams = ViewGroup.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-            )
-            typeface = Typeface.MONOSPACE
-            textSize = 12f
-            setPadding(0, 2, 0, 2)
-            setTextIsSelectable(true)
-            
-            setHorizontallyScrolling(true)
-            isSingleLine = true
-        }
-        return LogViewHolder(textView)
-    }
-
-    override fun onBindViewHolder(holder: LogViewHolder, position: Int) {
-        val line = getLogLineAt(position)
-        holder.textView.text = line
-        holder.textView.setTextColor(determineNativeLogColor(line, colors))
-    }
-
-    override fun getItemCount(): Int = totalItemCount
-
-    private fun determineNativeLogColor(line: String, colors: NativeLogColors): Int {
-        return when {
-            line.contains("error") || line.contains("FAIL") || line.contains("[错误]") || line.contains("[FAIL]") -> colors.error
-            line.contains("warn") || line.contains("[警告]") || line.contains("[WARN]") -> colors.warn
-            line.contains("OKAY") || line.contains("[成功]") || line.contains("[OKAY]") -> colors.success
-            line.contains("info") || line.contains("[提示]") || line.contains("[INFO]") -> colors.info
-            line.contains("debug") || line.contains("[调试]") || line.contains("[DEBUG]") -> colors.debug
-            else -> colors.trace
-        }
+private fun determineNativeLogColor(line: String, colors: NativeLogColors): Int {
+    return when {
+        line.contains("error") || line.contains("FAIL") || line.contains("[错误]") || line.contains("[FAIL]") -> colors.error
+        line.contains("warn") || line.contains("[警告]") || line.contains("[WARN]") -> colors.warn
+        line.contains("OKAY") || line.contains("[成功]") || line.contains("[OKAY]") -> colors.success
+        line.contains("info") || line.contains("[提示]") || line.contains("[INFO]") -> colors.info
+        line.contains("debug") || line.contains("[调试]") || line.contains("[DEBUG]") -> colors.debug
+        else -> colors.trace
     }
 }
