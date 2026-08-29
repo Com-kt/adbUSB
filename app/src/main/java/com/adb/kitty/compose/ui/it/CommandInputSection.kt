@@ -8,10 +8,12 @@ import com.adb.kitty.compose.*
 import com.adb.kitty.compose.service.*
 import com.adb.kitty.compose.R
 
+import android.annotation.SuppressLint
 import android.text.Editable
 import android.text.InputType
 import android.text.TextWatcher
 import android.text.method.ScrollingMovementMethod
+import android.view.MotionEvent
 import android.widget.EditText
 import androidx.compose.foundation.interaction.FocusInteraction
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -24,15 +26,16 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.input.VisualTransformation
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 
-@OptIn(ExperimentalMaterial3Api::class)
+@SuppressLint("ClickableViewAccessibility")
+@OptIn(ExperimentalMaterial3Api::class, FlowPreview::class)
 @Composable
 fun <T> CommandInputSection(
     query: TextFieldValue,
@@ -50,10 +53,9 @@ fun <T> CommandInputSection(
     val coroutineScope = rememberCoroutineScope()
     var focusInteraction by remember { mutableStateOf<FocusInteraction.Focus?>(null) }
 
-    // 1. 动态存储由 EditText 原生计算出来的 3 行最大高度 (Dp)
-    var max3LinesHeightDp by remember { mutableStateOf<Dp?>(null) }
+    // 1. 记录文本变更来源：防止打字时触发 update 里的重复 setText，解决渲染卡顿
+    var isInternalChange by remember { mutableStateOf(false) }
 
-    // Channel.UNLIMITED 防抖通道
     val searchChannel = remember { Channel<String>(Channel.UNLIMITED) }
 
     LaunchedEffect(searchChannel) {
@@ -64,6 +66,8 @@ fun <T> CommandInputSection(
             }
     }
 
+    val displayItems = remember(filteredItems) { filteredItems.take(20) }
+
     Box(modifier = modifier.wrapContentHeight()) {
         ExposedDropdownMenuBox(
             expanded = expanded,
@@ -72,95 +76,85 @@ fun <T> CommandInputSection(
             OutlinedTextFieldDefaults.DecorationBox(
                 value = query.text,
                 innerTextField = {
-                    // 2. 将动态计算出的最大 3 行高度作为约束应用在 Compose 容器上
-                    Box(
+                    AndroidView(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .then(
-                                if (max3LinesHeightDp != null) {
-                                    Modifier.heightIn(max = max3LinesHeightDp!!)
-                                } else {
-                                    Modifier // 首次测量前保持自然 wrapContent
-                                }
-                            )
-                    ) {
-                        AndroidView(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryEditable, enabled = false),
-                            factory = { context ->
-                                EditText(context).apply {
-                                    background = null
-                                    setPadding(0, 0, 0, 0)
-                                    
-                                    setInputType(InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE)
-                                    isSingleLine = false
-                                    textSize = 16f
-                                    
-                                    movementMethod = ScrollingMovementMethod.getInstance()
-                                    setHorizontallyScrolling(false)
+                            .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryEditable, enabled = false),
+                        factory = { context ->
+                            EditText(context).apply {
+                                background = null
+                                setPadding(0, 0, 0, 0)
 
-                                    isLongClickable = true
-                                    setTextIsSelectable(true)
+                                setInputType(InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE)
+                                maxLines = 3
+                                isSingleLine = false
+                                textSize = 16f
 
-                                    // 3. 布局加载完成后，准确获取原生行高并计算 3 行对应 Compose 的 Dp 值
-                                    post {
-                                        val density = context.resources.displayMetrics.density
-                                        // 3 行行高 + 内边距
-                                        val totalMaxPx = (lineHeight * 3) + paddingTop + paddingBottom
-                                        val calculatedDp = (totalMaxPx / density).dp
-                                        if (max3LinesHeightDp != calculatedDp) {
-                                            max3LinesHeightDp = calculatedDp
-                                        }
+                                movementMethod = ScrollingMovementMethod.getInstance()
+                                isVerticalScrollBarEnabled = true
+                                setHorizontallyScrolling(false)
+
+                                isLongClickable = true
+                                setTextIsSelectable(true)
+
+                                // 2. 禁止父容器拦截触摸事件，使光标能自由拖拽/滑动至第 4 行及更深层行数
+                                setOnTouchListener { view, event ->
+                                    if (event.action == MotionEvent.ACTION_DOWN || event.action == MotionEvent.ACTION_MOVE) {
+                                        view.parent?.requestDisallowInterceptTouchEvent(true)
                                     }
+                                    false
+                                }
 
-                                    setOnFocusChangeListener { _, hasFocus ->
-                                        coroutineScope.launch {
-                                            if (hasFocus) {
-                                                if (focusInteraction == null) {
-                                                    val focus = FocusInteraction.Focus()
-                                                    focusInteraction = focus
-                                                    interactionSource.emit(focus)
-                                                }
-                                            } else {
-                                                focusInteraction?.let { focus ->
-                                                    interactionSource.emit(FocusInteraction.Unfocus(focus))
-                                                    focusInteraction = null
-                                                }
+                                setOnFocusChangeListener { _, hasFocus ->
+                                    coroutineScope.launch {
+                                        if (hasFocus) {
+                                            if (focusInteraction == null) {
+                                                val focus = FocusInteraction.Focus()
+                                                focusInteraction = focus
+                                                interactionSource.emit(focus)
+                                            }
+                                        } else {
+                                            focusInteraction?.let { focus ->
+                                                interactionSource.emit(FocusInteraction.Unfocus(focus))
+                                                focusInteraction = null
                                             }
                                         }
                                     }
+                                }
 
-                                    addTextChangedListener(object : TextWatcher {
-                                        override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-                                        override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
-                                            val newText = s?.toString() ?: ""
-                                            if (newText != query.text) {
-                                                val currentStart = selectionStart
-                                                val currentEnd = selectionEnd
-                                                
-                                                onQueryChange(
-                                                    TextFieldValue(
-                                                        text = newText,
-                                                        selection = TextRange(currentStart, currentEnd)
-                                                    )
+                                addTextChangedListener(object : TextWatcher {
+                                    override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+                                    override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                                        val newText = s?.toString() ?: ""
+                                        if (newText != query.text) {
+                                            val currentStart = selectionStart
+                                            val currentEnd = selectionEnd
+
+                                            // 标记当前变动是由 EditText 内部输入引发的
+                                            isInternalChange = true
+                                            onQueryChange(
+                                                TextFieldValue(
+                                                    text = newText,
+                                                    selection = TextRange(currentStart, currentEnd)
                                                 )
-                                                
-                                                searchChannel.trySend(newText)
-                                            }
+                                            )
+                                            searchChannel.trySend(newText)
+                                            isInternalChange = false
                                         }
-                                        override fun afterTextChanged(s: Editable?) {}
-                                    })
-                                }
-                            },
-                            update = { editText ->
-                                if (editText.text.toString() != query.text) {
-                                    editText.setText(query.text)
-                                    editText.setSelection(query.text.length.coerceAtMost(editText.text?.length ?: 0))
-                                }
+                                    }
+                                    override fun afterTextChanged(s: Editable?) {}
+                                })
                             }
-                        )
-                    }
+                        },
+                        update = { editText ->
+                            // 3. 只有从外部改变文本（例如点击下拉项填入命令）时才调用 setText
+                            // 避免用户连续打字时重复触发 setText(...) 导致的大文本重新排版卡顿
+                            if (!isInternalChange && editText.text.toString() != query.text) {
+                                editText.setText(query.text)
+                                editText.setSelection(query.text.length.coerceAtMost(editText.text?.length ?: 0))
+                            }
+                        }
+                    )
                 },
                 enabled = true,
                 singleLine = false,
@@ -175,10 +169,10 @@ fun <T> CommandInputSection(
             )
 
             ExposedDropdownMenu(
-                expanded = expanded && query.text.isNotEmpty() && filteredItems.isNotEmpty(),
+                expanded = expanded && query.text.isNotEmpty() && displayItems.isNotEmpty(),
                 onDismissRequest = { onExpandedChange(false) }
             ) {
-                filteredItems.forEach { item ->
+                displayItems.forEach { item ->
                     val command = getItemCommand(item)
                     val description = getItemDescription(item)
                     val isApp = isAppItem(item)
