@@ -10,6 +10,7 @@ import com.adb.kitty.compose.R
 
 import android.annotation.SuppressLint
 import android.text.Editable
+import android.text.InputFilter
 import android.text.InputType
 import android.text.TextWatcher
 import android.text.method.ScrollingMovementMethod
@@ -53,7 +54,6 @@ fun <T> CommandInputSection(
     val coroutineScope = rememberCoroutineScope()
     var focusInteraction by remember { mutableStateOf<FocusInteraction.Focus?>(null) }
 
-    // 1. 记录文本变更来源：防止打字时触发 update 里的重复 setText，解决渲染卡顿
     var isInternalChange by remember { mutableStateOf(false) }
 
     val searchChannel = remember { Channel<String>(Channel.UNLIMITED) }
@@ -90,6 +90,18 @@ fun <T> CommandInputSection(
                                 isSingleLine = false
                                 textSize = 16f
 
+                                // 1. 32KB 内存缓冲区限制：Android 字符为双字节 UTF-16 (2 Byte/Char)，16384 Char 恰好为 32KB 缓冲区
+                                val maxChars32KB = 16384
+                                filters = arrayOf(InputFilter.LengthFilter(maxChars32KB))
+
+
+                                // 2. 强制原生 EditText 的测量高度上限为 3 行像素高度，彻底解决上图容器被无限撑大的问题
+                                post {
+                                    if (lineHeight > 0) {
+                                        maxHeight = lineHeight * 3 + compoundPaddingTop + compoundPaddingBottom
+                                    }
+                                }
+
                                 movementMethod = ScrollingMovementMethod.getInstance()
                                 isVerticalScrollBarEnabled = true
                                 setHorizontallyScrolling(false)
@@ -97,7 +109,6 @@ fun <T> CommandInputSection(
                                 isLongClickable = true
                                 setTextIsSelectable(true)
 
-                                // 2. 禁止父容器拦截触摸事件，使光标能自由拖拽/滑动至第 4 行及更深层行数
                                 setOnTouchListener { view, event ->
                                     if (event.action == MotionEvent.ACTION_DOWN || event.action == MotionEvent.ACTION_MOVE) {
                                         view.parent?.requestDisallowInterceptTouchEvent(true)
@@ -130,7 +141,6 @@ fun <T> CommandInputSection(
                                             val currentStart = selectionStart
                                             val currentEnd = selectionEnd
 
-                                            // 标记当前变动是由 EditText 内部输入引发的
                                             isInternalChange = true
                                             onQueryChange(
                                                 TextFieldValue(
@@ -147,8 +157,6 @@ fun <T> CommandInputSection(
                             }
                         },
                         update = { editText ->
-                            // 3. 只有从外部改变文本（例如点击下拉项填入命令）时才调用 setText
-                            // 避免用户连续打字时重复触发 setText(...) 导致的大文本重新排版卡顿
                             if (!isInternalChange && editText.text.toString() != query.text) {
                                 editText.setText(query.text)
                                 editText.setSelection(query.text.length.coerceAtMost(editText.text?.length ?: 0))
