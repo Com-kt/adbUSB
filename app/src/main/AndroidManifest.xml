@@ -223,6 +223,10 @@
           android:name="android.hardware.camera.flash"
           android:required="false" />
     
+    <!-- 虚拟机超级用户权限 superuser -->
+    <uses-permission
+        android:name="android.permission.ACCESS_SUPERUSER"
+        tools:ignore="ProtectedPermissions" />
     <!-- 访问 AD ID API -->
     <uses-permission android:name="android.permission.ACCESS_ADSERVICES_AD_ID" />
     <!-- 访问 Attention API -->
