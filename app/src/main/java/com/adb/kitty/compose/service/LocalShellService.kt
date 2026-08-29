@@ -1,4 +1,4 @@
-package com.adb.kitty.compose
+package com.adb.kitty.compose.service
 
 import android.app.Service
 import android.content.Intent
@@ -22,6 +22,7 @@ import com.adb.kitty.compose.ui.viewmodel.*
 import com.adb.kitty.compose.ui.it.*
 import com.adb.kitty.compose.data.*
 import com.adb.kitty.compose.R
+import com.adb.kitty.compose.*
 
 class LocalShellService : Service() {
 

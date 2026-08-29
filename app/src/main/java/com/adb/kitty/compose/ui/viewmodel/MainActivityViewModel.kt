@@ -79,6 +79,7 @@ import androidx.compose.ui.text.font.*
 import com.adb.kitty.compose.ui.theme.*
 import com.adb.kitty.compose.data.*
 import com.adb.kitty.compose.*
+import com.adb.kitty.compose.service.*
 import com.adb.kitty.compose.ui.it.*
 
 @Keep

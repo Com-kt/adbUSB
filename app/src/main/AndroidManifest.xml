@@ -629,13 +629,13 @@
                  android:resource="@xml/accessory_filter" />
         </activity>
         <service 
-            android:name="AdbSessionService"
+            android:name=".service.AdbSessionService"
             android:foregroundServiceType="connectedDevice|dataSync"
             android:exported="true"
             android:directBootAware="true"
             android:permission="com.adb.kitty.compose.USE_PRIVATE_API" />
         <service 
-            android:name="LocalShellService"
+            android:name=".service.LocalShellService"
             android:process=":shell"
             android:exported="true"
             android:directBootAware="true"

@@ -1,4 +1,4 @@
-package com.adb.kitty.compose
+package com.adb.kitty.compose.service
 
 import android.util.Log
 import android.graphics.*
@@ -42,6 +42,7 @@ import com.adb.kitty.compose.ui.viewmodel.*
 import com.adb.kitty.compose.ui.it.*
 import com.adb.kitty.compose.data.*
 import com.adb.kitty.compose.R
+import com.adb.kitty.compose.*
 
 import java.io.*
 import java.net.HttpURLConnection
