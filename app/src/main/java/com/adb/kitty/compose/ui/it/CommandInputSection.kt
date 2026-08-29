@@ -54,8 +54,6 @@ fun <T> CommandInputSection(
     val coroutineScope = rememberCoroutineScope()
     var focusInteraction by remember { mutableStateOf<FocusInteraction.Focus?>(null) }
 
-    var isInternalChange by remember { mutableStateOf(false) }
-
     val searchChannel = remember { Channel<String>(Channel.UNLIMITED) }
 
     LaunchedEffect(searchChannel) {
@@ -90,12 +88,10 @@ fun <T> CommandInputSection(
                                 isSingleLine = false
                                 textSize = 16f
 
-                                // 1. 32KB 内存缓冲区限制：Android 字符为双字节 UTF-16 (2 Byte/Char)，16384 Char 恰好为 32KB 缓冲区
-                                val maxChars32KB = 16384
-                                filters = arrayOf(InputFilter.LengthFilter(maxChars32KB))
+                                // 32KB 缓冲区（16384 个 UTF-16 字符）
+                                filters = arrayOf(InputFilter.LengthFilter(16384))
 
-
-                                // 2. 强制原生 EditText 的测量高度上限为 3 行像素高度，彻底解决上图容器被无限撑大的问题
+                                // 准确锁定 3 行最大像素高度
                                 post {
                                     if (lineHeight > 0) {
                                         maxHeight = lineHeight * 3 + compoundPaddingTop + compoundPaddingBottom
@@ -141,7 +137,6 @@ fun <T> CommandInputSection(
                                             val currentStart = selectionStart
                                             val currentEnd = selectionEnd
 
-                                            isInternalChange = true
                                             onQueryChange(
                                                 TextFieldValue(
                                                     text = newText,
@@ -149,15 +144,32 @@ fun <T> CommandInputSection(
                                                 )
                                             )
                                             searchChannel.trySend(newText)
-                                            isInternalChange = false
                                         }
                                     }
-                                    override fun afterTextChanged(s: Editable?) {}
+
+                                    override fun afterTextChanged(s: Editable?) {
+                                        // 核心修复：回车或新增行时，立即计算光标位置并强行将视口滚动到当前光标所在行
+                                        post {
+                                            layout?.let { l ->
+                                                val sel = selectionStart
+                                                if (sel >= 0) {
+                                                    val line = l.getLineForOffset(sel)
+                                                    val lineBottom = l.getLineBottom(line)
+                                                    val visibleBottom = scrollY + (height - paddingTop - paddingBottom)
+                                                    
+                                                    // 如果光标在可视区域下方（如切到第 4 行），精准滚动对齐
+                                                    if (lineBottom > visibleBottom) {
+                                                        scrollTo(0, lineBottom - (height - paddingTop - paddingBottom))
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
                                 })
                             }
                         },
                         update = { editText ->
-                            if (!isInternalChange && editText.text.toString() != query.text) {
+                            if (editText.text.toString() != query.text) {
                                 editText.setText(query.text)
                                 editText.setSelection(query.text.length.coerceAtMost(editText.text?.length ?: 0))
                             }
