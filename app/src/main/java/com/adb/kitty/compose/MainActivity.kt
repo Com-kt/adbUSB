@@ -530,8 +530,21 @@ class MainActivity : ComponentActivity() {
     }
 
     fun bindShellService() {
+        val intent = Intent(this, ShellService::class.java)
+
+        // 第一步：显式启动服务，满足系统 Foreground Service 声明契约
+        runCatching {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                startForegroundService(intent)
+            } else {
+                startService(intent)
+            }
+        }.onFailure { e ->
+            appendLog("[错误] 启动前台服务失败: ${e.message}")
+        }
+
+        // 第二步：建立 AIDL 绑定关系
         if (!isShellServiceBound) {
-            val intent = Intent(this, ShellService::class.java)
             val bound = bindService(intent, shellServiceConnection, Context.BIND_AUTO_CREATE)
             if (!bound) {
                 appendLog("[错误] 绑定 Shell 服务失败！")
@@ -545,6 +558,11 @@ class MainActivity : ComponentActivity() {
             isShellServiceBound = false
             shellService = null
         }
+    }
+    
+    fun stopShellService() {
+        val intent = Intent(this, ShellService::class.java)
+        stopService(intent)
     }
 
     private fun dispatchCommandRoute(cmdInput: String) {
@@ -2050,6 +2068,7 @@ class MainActivity : ComponentActivity() {
             runCatching { shellService?.terminateCurrentCommand() }
         }
         unbindShellService()
+        stopShellService()
         viewModel.setAdbService(null)
         super.onDestroy()
         readerJob?.cancel()

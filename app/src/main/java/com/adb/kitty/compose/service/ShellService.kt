@@ -23,18 +23,15 @@ import android.os.Process
 import android.system.Os
 import android.system.OsConstants
 import androidx.core.app.NotificationCompat
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.runBlocking
 import java.io.DataOutputStream
 import java.io.File
 import java.io.InputStream
 import java.io.OutputStream
 import java.io.OutputStreamWriter
 import java.lang.reflect.Field
-import java.util.concurrent.LinkedBlockingQueue
-import java.util.concurrent.TimeUnit
-import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.concurrent.thread
-import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.*
 
 class ShellService : Service() {
 
@@ -128,7 +125,6 @@ class ShellService : Service() {
     }
 
     private fun performLocalShellPipeline(cmd: String, useRoot: Boolean): ParcelFileDescriptor {
-        // 先清理上一条可能残留的任务
         terminateCurrentCommandInternal()
 
         val taskKey = "TASK_${System.currentTimeMillis()}_${(1000..9999).random()}"
@@ -250,26 +246,25 @@ class ShellService : Service() {
     ) {
         Process.setThreadPriority(Process.THREAD_PRIORITY_URGENT_AUDIO)
 
-        // 使用 Channel.UNLIMITED 无锁队列作为内存缓冲桥梁
         val channel = Channel<ByteArray>(Channel.UNLIMITED)
 
-        // 1. NativePipeDrainer：非阻塞从底层进程 stdout 读取 Raw 字节流并送入无锁 Channel
-        thread(name = "NativePipeDrainer") {
+        val drainThread = Thread({
             val rawBuffer = ByteArray(32768)
             try {
                 var bytesRead: Int
                 while (processInputStream.read(rawBuffer).also { bytesRead = it } != -1) {
                     val chunk = rawBuffer.copyOf(bytesRead)
-                    channel.trySend(chunk) // 无锁极速入队
+                    channel.trySend(chunk)
                 }
             } catch (_: Exception) {
             } finally {
                 channel.close()
             }
-        }
+        }, "NativePipeDrainer")
 
-        // 2. IpcStreamWriter：从 Channel 读取数据并写入跨进程 ParcelFileDescriptor 管道
-        thread(name = "IpcStreamWriter") {
+        drainThread.start()
+
+        val ipcWriterThread = Thread({
             try {
                 runBlocking {
                     for (chunk in channel) {
@@ -282,7 +277,13 @@ class ShellService : Service() {
             } finally {
                 runCatching { ipcOutputStream.close() }
             }
-        }
+        }, "IpcStreamWriter")
+
+        ipcWriterThread.start()
+
+        // 阻塞当前控制线程，确保抽吸和写入完毕后才允许退出 try 块
+        runCatching { drainThread.join() }
+        runCatching { ipcWriterThread.join() }
     }
 
     private fun sanitizeCommand(cmd: String): String {
@@ -301,13 +302,14 @@ class ShellService : Service() {
     private fun killProcessTree(proc: java.lang.Process?, taskKey: String? = null) {
         proc ?: return
         runCatching {
-            if (!taskKey.isNullOrEmpty()) {
-                runCatching {
-                    Runtime.getRuntime().exec(arrayOf("sh", "-c", "pkill -9 -f '$taskKey'"))
-                }
-            }
-
+            // 仅在进程依然存活的情况下才执行清理动作
             if (proc.isAliveCompat()) {
+                if (!taskKey.isNullOrEmpty()) {
+                    runCatching {
+                        Runtime.getRuntime().exec(arrayOf("sh", "-c", "pkill -9 -f '$taskKey'"))
+                    }
+                }
+
                 val pid = getProcessPid(proc)
                 if (pid > 1000) {
                     runCatching { Runtime.getRuntime().exec(arrayOf("sh", "-c", "pkill -9 -P $pid")) }
