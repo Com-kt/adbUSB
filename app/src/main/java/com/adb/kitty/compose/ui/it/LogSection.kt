@@ -39,6 +39,7 @@ class NativeLogColors(
     val trace: Int
 )
 
+@Keep
 private class LogContainerView(context: Context) : ScrollView(context) {
     val horizontalScrollView = HorizontalScrollView(context)
     val textView = TextView(context)
@@ -77,9 +78,11 @@ private class LogContainerView(context: Context) : ScrollView(context) {
         getLogLineAt: (Int) -> String,
         colors: NativeLogColors
     ) {
+        // 重置/清空日志处理
         if (totalCount < lastRenderedCount) {
             textView.text = ""
             lastRenderedCount = 0
+            scrollTo(0, 0)
         }
 
         if (totalCount > lastRenderedCount) {
@@ -103,34 +106,36 @@ private class LogContainerView(context: Context) : ScrollView(context) {
                 )
             }
 
+            // 1. 增量追加字符
             textView.append(ssb)
             lastRenderedCount = totalCount
 
-            // 修改点：必须在 textView 测量完成后再执行 ScrollView 滚动
-            textView.post {
-                fullScroll(View.FOCUS_DOWN)
+            // 2. 关键滚动修复：避免与 setTextIsSelectable(true) 产生的焦点锁冲突
+            // 使用 post + scrollTo(0, Int.MAX_VALUE) 绕过 FOCUS_DOWN 的焦点抢占
+            post {
+                scrollTo(0, Int.MAX_VALUE)
             }
         }
     }
 
     private fun determineNativeLogColor(line: String, colors: NativeLogColors): Int {
         return when {
-            // 1. Error / Fatal: 匹配标准 Logcat 的 "E/"、"F/"、" E "、" F " 以及自定义错误标识
+            // 1. Error / Fatal
             line.contains("E/") || line.contains("F/") || line.contains(" E ") || line.contains(" F ") ||
             line.contains("[错误]") || line.contains("[FAIL]") -> colors.error
 
-            // 2. Warn: 匹配标准 Logcat 的 "W/"、" W " 以及自定义警告标识
+            // 2. Warn
             line.contains("W/") || line.contains(" W ") ||
             line.contains("[警告]") || line.contains("[WARN]") -> colors.warn
 
-            // 3. Success / Notice: 自定义成功或提示
+            // 3. Success
             line.contains("[成功]") || line.contains("[OKAY]") || line.contains("[OK]") -> colors.success
 
-            // 4. Info: 匹配标准 Logcat 的 "I/"、" I " 以及自定义提示标识
+            // 4. Info
             line.contains("I/") || line.contains(" I ") ||
             line.contains("[提示]") || line.contains("[INFO]") -> colors.info
 
-            // 5. Debug / Verbose: 匹配标准 Logcat 的 "D/"、"V/"、" D "、" V " 以及自定义调试标识
+            // 5. Debug / Verbose
             line.contains("D/") || line.contains("V/") || line.contains(" D ") || line.contains(" V ") ||
             line.contains("[调试]") || line.contains("[DEBUG]") -> colors.debug
 
@@ -163,7 +168,7 @@ fun LogSection(
     var updateTrigger by remember { mutableIntStateOf(0) }
 
     LaunchedEffect(logUpdateFlow) {
-        logUpdateFlow.collectLatest {
+        logUpdateFlow.collect {
             updateTrigger++
         }
     }
