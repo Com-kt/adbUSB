@@ -72,7 +72,12 @@ private class LogContainerView(context: Context) : HorizontalScrollView(context)
             setTextIsSelectable(true)
             
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                (this as android.widget.TextView).setMagnifierEnabled(false)
+                try {
+                    val method = android.widget.TextView::class.java.getMethod("setMagnifierEnabled", Boolean::class.javaPrimitiveType)
+                    method.invoke(this, false)
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
             }
         }
 
