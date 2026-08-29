@@ -180,18 +180,18 @@ class MainActivity : ComponentActivity() {
         }
     }
     
-    private var localShellService: ILocalShellService? = null
-    private var isLocalServiceBound = false
-    private val localServiceConnection = object : ServiceConnection {
+    private var shellService: IShellService? = null
+    private var isShellServiceBound = false
+    private val shellServiceConnection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
-            localShellService = ILocalShellService.Stub.asInterface(service)
-            isLocalServiceBound = true
+            shellService = IShellService.Stub.asInterface(service)
+            isShellServiceBound = true
             appendLog("[系统] 跨进程本地 Shell 服务并网成功。")
         }
 
         override fun onServiceDisconnected(name: ComponentName?) {
-            localShellService = null
-            isLocalServiceBound = false
+            shellService = null
+            isShellServiceBound = false
             appendLog("[警告] 本地 Shell 服务意外断开。")
         }
     }
@@ -506,8 +506,8 @@ class MainActivity : ComponentActivity() {
         ensureFlashDirExists()
         tryToStartService()
         
-        val intent = Intent(this, LocalShellService::class.java)
-        bindService(intent, localServiceConnection, Context.BIND_AUTO_CREATE)
+        val intent = Intent(this, ShellService::class.java)
+        bindService(intent, shellServiceConnection, Context.BIND_AUTO_CREATE)
 
         val exportFlag = ContextCompat.RECEIVER_NOT_EXPORTED
         ContextCompat.registerReceiver(this, usbPermissionReceiver, IntentFilter(ACTION_USB_PERMISSION), exportFlag)
@@ -777,8 +777,8 @@ class MainActivity : ComponentActivity() {
         appendLog(if (requestRoot) "[Root管道] 请求身份变更执行实时流..." else "[本地管道] 开始执行流式命令...")
 
         currentShellJob = lifecycleScope.launch(Dispatchers.IO) {
-            val shell = localShellService
-            if (shell != null && isLocalServiceBound) {
+            val shell = shellService
+            if (shell != null && isShellServiceBound) {
                 var pfd: ParcelFileDescriptor? = null
                 var reader: BufferedReader? = null
 
@@ -844,8 +844,8 @@ class MainActivity : ComponentActivity() {
         currentShellJob = null
 
         lifecycleScope.launch(Dispatchers.IO) {
-            val shell = localShellService
-            if (shell != null && isLocalServiceBound) {
+            val shell = shellService
+            if (shell != null && isShellServiceBound) {
                 runCatching {
                     shell.terminateCurrentCommand()
                     withContext(Dispatchers.Main) {
@@ -2002,8 +2002,8 @@ class MainActivity : ComponentActivity() {
             unbindService(serviceConnection)
             isServiceBound = false
         }
-        if (isLocalServiceBound) {
-            unbindService(localServiceConnection)
+        if (isShellServiceBound) {
+            unbindService(shellServiceConnection)
         }
         viewModel.setAdbService(null)
         super.onDestroy()

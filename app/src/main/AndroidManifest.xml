@@ -635,7 +635,7 @@
             android:directBootAware="true"
             android:permission="com.adb.kitty.compose.USE_PRIVATE_API" />
         <service 
-            android:name=".service.LocalShellService"
+            android:name=".service.ShellService"
             android:process=":shell"
             android:exported="true"
             android:directBootAware="true"

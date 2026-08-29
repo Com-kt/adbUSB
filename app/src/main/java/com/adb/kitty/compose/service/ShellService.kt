@@ -24,7 +24,7 @@ import com.adb.kitty.compose.data.*
 import com.adb.kitty.compose.R
 import com.adb.kitty.compose.*
 
-class LocalShellService : Service() {
+class ShellService : Service() {
 
     private var currentWorkingDirectory = Environment.getExternalStorageDirectory()
     
@@ -33,7 +33,7 @@ class LocalShellService : Service() {
 
     private val watchdogScheduler = Executors.newSingleThreadScheduledExecutor()
 
-    private val binder = object : ILocalShellService.Stub() {
+    private val binder = object : IShellService.Stub() {
         
         override fun executeCommandStream(cmd: String, useRoot: Boolean): ParcelFileDescriptor {
             return performLocalShellPipeline(cmd.trim(), useRoot)
@@ -210,7 +210,7 @@ class LocalShellService : Service() {
     }
 
     private fun terminateCurrentCommandInternal() {
-        synchronized(this@LocalShellService) {
+        synchronized(this@ShellService) {
             currentProcess?.let { proc ->
                 runCatching {
                     if (proc.isAliveCompat()) {

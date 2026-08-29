@@ -1,6 +1,6 @@
 package com.adb.kitty.compose.data;
 
-interface ILocalShellService {
+interface IShellService {
     ParcelFileDescriptor executeCommandStream(String cmd, boolean useRoot);
     void terminateCurrentCommand();
 }
