@@ -102,7 +102,7 @@ class ShellService : Service() {
                 builder.directory(cwdSnapshot)
 
                 process = builder.start()
-                synchronized(this@LocalShellService) {
+                synchronized(this@ShellService) {
                     currentProcess = process
                 }
 
