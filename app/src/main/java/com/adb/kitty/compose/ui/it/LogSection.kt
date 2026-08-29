@@ -39,11 +39,8 @@ class NativeLogColors(
     val trace: Int
 )
 
-/**
- * 自定义高性能日志容器，内部记录已渲染的行数，实现增量追加与精准底部滚动
- */
-private class LogContainerView(context: Context) : HorizontalScrollView(context) {
-    val verticalScrollView = ScrollView(context)
+private class LogContainerView(context: Context) : ScrollView(context) {
+    val horizontalScrollView = HorizontalScrollView(context)
     val textView = TextView(context)
     var lastRenderedCount = 0
 
@@ -54,11 +51,11 @@ private class LogContainerView(context: Context) : HorizontalScrollView(context)
         )
         isFillViewport = true
 
-        verticalScrollView.layoutParams = ViewGroup.LayoutParams(
-            ViewGroup.LayoutParams.WRAP_CONTENT,
-            ViewGroup.LayoutParams.MATCH_PARENT
+        horizontalScrollView.layoutParams = ViewGroup.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT
         )
-        verticalScrollView.isFillViewport = true
+        horizontalScrollView.isFillViewport = true
 
         textView.apply {
             layoutParams = ViewGroup.LayoutParams(
@@ -68,24 +65,11 @@ private class LogContainerView(context: Context) : HorizontalScrollView(context)
             typeface = Typeface.MONOSPACE
             textSize = 12f
             setPadding(16, 16, 16, 16)
-            // 保持跨行文本框选复制能力
             setTextIsSelectable(true)
-            
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                this.accessibilityDelegate = object : android.view.View.AccessibilityDelegate() {
-                    override fun performAccessibilityAction(host: android.view.View, action: Int, args: android.os.Bundle?): Boolean {
-                        // 拦截并消费掉无障碍相关的长按/放大触发信号
-                        if (action == android.view.accessibility.AccessibilityNodeInfo.ACTION_LONG_CLICK) {
-                            return true 
-                        }
-                        return super.performAccessibilityAction(host, action, args)
-                    }
-                }
-            }
         }
 
-        verticalScrollView.addView(textView)
-        addView(verticalScrollView)
+        horizontalScrollView.addView(textView)
+        addView(horizontalScrollView)
     }
 
     fun updateLogs(
@@ -93,13 +77,11 @@ private class LogContainerView(context: Context) : HorizontalScrollView(context)
         getLogLineAt: (Int) -> String,
         colors: NativeLogColors
     ) {
-        // 1. 如果日志被清空，重置视图
         if (totalCount < lastRenderedCount) {
             textView.text = ""
             lastRenderedCount = 0
         }
 
-        // 2. 仅在有新日志追加时执行增量拼接
         if (totalCount > lastRenderedCount) {
             val ssb = SpannableStringBuilder()
 
@@ -121,13 +103,12 @@ private class LogContainerView(context: Context) : HorizontalScrollView(context)
                 )
             }
 
-            // 增量追加，不销毁旧文本与 Layout
             textView.append(ssb)
             lastRenderedCount = totalCount
 
-            // 3. 平滑/直接滚动到最底部，跟随日志输出
-            verticalScrollView.post {
-                verticalScrollView.fullScroll(View.FOCUS_DOWN)
+            // 滚动到最底部
+            post {
+                fullScroll(View.FOCUS_DOWN)
             }
         }
     }
