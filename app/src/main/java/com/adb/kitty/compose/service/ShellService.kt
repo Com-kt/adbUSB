@@ -95,7 +95,7 @@ class ShellService : Service() {
             ).apply {
                 description = "保持后台 Shell 命令与日志流的稳定传输"
                 setShowBadge(false)
-                groupId = GROUP_ID
+                group = GROUP_ID
             }
             notificationManager.createNotificationChannel(channel)
         }
