@@ -175,6 +175,7 @@ dependencies {
     runtimeOnly(libs.bundles.coroutines.runtime)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.annotation)
+    implementation(libs.androidx.recyclerview)
     implementation(libs.lsposed.hiddenapibypass)
     implementation(libs.nayuki.qrcode)
     implementation(libs.zxing.core)

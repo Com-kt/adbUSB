@@ -7,6 +7,7 @@ kotlin = "2.4.20-RC2"
 kotlinxCoroutines = "1.11.0"
 annotation = "1.10.0"
 coreKtx = "1.19.0"
+recyclerview = "1.4.0"
 
 jdklibs = "2.1.5"
 
@@ -29,6 +30,7 @@ activity-compose = "1.13.0"
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 androidx-annotation = { group = "androidx.annotation", name = "annotation", version.ref = "annotation" }
 androidx-annotation-experimental = { group = "androidx.annotation", name = "annotation-experimental", version.ref = "annotationExperimental" }
+androidx-recyclerview = { group = "androidx.recyclerview", name = "recyclerview", version = "recyclerview" }
 
 # Lifecycle 组件
 androidx-lifecycle-livedata-ktx = { group = "androidx.lifecycle", name = "lifecycle-livedata-ktx", version.ref = "lifecycle" }
