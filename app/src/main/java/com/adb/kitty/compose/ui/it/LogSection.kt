@@ -8,7 +8,6 @@ import com.adb.kitty.compose.*
 import com.adb.kitty.compose.service.*
 import com.adb.kitty.compose.R
 
-import android.os.Build
 import android.content.Context
 import android.graphics.Typeface
 import android.text.SpannableStringBuilder
@@ -23,6 +22,7 @@ import androidx.annotation.Keep
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.viewinterop.AndroidView
@@ -106,8 +106,8 @@ private class LogContainerView(context: Context) : ScrollView(context) {
             textView.append(ssb)
             lastRenderedCount = totalCount
 
-            // 滚动到最底部
-            post {
+            // 修改点：必须在 textView 测量完成后再执行 ScrollView 滚动
+            textView.post {
                 fullScroll(View.FOCUS_DOWN)
             }
         }
@@ -115,11 +115,25 @@ private class LogContainerView(context: Context) : ScrollView(context) {
 
     private fun determineNativeLogColor(line: String, colors: NativeLogColors): Int {
         return when {
-            line.contains("F") || line.contains("E") || line.contains("error") || line.contains("FAIL") || line.contains("[错误]") || line.contains("[FAIL]") -> colors.error
-            line.contains("W") || line.contains("warn") || line.contains("[警告]") || line.contains("[WARN]") -> colors.warn
-            line.contains("OKAY") || line.contains("[成功]") || line.contains("[OKAY]") -> colors.success
-            line.contains("I") || line.contains("info") || line.contains("[提示]") || line.contains("[INFO]") -> colors.info
-            line.contains("V") || line.contains("D") || line.contains("debug") || line.contains("[调试]") || line.contains("[DEBUG]") -> colors.debug
+            // 1. Error / Fatal: 匹配标准 Logcat 的 "E/"、"F/"、" E "、" F " 以及自定义错误标识
+            line.contains("E/") || line.contains("F/") || line.contains(" E ") || line.contains(" F ") ||
+            line.contains("[错误]") || line.contains("[FAIL]") -> colors.error
+
+            // 2. Warn: 匹配标准 Logcat 的 "W/"、" W " 以及自定义警告标识
+            line.contains("W/") || line.contains(" W ") ||
+            line.contains("[警告]") || line.contains("[WARN]") -> colors.warn
+
+            // 3. Success / Notice: 自定义成功或提示
+            line.contains("[成功]") || line.contains("[OKAY]") || line.contains("[OK]") -> colors.success
+
+            // 4. Info: 匹配标准 Logcat 的 "I/"、" I " 以及自定义提示标识
+            line.contains("I/") || line.contains(" I ") ||
+            line.contains("[提示]") || line.contains("[INFO]") -> colors.info
+
+            // 5. Debug / Verbose: 匹配标准 Logcat 的 "D/"、"V/"、" D "、" V " 以及自定义调试标识
+            line.contains("D/") || line.contains("V/") || line.contains(" D ") || line.contains(" V ") ||
+            line.contains("[调试]") || line.contains("[DEBUG]") -> colors.debug
+
             else -> colors.trace
         }
     }
@@ -162,13 +176,12 @@ fun LogSection(
             @Suppress("UNUSED_VARIABLE")
             val trigger = updateTrigger
             
-            // 触发增量更新
             containerView.updateLogs(
                 totalCount = getLogCount(),
                 getLogLineAt = getLogLineAt,
                 colors = nativeColors
             )
         },
-        modifier = modifier
+        modifier = modifier.clipToBounds()
     )
 }

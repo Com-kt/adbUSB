@@ -18,6 +18,7 @@ import android.net.wifi.*
 import android.net.nsd.*
 import android.text.method.*
 
+import androidx.collection.*
 import androidx.core.view.*
 import androidx.core.content.*
 import androidx.core.app.*
@@ -104,49 +105,56 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
     }
     
     private val masterLogBuffer = StringBuilder()
-    private val logLineRanges = ArrayList<Long>()
+
+    // 1. 修改点：使用 androidx.collection:1.6.0 的 MutableLongList 替换 ArrayList<Long>，零装箱开销
+    private val logLineRanges = MutableLongList()
 
     val logCount: Int
         @Synchronized get() = logLineRanges.size
 
-    // 1. 防 AMS 锁的核心：仅用于接收字符串的后台无阻管道
+    // 防 AMS 锁的核心：后台无阻管道
     private val logInputChannel = Channel<String>(Channel.UNLIMITED)
 
-    // 2. 专门用于通知 UI 增量刷新的事件流 (SharedFlow 支持多订阅者且不消费数据)
+    // 通知 UI 增量刷新的事件流
     private val _uiUpdateEvent = MutableSharedFlow<Unit>(extraBufferCapacity = 64)
     val uiUpdateEvent: Flow<Unit> = _uiUpdateEvent.asSharedFlow()
 
+    // 2. 修改点：全局复用 DateTimeFormatter，并增加秒级缓存机制
+    private val timeFormatter = DateTimeFormatter.ofPattern("yyyy.MM.dd HH:mm:ss")
+    private var lastSecondTimestamp: Long = 0L
+    private var cachedTimeString: String = ""
+
     init {
-        // 在后台 Default 线程中单线程顺序处理日志，彻底解耦主线程与 IPC Binder 线程
         viewModelScope.launch(Dispatchers.Default) {
             for (msg in logInputChannel) {
                 processAndPushLog(msg)
-                // 3. 确保数据写入 StringBuilder 与 Index List 后，再通知 UI 增量刷新
                 _uiUpdateEvent.emit(Unit)
             }
         }
     }
 
-    /**
-     * 任意线程（包括 Binder/Shell 回调线程）均可直接调用
-     * trySend 是非阻塞的，耗时 < 0.01ms，彻底规避 AMS 锁死与 IPC 超时
-     */
     fun appendLog(msg: String) {
         logInputChannel.trySend(msg)
     }
 
     @Synchronized
     private fun processAndPushLog(msg: String) {
-        val current = LocalDateTime.now()
-        val formatter = DateTimeFormatter.ofPattern("yyyy.MM.dd HH:mm:ss")
-        val time = current.format(formatter)
+        val timeStr = getCachedTimeStamp()
 
-        if (msg.contains("\n")) {
-            msg.split("\n").forEach { line ->
-                if (line.isNotBlank()) pushToBuffer("$time $line")
+        // 3. 修改点：改用 indexOf('\n') 零分配遍历，替代 msg.split("\n")
+        var start = 0
+        val len = msg.length
+        while (start < len) {
+            var end = msg.indexOf('\n', start)
+            if (end == -1) end = len
+
+            if (end > start) {
+                val line = msg.substring(start, end)
+                if (line.isNotBlank()) {
+                    pushToBuffer("$timeStr $line")
+                }
             }
-        } else {
-            if (msg.isNotBlank()) pushToBuffer("$time $msg")
+            start = end + 1
         }
     }
 
@@ -160,23 +168,35 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
         logLineRanges.add(pointer.packed)
     }
 
+    // 秒级缓存时间戳，高频下减少 99% 的字符串转换开销
+    private fun getCachedTimeStamp(): String {
+        val currentSecond = System.currentTimeMillis() / 1000
+        if (currentSecond != lastSecondTimestamp) {
+            lastSecondTimestamp = currentSecond
+            cachedTimeString = LocalDateTime.now().format(timeFormatter)
+        }
+        return cachedTimeString
+    }
+
     @Synchronized
     fun getLogLineAt(index: Int): String {
-        if (index !in logLineRanges.indices) return ""
+        // 4. 修改点：匹配 MutableLongList 的索引校验方式
+        if (index !in 0 until logLineRanges.size) return ""
         val pointer = LogRangePointer(logLineRanges[index])
         return masterLogBuffer.substring(pointer.start, pointer.end)
     }
 
     @Synchronized
     fun clearLogs() {
-        // 1. 清空管道中积压但尚未处理的旧日志，防止清空后被旧日志污染
         while (logInputChannel.tryReceive().isSuccess) { /* drain */ }
 
-        // 2. 安全清空内存缓冲区
+        // 5. 修改点：清空并使用 1.6.0 的 trim() 强行释放大日志冲刷后的数组内存
         logLineRanges.clear()
-        masterLogBuffer.setLength(0)
+        logLineRanges.trim()
 
-        // 3. 通知 UI 刷新归零
+        masterLogBuffer.setLength(0)
+        masterLogBuffer.trimToSize()
+
         _uiUpdateEvent.tryEmit(Unit)
     }
 
