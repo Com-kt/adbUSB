@@ -274,6 +274,10 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
         AppCommand("以system身份+全局挂载空间调用本地 Shell", "su system -M -c "),
         AppCommand("以adb身份+全局挂载空间调用本地 Shell", "su adb -M -c "),
         AppCommand("以shell身份+全局挂载空间调用本地 Shell", "su shell -M -c "),
+        AppCommand("以system身份+system域名调用本地 Shell", "su system -Z u:r:system_app:s0 -c "),
+        AppCommand("以shell身份+shell域名调用本地 Shell", "su shell -Z u:r:shell:s0 -c "),
+        AppCommand("以system身份+system域名+全局挂载空间调用本地 Shell", "su system -M -Z u:r:system_app:s0 -c "),
+        AppCommand("以shell身份+shell域名+全局挂载空间调用本地 Shell", "su shell -M -Z u:r:shell:s0 -c "), 
         AppCommand("查看su版本信息", "su -v"),
         AppCommand("查看su帮助", "su -h"),
         AppCommand("以root权限启动帧率测试, 该扩展指令由app提供", "root-rate"),
@@ -394,7 +398,10 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
         AdbCommand("卸载系统更新", "pm uninstall --user 0 com.android.updater"),
         AdbCommand("恢复系统更新", "pm install-existing --user 0 com.android.updater"),
         AdbCommand("强行启用小米堆叠桌面 (已支持勿用)", "settings put global task_stack_view_layout_style 2 "),
-        AdbCommand("强行停止小米系统桌面", "am force-stop com.miui.home")
+        AdbCommand("强行停止小米系统桌面", "am force-stop com.miui.home"),
+        AdbCommand("列出当前系统所有运行中进程的SeLinux域", "su -c ps -AZ"),
+        AdbCommand("列出当前运行中进程shell的SeLinux域", "su -c ps -AZ | grep shell"),
+        AdbCommand("列出当前运行中进程system的SeLinux域", "su -c ps -AZ | grep system")
     )
     
     private val _fbCommands = listOf(
