@@ -166,9 +166,6 @@ fun CenterAlignedTopAppBarExample(
     
     val useDynamicColor by viewModel.useDynamicColor.collectAsStateWithLifecycle()
     
-    val logCount = viewModel.logCount
-    val getLogLineAt = { index: Int -> viewModel.getLogLineAt(index) }
-
     Scaffold(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         
@@ -486,8 +483,9 @@ fun CenterAlignedTopAppBarExample(
             )
             
             LogSection(
-                logCount = logCount,
-                getLogLineAt = getLogLineAt,
+                getLogCount = { viewModel.logCount },
+                getLogLineAt = { index -> viewModel.getLogLineAt(index) },
+                logUpdateFlow = viewModel.uiUpdateEvent,
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth()

@@ -104,23 +104,43 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
     }
     
     private val masterLogBuffer = StringBuilder()
-    private val logLineRanges = mutableStateListOf<Long>()
-    val logCount: Int get() = logLineRanges.size
-    
-    fun getLogLineAt(index: Int): String {
-        if (index !in logLineRanges.indices) return ""
-        
-        // Wrap the primitive element into your inline value class container on-demand.
-        // This takes EXACTLY ZERO memory allocations because it maps straight to stack memory instructions!
-        val pointer = LogRangePointer(logLineRanges[index])
-        return masterLogBuffer.substring(pointer.start, pointer.end)
+    private val logLineRanges = ArrayList<Long>()
+
+    val logCount: Int
+        @Synchronized get() = logLineRanges.size
+
+    // 1. 防 AMS 锁的核心：仅用于接收字符串的后台无阻管道
+    private val logInputChannel = Channel<String>(Channel.UNLIMITED)
+
+    // 2. 专门用于通知 UI 增量刷新的事件流 (SharedFlow 支持多订阅者且不消费数据)
+    private val _uiUpdateEvent = MutableSharedFlow<Unit>(extraBufferCapacity = 64)
+    val uiUpdateEvent: Flow<Unit> = _uiUpdateEvent.asSharedFlow()
+
+    init {
+        // 在后台 Default 线程中单线程顺序处理日志，彻底解耦主线程与 IPC Binder 线程
+        viewModelScope.launch(Dispatchers.Default) {
+            for (msg in logInputChannel) {
+                processAndPushLog(msg)
+                // 3. 确保数据写入 StringBuilder 与 Index List 后，再通知 UI 增量刷新
+                _uiUpdateEvent.emit(Unit)
+            }
+        }
     }
-    
+
+    /**
+     * 任意线程（包括 Binder/Shell 回调线程）均可直接调用
+     * trySend 是非阻塞的，耗时 < 0.01ms，彻底规避 AMS 锁死与 IPC 超时
+     */
     fun appendLog(msg: String) {
+        logInputChannel.trySend(msg)
+    }
+
+    @Synchronized
+    private fun processAndPushLog(msg: String) {
         val current = LocalDateTime.now()
         val formatter = DateTimeFormatter.ofPattern("yyyy.MM.dd HH:mm:ss")
         val time = current.format(formatter)
-    
+
         if (msg.contains("\n")) {
             msg.split("\n").forEach { line ->
                 if (line.isNotBlank()) pushToBuffer("$time $line")
@@ -135,16 +155,32 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
         masterLogBuffer.append(fullLine)
         val endIdx = masterLogBuffer.length
         masterLogBuffer.append("\n")
-    
+
         val pointer = LogRangePointer.create(startIdx, endIdx)
         logLineRanges.add(pointer.packed)
     }
-    
+
+    @Synchronized
+    fun getLogLineAt(index: Int): String {
+        if (index !in logLineRanges.indices) return ""
+        val pointer = LogRangePointer(logLineRanges[index])
+        return masterLogBuffer.substring(pointer.start, pointer.end)
+    }
+
+    @Synchronized
     fun clearLogs() {
+        // 1. 清空管道中积压但尚未处理的旧日志，防止清空后被旧日志污染
+        while (logInputChannel.tryReceive().isSuccess) { /* drain */ }
+
+        // 2. 安全清空内存缓冲区
         logLineRanges.clear()
         masterLogBuffer.setLength(0)
+
+        // 3. 通知 UI 刷新归零
+        _uiUpdateEvent.tryEmit(Unit)
     }
-    
+
+    @Synchronized
     fun exportFullLogToFile(targetFile: File): Boolean {
         return try {
             targetFile.bufferedWriter().use { writer ->
