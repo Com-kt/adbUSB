@@ -1,22 +1,5 @@
 package com.adb.kitty.compose.service
 
-import android.app.Service
-import android.content.Intent
-import android.os.Build
-import android.os.Environment
-import android.os.IBinder
-import android.os.ParcelFileDescriptor
-import java.io.BufferedReader
-import java.io.DataOutputStream
-import java.io.File
-import java.io.InputStreamReader
-import java.io.OutputStreamWriter
-import java.lang.StringBuilder
-import java.util.concurrent.Executors
-import java.util.concurrent.ScheduledFuture
-import java.util.concurrent.atomic.AtomicLong
-import java.util.concurrent.TimeUnit
-import kotlin.concurrent.thread
 import com.adb.kitty.compose.ui.theme.*
 import com.adb.kitty.compose.ui.viewmodel.*
 import com.adb.kitty.compose.ui.it.*
@@ -24,17 +7,41 @@ import com.adb.kitty.compose.data.*
 import com.adb.kitty.compose.R
 import com.adb.kitty.compose.*
 
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.Service
+import android.content.Context
+import android.content.Intent
+import android.content.pm.ServiceInfo
+import android.os.Build
+import android.os.Environment
+import android.os.IBinder
+import android.os.ParcelFileDescriptor
+import android.os.Process
+import androidx.collection.MutableIntList
+import androidx.collection.MutableObjectList
+import androidx.collection.mutableIntListOf
+import androidx.collection.mutableObjectListOf
+import androidx.core.app.NotificationCompat
+import java.io.DataOutputStream
+import java.io.File
+import java.io.InputStream
+import java.io.OutputStream
+import java.io.OutputStreamWriter
+import java.lang.reflect.Field
+import java.util.concurrent.ArrayBlockingQueue
+import java.util.concurrent.TimeUnit
+import kotlin.concurrent.thread
+
 class ShellService : Service() {
 
     private var currentWorkingDirectory = Environment.getExternalStorageDirectory()
-    
-    @Volatile
-    private var currentProcess: Process? = null
 
-    private val watchdogScheduler = Executors.newSingleThreadScheduledExecutor()
+    @Volatile
+    private var currentProcess: java.lang.Process? = null
 
     private val binder = object : IShellService.Stub() {
-        
         override fun executeCommandStream(cmd: String, useRoot: Boolean): ParcelFileDescriptor {
             return performLocalShellPipeline(cmd.trim(), useRoot)
         }
@@ -42,6 +49,16 @@ class ShellService : Service() {
         override fun terminateCurrentCommand() {
             terminateCurrentCommandInternal()
         }
+    }
+
+    override fun onCreate() {
+        super.onCreate()
+        promoteToForeground()
+    }
+
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        promoteToForeground()
+        return START_STICKY
     }
 
     override fun onBind(intent: Intent?): IBinder = binder
@@ -53,12 +70,59 @@ class ShellService : Service() {
 
     override fun onDestroy() {
         terminateCurrentCommandInternal()
-        watchdogScheduler.shutdownNow()
+        stopForeground(STOP_FOREGROUND_REMOVE)
         super.onDestroy()
     }
 
+    private companion object {
+        const val CHANNEL_ID = "com.adb.kitty.compose.core_service_channel_v2"
+        const val GROUP_ID = "com.adb.kitty.compose.core_service_group"
+        const val NOTIFICATION_ID = 102
+    }
+
+    private fun promoteToForeground() {
+        val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val group = NotificationChannelGroup(GROUP_ID, "核心后台服务组")
+            notificationManager.createNotificationChannelGroup(group)
+
+            val channel = NotificationChannel(
+                CHANNEL_ID,
+                "Shell 终端执行服务",
+                NotificationManager.IMPORTANCE_LOW
+            ).apply {
+                description = "保持后台 Shell 命令与日志流的稳定传输"
+                setShowBadge(false)
+                groupId = GROUP_ID
+            }
+            notificationManager.createNotificationChannel(channel)
+        }
+
+        val notification: Notification = NotificationCompat.Builder(this, CHANNEL_ID)
+            .setContentTitle("终端 Shell 服务运行中")
+            .setContentText("正在后台维持命令执行与管道传输...")
+            .setSmallIcon(android.R.drawable.stat_notify_sync)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setOngoing(true)
+            .build()
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            runCatching {
+                startForeground(
+                    NOTIFICATION_ID,
+                    notification,
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
+                )
+            }.onFailure {
+                startForeground(NOTIFICATION_ID, notification)
+            }
+        } else {
+            startForeground(NOTIFICATION_ID, notification)
+        }
+    }
+
     private fun performLocalShellPipeline(cmd: String, useRoot: Boolean): ParcelFileDescriptor {
-        // 关键：新任务发起时，强制清理并终止上一条未结束的任务进程
         terminateCurrentCommandInternal()
 
         val pipe = ParcelFileDescriptor.createPipe()
@@ -74,25 +138,16 @@ class ShellService : Service() {
             currentWorkingDirectory
         }
 
-        thread(start = true, name = "ShellStreamPump") {
-            var process: Process? = null
+        thread(start = true, name = "ShellStreamController") {
+            var process: java.lang.Process? = null
             var os: DataOutputStream? = null
-            var reader: BufferedReader? = null
-            val pipeWriter = OutputStreamWriter(ParcelFileDescriptor.AutoCloseOutputStream(writeSide), "UTF-8")
-            
-            var watchdogTask: ScheduledFuture<*>? = null
-            val lastOutputTime = AtomicLong(System.currentTimeMillis())
 
             try {
-                val builder = if (useRoot || cmd.startsWith("su")) {
-                    val baseSuCmd = if (cmd.contains(" -c ")) cmd.substringBefore(" -c ") else cmd
+                val safeCmd = sanitizeCommand(cmd)
+                val builder = if (useRoot || safeCmd.startsWith("su")) {
+                    val baseSuCmd = if (safeCmd.contains(" -c ")) safeCmd.substringBefore(" -c ") else safeCmd
                     val args = parseCommandLine(baseSuCmd.ifBlank { "su" })
-                
-                    if (useRoot && !args.contains("su")) {
-                        ProcessBuilder("su")
-                    } else {
-                        ProcessBuilder(args)
-                    }
+                    if (useRoot && !args.contains("su")) ProcessBuilder("su") else ProcessBuilder(args)
                 } else {
                     ProcessBuilder("sh")
                 }
@@ -106,89 +161,148 @@ class ShellService : Service() {
                     currentProcess = process
                 }
 
-                // 启动无输出空闲超时看门狗：dumpsys 5秒空闲，其他命令 15秒空闲
-                val idleTimeoutMs = if (cmd.contains("dumpsys")) 5000L else 15000L
-
-                watchdogTask = watchdogScheduler.scheduleWithFixedDelay({
-                    val idleMillis = System.currentTimeMillis() - lastOutputTime.get()
-                    if (idleMillis >= idleTimeoutMs) {
-                        if (process?.isAliveCompat() == true) {
-                            runCatching {
-                                pipeWriter.write("\n[警告] 检测到命令连续 ${idleTimeoutMs / 1000} 秒无输出（可能已卡死），强制终止...\n")
-                                pipeWriter.flush()
-                            }
-                            process.destroyForciblyCompat()
-                        }
-                    }
-                }, 1, 1, TimeUnit.SECONDS)
-
                 os = DataOutputStream(process.outputStream)
-
                 val realExecutionCmd = when {
-                    cmd.contains(" -c ") -> {
-                        cmd.substringAfter(" -c ").trim { 
-                            it == '\'' || it == '"' || it.isWhitespace() || it.code == 160 
-                        }
-                    }
-                    cmd == "su" || cmd.startsWith("su ") -> {
-                        "id" 
-                    }
-                    else -> cmd
+                    safeCmd.contains(" -c ") -> safeCmd.substringAfter(" -c ").trim('\'', '"', ' ', '\u00A0')
+                    safeCmd == "su" || safeCmd.startsWith("su ") -> "id"
+                    else -> safeCmd
                 }
 
                 os.writeBytes("$realExecutionCmd\n")
-                os.writeBytes("exit\n") 
+                os.writeBytes("exit\n")
                 os.flush()
 
-                reader = BufferedReader(InputStreamReader(process.inputStream, "UTF-8"))
-                var line: String?
-                
-                while (reader.readLine().also { line = it } != null) {
-                    lastOutputTime.set(System.currentTimeMillis())
-                    pipeWriter.write(line + "\n")
-                    pipeWriter.flush()
-                }
+                // 启动抗压双线程字节抽吸
+                startAntiStallPump(
+                    processInputStream = process.inputStream,
+                    ipcOutputStream = ParcelFileDescriptor.AutoCloseOutputStream(writeSide)
+                )
 
                 val exitCode = process.waitFor()
-                pipeWriter.write("[进程结束，状态码: $exitCode]\n")
-                pipeWriter.flush()
+                
+                // 拼接进程结束提示
+                runCatching {
+                    val exitMsg = "\n[进程结束，状态码: $exitCode]\n".toByteArray(Charsets.UTF_8)
+                    ParcelFileDescriptor.AutoCloseOutputStream(writeSide).use { 
+                        it.write(exitMsg)
+                        it.flush()
+                    }
+                }
 
             } catch (e: Exception) {
-                val errorMsg = if (useRoot && e is java.io.IOException) {
-                    "Root 提权被拒绝：请解锁手机并在系统 Root 管理器中允许超级用户请求。\n"
-                } else {
-                    "执行中断或异常: ${e.message}\n"
-                }
-                
                 runCatching {
-                    pipeWriter.write(errorMsg)
-                    pipeWriter.flush()
+                    OutputStreamWriter(ParcelFileDescriptor.AutoCloseOutputStream(writeSide), "UTF-8").use { writer ->
+                        val errorMsg = if (useRoot && e is java.io.IOException) {
+                            "Root 提权被拒绝：请解锁手机并在系统 Root 管理器中允许超级用户请求。\n"
+                        } else {
+                            "执行中断或异常: ${e.message}\n"
+                        }
+                        writer.write(errorMsg)
+                        writer.flush()
+                    }
                 }
             } finally {
-                watchdogTask?.cancel(true)
-
                 synchronized(this@ShellService) {
                     if (currentProcess == process) {
                         currentProcess = null
                     }
                 }
-
                 runCatching { os?.close() }
-                runCatching { reader?.close() }
-                runCatching { pipeWriter.close() }
-                
-                process?.let { proc ->
-                    runCatching {
-                        if (proc.isAliveCompat()) proc.destroyForciblyCompat()
-                    }
-                }
+                process?.let { killProcessTree(it) }
             }
         }
 
         return readSide
     }
 
-    private fun Process.isAliveCompat(): Boolean {
+    /**
+     * 抗压双线程 Pump：保证写端与 IPC 解耦，防止管道卡死
+     */
+    private fun startAntiStallPump(
+        processInputStream: InputStream,
+        ipcOutputStream: OutputStream
+    ) {
+        Process.setThreadPriority(Process.THREAD_PRIORITY_URGENT_AUDIO)
+
+        val byteChunkQueue = ArrayBlockingQueue<ByteArray>(128)
+        @Volatile var isProcessFinished = false
+
+        val drainThread = Thread({
+            val rawBuffer = ByteArray(32768)
+            try {
+                var bytesRead: Int
+                while (processInputStream.read(rawBuffer).also { bytesRead = it } != -1) {
+                    val chunk = rawBuffer.copyOf(bytesRead)
+                    if (!byteChunkQueue.offer(chunk)) {
+                        byteChunkQueue.poll()
+                        byteChunkQueue.offer(chunk)
+                    }
+                }
+            } catch (_: Exception) {
+            } finally {
+                isProcessFinished = true
+            }
+        }, "NativePipeDrainer")
+
+        drainThread.start()
+
+        val ipcWriterThread = Thread({
+            try {
+                while (!isProcessFinished || byteChunkQueue.isNotEmpty()) {
+                    val chunk = byteChunkQueue.poll(100, TimeUnit.MILLISECONDS)
+                    if (chunk != null) {
+                        ipcOutputStream.write(chunk)
+                        ipcOutputStream.flush()
+                    }
+                }
+            } catch (_: Exception) {
+            } finally {
+                runCatching { ipcOutputStream.close() }
+            }
+        }, "IpcStreamWriter")
+
+        ipcWriterThread.start()
+    }
+
+    private fun sanitizeCommand(cmd: String): String {
+        var processedCmd = cmd.trim()
+        if (processedCmd == "dumpsys" || processedCmd.startsWith("dumpsys ")) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                if (processedCmd == "dumpsys") return "dumpsys -t 3"
+                if (!processedCmd.contains(" -t ") && !processedCmd.contains(" --timeout ")) {
+                    processedCmd = processedCmd.replaceFirst("dumpsys", "dumpsys -t 3")
+                }
+            }
+        }
+        return processedCmd
+    }
+
+    private fun killProcessTree(proc: java.lang.Process?) {
+        proc ?: return
+        runCatching {
+            if (proc.isAliveCompat()) {
+                val pid = getProcessPid(proc)
+                if (pid > 0) {
+                    runCatching { Runtime.getRuntime().exec("pkill -P $pid") }
+                }
+                proc.destroyForciblyCompat()
+            }
+        }
+    }
+
+    private fun getProcessPid(proc: java.lang.Process): Int {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            runCatching { proc.pid().toInt() }.getOrDefault(-1)
+        } else {
+            runCatching {
+                val field: Field = proc.javaClass.getDeclaredField("pid")
+                field.isAccessible = true
+                field.getInt(proc)
+            }.getOrDefault(-1)
+        }
+    }
+
+    private fun java.lang.Process.isAliveCompat(): Boolean {
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             this.isAlive
         } else {
@@ -201,7 +315,7 @@ class ShellService : Service() {
         }
     }
 
-    private fun Process.destroyForciblyCompat() {
+    private fun java.lang.Process.destroyForciblyCompat() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             this.destroyForcibly()
         } else {
@@ -212,11 +326,7 @@ class ShellService : Service() {
     private fun terminateCurrentCommandInternal() {
         synchronized(this@ShellService) {
             currentProcess?.let { proc ->
-                runCatching {
-                    if (proc.isAliveCompat()) {
-                        proc.destroyForciblyCompat()
-                    }
-                }
+                killProcessTree(proc)
                 currentProcess = null
             }
         }
@@ -260,22 +370,34 @@ class ShellService : Service() {
     }
 
     private fun parseCommandLine(cmd: String): List<String> {
-        val tokens = mutableListOf<String>()
-        val sb = StringBuilder()
+        val tokens: MutableObjectList<String> = mutableObjectListOf()
+        val charBuf: MutableIntList = mutableIntListOf()
         var inQuotes = false
-        for (ch in cmd.toCharArray()) {
+
+        for (i in 0 until cmd.length) {
+            val ch = cmd[i]
             if (ch == '\"' || ch == '\'') {
                 inQuotes = !inQuotes
             } else if (ch == ' ' && !inQuotes) {
-                if (sb.isNotEmpty()) {
-                    tokens.add(sb.toString())
-                    sb.setLength(0)
+                if (charBuf.isNotEmpty()) {
+                    tokens.add(charBufToString(charBuf))
+                    charBuf.clear()
                 }
             } else {
-                sb.append(ch)
+                charBuf.add(ch.code)
             }
         }
-        if (sb.isNotEmpty()) tokens.add(sb.toString())
-        return tokens
+        if (charBuf.isNotEmpty()) {
+            tokens.add(charBufToString(charBuf))
+        }
+        return tokens.asList()
+    }
+
+    private fun charBufToString(buf: MutableIntList): String {
+        val chars = CharArray(buf.size)
+        for (i in 0 until buf.size) {
+            chars[i] = buf[i].toChar()
+        }
+        return String(chars)
     }
 }

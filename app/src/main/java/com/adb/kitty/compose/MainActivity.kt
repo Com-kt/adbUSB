@@ -123,7 +123,6 @@ class MainActivity : ComponentActivity() {
     private var epIn: UsbEndpoint? = null
     private var epOut: UsbEndpoint? = null
     private var readerJob: Job? = null
-    private var currentShellJob: Job? = null
     private var usbForwarder: UsbPortForwarder? = null
 
     private var isUsbAttached = false
@@ -180,8 +179,11 @@ class MainActivity : ComponentActivity() {
         }
     }
     
+    private var currentShellJob: Job? = null
     private var shellService: IShellService? = null
+    @Volatile
     private var isShellServiceBound = false
+
     private val shellServiceConnection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
             shellService = IShellService.Stub.asInterface(service)
@@ -195,7 +197,7 @@ class MainActivity : ComponentActivity() {
             appendLog("[警告] 本地 Shell 服务意外断开。")
         }
     }
-    
+
     fun reloadServiceAvatar() {
         adbService?.reloadAvatar()
     }
@@ -507,6 +509,7 @@ class MainActivity : ComponentActivity() {
         tryToStartService()
         
         val intent = Intent(this, ShellService::class.java)
+        startService(intent)
         bindService(intent, shellServiceConnection, Context.BIND_AUTO_CREATE)
 
         val exportFlag = ContextCompat.RECEIVER_NOT_EXPORTED
@@ -787,28 +790,46 @@ class MainActivity : ComponentActivity() {
 
                     if (pfd != null) {
                         val inputStream = ParcelFileDescriptor.AutoCloseInputStream(pfd)
-                        reader = BufferedReader(InputStreamReader(inputStream, "UTF-8"))
+                        reader = BufferedReader(InputStreamReader(inputStream, Charsets.UTF_8), 16384)
+
+                        // UI 批量刷新缓冲区：避免高频单行 flush 卡死主线程
+                        val logBuffer = ArrayList<String>(128)
+                        var lastFlushTime = System.currentTimeMillis()
 
                         var line: String?
                         while (isActive) {
                             line = try {
                                 reader.readLine()
-                            } catch (e: java.io.IOException) {
-                                if (isActive) {
-                                    withContext(Dispatchers.Main) {
-                                        appendLog("[系统] 进程管道流已切断")
-                                    }
-                                }
+                            } catch (_: java.io.IOException) {
                                 break
                             }
 
                             if (line == null) break
 
-                            val currentLine = line
-                            withContext(Dispatchers.Main) {
-                                appendLog(currentLine)
+                            logBuffer.add(line)
+
+                            // 每 50 毫秒或积攒 100 行集中向主线程提交一次
+                            val now = System.currentTimeMillis()
+                            if (logBuffer.size >= 100 || (now - lastFlushTime >= 50)) {
+                                val chunkToFlush = ArrayList(logBuffer)
+                                logBuffer.clear()
+                                lastFlushTime = now
+
+                                withContext(Dispatchers.Main) {
+                                    chunkToFlush.forEach { appendLog(it) }
+                                }
                             }
                         }
+
+                        // 冲刷残留日志
+                        if (logBuffer.isNotEmpty()) {
+                            val remainingChunk = ArrayList(logBuffer)
+                            logBuffer.clear()
+                            withContext(Dispatchers.Main) {
+                                remainingChunk.forEach { appendLog(it) }
+                            }
+                        }
+
                     } else {
                         withContext(Dispatchers.Main) {
                             appendLog("[错误] 无法建立管道连接！")
@@ -834,16 +855,18 @@ class MainActivity : ComponentActivity() {
 
     fun onUserClickStopCommand() {
         val job = currentShellJob
-    
+
         if (job == null || !job.isActive) {
             appendLog("[系统] 当前没有正在执行的命令")
             return
         }
 
+        // 1. 取消协程 Job
         job.cancel()
         currentShellJob = null
 
-        lifecycleScope.launch(Dispatchers.IO) {
+        // 2. 跨进程通知服务端强杀底层进程树
+        lifecycleScope.launch(Dispatchers.IO + NonCancellable) {
             val shell = shellService
             if (shell != null && isShellServiceBound) {
                 runCatching {
@@ -2003,7 +2026,8 @@ class MainActivity : ComponentActivity() {
             isServiceBound = false
         }
         if (isShellServiceBound) {
-            unbindService(shellServiceConnection)
+            runCatching { unbindService(shellServiceConnection) }
+            isShellServiceBound = false
         }
         viewModel.setAdbService(null)
         super.onDestroy()

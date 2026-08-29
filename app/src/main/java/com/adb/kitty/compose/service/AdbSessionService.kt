@@ -161,7 +161,7 @@ class AdbSessionService : Service() {
             startForeground(
                 NOTIFICATION_ID, 
                 buildNotification(initialText),
-                ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE or ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE or ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
             )
         } else {
             // Android 10 ~ Android 13，直接启动即可
