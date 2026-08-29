@@ -25,11 +25,7 @@ import androidx.collection.MutableObjectList
 import androidx.collection.mutableIntListOf
 import androidx.collection.mutableObjectListOf
 import androidx.core.app.NotificationCompat
-import java.io.DataOutputStream
-import java.io.File
-import java.io.InputStream
-import java.io.OutputStream
-import java.io.OutputStreamWriter
+import java.io.*
 import java.lang.reflect.Field
 import java.util.concurrent.ArrayBlockingQueue
 import java.util.concurrent.TimeUnit
@@ -85,8 +81,9 @@ class ShellService : Service() {
         val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val group = NotificationChannelGroup(GROUP_ID, "核心后台服务组")
-            notificationManager.createNotificationChannelGroup(group)
+            val groupName = getString(R.string.action_service_aaf)
+            val channelGroup = NotificationChannelGroup(GROUP_ID, groupName)
+            notificationManager.createNotificationChannelGroup(channelGroup)
 
             val channel = NotificationChannel(
                 CHANNEL_ID,
