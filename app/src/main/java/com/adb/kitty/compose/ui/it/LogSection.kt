@@ -72,11 +72,14 @@ private class LogContainerView(context: Context) : HorizontalScrollView(context)
             setTextIsSelectable(true)
             
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                try {
-                    val method = android.widget.TextView::class.java.getMethod("setMagnifierEnabled", Boolean::class.javaPrimitiveType)
-                    method.invoke(this, false)
-                } catch (e: Exception) {
-                    e.printStackTrace()
+                this.accessibilityDelegate = object : android.view.View.AccessibilityDelegate() {
+                    override fun performAccessibilityAction(host: android.view.View, action: Int, args: android.os.Bundle?): Boolean {
+                        // 拦截并消费掉无障碍相关的长按/放大触发信号
+                        if (action == android.view.accessibility.AccessibilityNodeInfo.ACTION_LONG_CLICK) {
+                            return true 
+                        }
+                        return super.performAccessibilityAction(host, action, args)
+                    }
                 }
             }
         }
