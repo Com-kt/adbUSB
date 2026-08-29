@@ -9,44 +9,25 @@ import com.adb.kitty.compose.service.*
 import com.adb.kitty.compose.R
 
 import android.text.Editable
+import android.text.InputType
 import android.text.TextWatcher
+import android.text.method.ScrollingMovementMethod
 import android.widget.EditText
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.outlined.Send
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.input.nestedscroll.nestedScroll
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.input.VisualTransformation
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.annotation.Keep
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.activity.result.PickVisualMediaRequest
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
-
-import kotlinx.coroutines.*
-import kotlinx.coroutines.channels.*
-import kotlinx.coroutines.flow.*
-
-import kotlin.*
-import kotlin.coroutines.*
-import kotlin.math.*
-import kotlin.system.*
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.receiveAsFlow
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -62,13 +43,11 @@ fun <T> CommandInputSection(
     isAdbItem: (T) -> Boolean,
     modifier: Modifier = Modifier
 ) {
-    // 1. 创建 CONFLATED Channel 处理高频文本变动
     val searchChannel = remember { Channel<String>(Channel.CONFLATED) }
 
-    // 2. 协程监听 Channel，防抖处理下拉菜单控制
     LaunchedEffect(searchChannel) {
         searchChannel.receiveAsFlow()
-            .debounce(150) // 150ms 防抖，过滤高频中间态
+            .debounce(150)
             .collect { latestText ->
                 onExpandedChange(latestText.isNotEmpty())
             }
@@ -109,7 +88,6 @@ fun <T> CommandInputSection(
                                             val currentStart = selectionStart
                                             val currentEnd = selectionEnd
                                             
-                                            // 立即更新输入框状态（保证输入流畅无延迟）
                                             onQueryChange(
                                                 TextFieldValue(
                                                     text = newText,
@@ -117,7 +95,6 @@ fun <T> CommandInputSection(
                                                 )
                                             )
                                             
-                                            // 3. 将高频变更发送给 CONFLATED Channel 异步处理下拉菜单
                                             searchChannel.trySend(newText)
                                         }
                                     }
