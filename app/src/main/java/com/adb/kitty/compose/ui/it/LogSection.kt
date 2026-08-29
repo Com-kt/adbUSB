@@ -106,14 +106,15 @@ private class LogContainerView(context: Context) : ScrollView(context) {
                 )
             }
 
-            // 1. 增量追加字符
             textView.append(ssb)
             lastRenderedCount = totalCount
 
-            // 2. 关键滚动修复：避免与 setTextIsSelectable(true) 产生的焦点锁冲突
-            // 使用 post + scrollTo(0, Int.MAX_VALUE) 绕过 FOCUS_DOWN 的焦点抢占
             post {
-                scrollTo(0, Int.MAX_VALUE)
+                val contentHeight = horizontalScrollView.height
+                val scrollViewHeight = height
+                val maxScrollY = (contentHeight - scrollViewHeight).coerceAtLeast(0)
+            
+                scrollTo(scrollX, maxScrollY)
             }
         }
     }
