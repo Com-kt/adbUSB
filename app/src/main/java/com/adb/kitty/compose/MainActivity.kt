@@ -559,9 +559,14 @@ class MainActivity : ComponentActivity() {
             shellService = null
         }
     }
-    
+
     fun stopShellService() {
         val intent = Intent(this, ShellService::class.java)
+        stopService(intent)
+    }
+
+    fun stopAdbService() {
+        val intent = Intent(this, AdbSessionService::class.java)
         stopService(intent)
     }
 
@@ -1082,7 +1087,11 @@ class MainActivity : ComponentActivity() {
         if (isBindingRequested) return
         isBindingRequested = true
         val intent = Intent(this, AdbSessionService::class.java)
-        startService(intent)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            startForegroundService(intent)
+        } else {
+            startService(intent)
+        }
         bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE)
     }
     
@@ -2062,6 +2071,7 @@ class MainActivity : ComponentActivity() {
             unbindService(serviceConnection)
             isServiceBound = false
         }
+        stopAdbService()
         currentShellJob?.cancel()
         currentShellJob = null
         if (isShellServiceBound && shellService != null) {
