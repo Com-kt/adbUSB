@@ -87,6 +87,8 @@ fun <T> CommandInputSection(
                                 maxLines = 3
                                 isSingleLine = false
                                 textSize = 16f
+                                
+                                overScrollMode = android.view.View.OVER_SCROLL_NEVER
 
                                 // 32KB 缓冲区（16384 个 UTF-16 字符）
                                 filters = arrayOf(InputFilter.LengthFilter(16384))
@@ -99,15 +101,20 @@ fun <T> CommandInputSection(
                                 }
 
                                 movementMethod = ScrollingMovementMethod.getInstance()
-                                isVerticalScrollBarEnabled = true
+                                isVerticalScrollBarEnabled = false
                                 setHorizontallyScrolling(false)
 
                                 isLongClickable = true
                                 setTextIsSelectable(true)
 
                                 setOnTouchListener { view, event ->
-                                    if (event.action == MotionEvent.ACTION_DOWN || event.action == MotionEvent.ACTION_MOVE) {
-                                        view.parent?.requestDisallowInterceptTouchEvent(true)
+                                    when (event.actionMasked) {
+                                        MotionEvent.ACTION_DOWN -> {
+                                            view.parent?.requestDisallowInterceptTouchEvent(true)
+                                        }
+                                        MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                                            view.parent?.requestDisallowInterceptTouchEvent(false)
+                                        }
                                     }
                                     false
                                 }
