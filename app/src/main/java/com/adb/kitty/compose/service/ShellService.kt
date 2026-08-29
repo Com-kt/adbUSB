@@ -167,7 +167,7 @@ class ShellService : Service() {
             } finally {
                 watchdogTask?.cancel(true)
 
-                synchronized(this@LocalShellService) {
+                synchronized(this@ShellService) {
                     if (currentProcess == process) {
                         currentProcess = null
                     }
