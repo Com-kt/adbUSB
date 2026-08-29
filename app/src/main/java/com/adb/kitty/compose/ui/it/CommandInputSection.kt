@@ -87,10 +87,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
-/**
- * 独立的输入框组件：接入 Android 原生 EditText，支持最多 3 行高度及垂直滚动，
- * 同时包裹 Compose 的 DecorationBox 以保留 Outlined 外框和悬浮 Label 效果。
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun <T> CommandInputSection(
@@ -123,19 +119,29 @@ fun <T> CommandInputSection(
                             EditText(context).apply {
                                 background = null
                                 setPadding(0, 0, 0, 0)
+                                
+                                // 1. 明确设置多行文本输入类型，使得 maxLines 生效
+                                inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE
                                 maxLines = 3
                                 isSingleLine = false
                                 textSize = 16f
+                                
+                                // 2. 启用内部垂直滚动支持
+                                movementMethod = ScrollingMovementMethod.getInstance()
+                                setHorizontallyScrolling(false)
 
                                 addTextChangedListener(object : TextWatcher {
                                     override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
                                     override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
                                         val newText = s?.toString() ?: ""
                                         if (newText != query.text) {
+                                            // 保持当前光标位置，避免强制重置到末尾引起的卡顿与输入异常
+                                            val selectionStart = selectionStart
+                                            val selectionEnd = selectionEnd
                                             onQueryChange(
                                                 TextFieldValue(
                                                     text = newText,
-                                                    selection = TextRange(newText.length)
+                                                    selection = TextRange(selectionStart, selectionEnd)
                                                 )
                                             )
                                             onExpandedChange(newText.isNotEmpty())
@@ -160,9 +166,6 @@ fun <T> CommandInputSection(
                 isError = false,
                 label = {
                     Text(stringResource(R.string.action_menu_sospl))
-                },
-                trailingIcon = {
-                    ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
                 },
                 colors = OutlinedTextFieldDefaults.colors(),
                 contentPadding = OutlinedTextFieldDefaults.contentPaddingWithLabel()
