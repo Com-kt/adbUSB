@@ -9,6 +9,7 @@ import com.adb.kitty.compose.*
 
 import android.app.Notification
 import android.app.NotificationChannel
+import android.app.NotificationChannelGroup
 import android.app.NotificationManager
 import android.app.Service
 import android.content.Context
@@ -100,8 +101,7 @@ class ShellService : Service() {
         }
 
         val notification: Notification = NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("终端 Shell 服务运行中")
-            .setContentText("正在后台维持命令执行与管道传输...")
+            .setContentTitle("Shell 服务运行中")
             .setSmallIcon(android.R.drawable.stat_notify_sync)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setOngoing(true)
