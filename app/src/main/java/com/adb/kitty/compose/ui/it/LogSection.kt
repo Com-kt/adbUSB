@@ -8,26 +8,32 @@ import com.adb.kitty.compose.*
 import com.adb.kitty.compose.service.*
 import com.adb.kitty.compose.R
 
+import android.annotation.SuppressLint
 import android.graphics.Typeface
 import android.view.ViewGroup
+import android.widget.HorizontalScrollView
 import android.widget.TextView
-import android.annotation.SuppressLint
 import androidx.annotation.Keep
-import androidx.compose.foundation.border
 import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.collectLatest
+
+@Keep
+class NativeLogColors(
+    val error: Int,
+    val warn: Int,
+    val success: Int,
+    val info: Int,
+    val debug: Int,
+    val trace: Int
+)
 
 @Keep
 @SuppressLint("NotifyDataSetChanged")
@@ -39,9 +45,9 @@ fun LogSection(
     modifier: Modifier = Modifier
 ) {
     val isDark = isSystemInDarkTheme()
-    
+
     val errorColor = (if (isDark) Color(0xFFFF8A80) else Color(0xFFC62828)).toArgb()
-    val warnColor = (if (isDark) Color(0xFFFFCC80) else Color(0xFFE65100)).toArgb()
+    val warnColor = (if (isDark) Color(0xFFFFFCC80) else Color(0xFFE65100)).toArgb()
     val successColor = (if (isDark) Color(0xFFA5D6A7) else Color(0xFF2E7D32)).toArgb()
     val infoColor = (if (isDark) Color(0xFF90CAF9) else Color(0xFF1565C0)).toArgb()
     val debugColor = (if (isDark) Color(0xFFCE93D8) else Color(0xFF7B1FA2)).toArgb()
@@ -53,62 +59,64 @@ fun LogSection(
 
     var currentCountState by remember { mutableIntStateOf(getLogCount()) }
 
-    // 监听 ViewModel 管道发出的事件通知（增量刷新/清空刷新）
     LaunchedEffect(logUpdateFlow) {
-        logUpdateFlow.collect {
+        logUpdateFlow.collectLatest {
             currentCountState = getLogCount()
         }
     }
 
-    val adapter = remember {
-        LogRecyclerViewAdapter(
-            getLogLineAt = getLogLineAt,
-            colors = nativeColors
-        )
+    val adapter = remember(getLogLineAt, nativeColors) {
+        LogRecyclerViewAdapter(getLogLineAt, nativeColors)
     }
 
-    Box(
-        modifier = modifier.border(1.dp, MaterialTheme.colorScheme.outline)
-    ) {
-        AndroidView(
-            modifier = Modifier.fillMaxSize(),
-            factory = { context ->
-                RecyclerView(context).apply {
+    AndroidView(
+        factory = { context ->
+            HorizontalScrollView(context).apply {
+                layoutParams = ViewGroup.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.MATCH_PARENT
+                )
+                isFillViewport = true
+
+                val recyclerView = RecyclerView(context).apply {
+                    layoutParams = ViewGroup.LayoutParams(
+                        ViewGroup.LayoutParams.WRAP_CONTENT,
+                        ViewGroup.LayoutParams.MATCH_PARENT
+                    )
                     layoutManager = LinearLayoutManager(context)
                     this.adapter = adapter
-                    setHasFixedSize(true)
                     setItemViewCacheSize(20)
                 }
-            },
-            update = { recyclerView ->
-                val oldSize = adapter.getItemCount()
-                val newSize = currentCountState
-                adapter.totalItemCount = newSize
+                addView(recyclerView)
+            }
+        },
+        update = { horizontalScrollView ->
+            val recyclerView = horizontalScrollView.getChildAt(0) as RecyclerView
+            val oldSize = adapter.itemCount
+            val newSize = currentCountState
+            adapter.totalItemCount = newSize
 
-                if (newSize > oldSize) {
-                    // 局部增量通知，避免重布局卡顿
-                    adapter.notifyItemRangeInserted(oldSize, newSize - oldSize)
+            if (newSize > oldSize) {
+                adapter.notifyItemRangeInserted(oldSize, newSize - oldSize)
 
-                    val layoutManager = recyclerView.layoutManager as LinearLayoutManager
-                    val lastVisibleIndex = layoutManager.findLastVisibleItemPosition()
-                    if (newSize - 1 - lastVisibleIndex < 15) {
-                        recyclerView.post {
-                            recyclerView.scrollToPosition(newSize - 1)
-                        }
+                val layoutManager = recyclerView.layoutManager as LinearLayoutManager
+                val lastVisibleIndex = layoutManager.findLastVisibleItemPosition()
+                if (newSize - 1 - lastVisibleIndex < 15) {
+                    recyclerView.post {
+                        recyclerView.scrollToPosition(newSize - 1)
                     }
+                }
+            } else if (newSize < oldSize) {
+                if (newSize == 0 && oldSize > 0) {
+                    adapter.notifyItemRangeRemoved(0, oldSize)
                 } else {
-                    // 当清空日志 (clearLogs) 或 newSize < oldSize 时全量刷新
                     adapter.notifyDataSetChanged()
                 }
             }
-        )
-    }
+        },
+        modifier = modifier
+    )
 }
-
-private data class NativeLogColors(
-    val error: Int, val warn: Int, val success: Int,
-    val info: Int, val debug: Int, val trace: Int
-)
 
 private class LogRecyclerViewAdapter(
     private val getLogLineAt: (Int) -> String,
@@ -122,13 +130,16 @@ private class LogRecyclerViewAdapter(
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): LogViewHolder {
         val textView = TextView(parent.context).apply {
             layoutParams = ViewGroup.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
             )
             typeface = Typeface.MONOSPACE
-            textSize = 13f
+            textSize = 12f
             setPadding(0, 2, 0, 2)
-            setTextIsSelectable(true) // 支持原生长按选择复制
+            setTextIsSelectable(true)
+            
+            setHorizontallyScrolling(true)
+            isSingleLine = true
         }
         return LogViewHolder(textView)
     }
@@ -142,51 +153,13 @@ private class LogRecyclerViewAdapter(
     override fun getItemCount(): Int = totalItemCount
 
     private fun determineNativeLogColor(line: String, colors: NativeLogColors): Int {
-        if (line.isEmpty()) return 0xFF888888.toInt()
-
-        val maxScanLen = minOf(line.length, 80)
-        if (line.indexOf(" E/", 0) in 0 until maxScanLen ||
-            line.indexOf(" F/", 0) in 0 until maxScanLen ||
-            line.contains("错误") || line.contains("异常") ||
-            line.contains("失败") || line.contains("🔴") ||
-            line.contains("FAIL") || line.contains("Exception") ||
-            line.contains("Error") || line.contains("Fatal")
-        ) {
-            return colors.error
+        return when {
+            line.contains("error") || line.contains("FAIL") || line.contains("[错误]") || line.contains("[FAIL]") -> colors.error
+            line.contains("warn") || line.contains("[警告]") || line.contains("[WARN]") -> colors.warn
+            line.contains("OKAY") || line.contains("[成功]") || line.contains("[OKAY]") -> colors.success
+            line.contains("info") || line.contains("[提示]") || line.contains("[INFO]") -> colors.info
+            line.contains("debug") || line.contains("[调试]") || line.contains("[DEBUG]") -> colors.debug
+            else -> colors.trace
         }
-
-        if (line.indexOf(" W/", 0) in 0 until maxScanLen ||
-            line.contains("警告") || line.contains("超时") ||
-            line.contains("TIMEOUT") || line.contains("Warn")
-        ) {
-            return colors.warn
-        }
-
-        if (line.contains("成功") || line.contains("🟢") ||
-            line.contains("Success") || line.contains("OKAY")
-        ) {
-            return colors.success
-        }
-
-        if (line.indexOf(" I/", 0) in 0 until maxScanLen ||
-            line.contains("提示") || line.contains("信息") ||
-            line.contains("INFO")
-        ) {
-            return colors.info
-        }
-
-        if (line.indexOf(" D/", 0) in 0 until maxScanLen ||
-            line.contains("debug") || line.contains("Debug")
-        ) {
-            return colors.debug
-        }
-
-        if (line.indexOf(" V/", 0) in 0 until maxScanLen ||
-            line.contains("Trace") || line.contains("Verbose")
-        ) {
-            return colors.trace
-        }
-
-        return colors.info
     }
 }
