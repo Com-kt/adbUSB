@@ -56,7 +56,6 @@ import com.flyfishxu.kadb.Kadb
 import com.flyfishxu.kadb.shell.*
 import org.json.*
 
-import android.os.*
 import androidx.annotation.*
 import androidx.activity.*
 import androidx.activity.compose.*
@@ -181,6 +180,7 @@ class MainActivity : ComponentActivity() {
     
     private var currentShellJob: Job? = null
     private var shellService: IShellService? = null
+
     @Volatile
     private var isShellServiceBound = false
 
@@ -507,10 +507,7 @@ class MainActivity : ComponentActivity() {
         keyManager = AdbKeyManager(this)
         ensureFlashDirExists()
         tryToStartService()
-        
-        val intent = Intent(this, ShellService::class.java)
-        startService(intent)
-        bindService(intent, shellServiceConnection, Context.BIND_AUTO_CREATE)
+        bindShellService()
 
         val exportFlag = ContextCompat.RECEIVER_NOT_EXPORTED
         ContextCompat.registerReceiver(this, usbPermissionReceiver, IntentFilter(ACTION_USB_PERMISSION), exportFlag)
@@ -531,7 +528,25 @@ class MainActivity : ComponentActivity() {
         inspector = RefreshRateInspector(this, this) { logText -> appendLog(logText) }
         
     }
-    
+
+    fun bindShellService() {
+        if (!isShellServiceBound) {
+            val intent = Intent(this, ShellService::class.java)
+            val bound = bindService(intent, shellServiceConnection, Context.BIND_AUTO_CREATE)
+            if (!bound) {
+                appendLog("[错误] 绑定 Shell 服务失败！")
+            }
+        }
+    }
+
+    fun unbindShellService() {
+        if (isShellServiceBound) {
+            runCatching { unbindService(shellServiceConnection) }
+            isShellServiceBound = false
+            shellService = null
+        }
+    }
+
     private fun dispatchCommandRoute(cmdInput: String) {
         val cmd = cmdInput.trim()
         if (cmd.isEmpty()) return
@@ -763,8 +778,12 @@ class MainActivity : ComponentActivity() {
     private fun handleLocalShellPipeline(cmd: String) {
         currentShellJob?.cancel()
 
-        appendLog("[系统] Shell >> $cmd")
-        var realLocalCmd = cmd
+        val rawCmd = cmd.trim()
+        if (rawCmd.isEmpty()) return
+
+        appendLog("[系统] Shell >> $rawCmd")
+
+        var realLocalCmd = rawCmd
         var requestRoot = false
 
         if (realLocalCmd == "su -c sh" || realLocalCmd == "su") {
@@ -774,81 +793,83 @@ class MainActivity : ComponentActivity() {
             realLocalCmd = realLocalCmd.removePrefix("su -c ").trim().removeSurrounding("\"", "\"")
             requestRoot = true
         } else if (realLocalCmd.startsWith("su ")) {
+            realLocalCmd = realLocalCmd.removePrefix("su ").trim()
             requestRoot = true
         }
 
         appendLog(if (requestRoot) "[Root管道] 请求身份变更执行实时流..." else "[本地管道] 开始执行流式命令...")
 
-        currentShellJob = lifecycleScope.launch(Dispatchers.IO) {
+        currentShellJob = lifecycleScope.launch {
             val shell = shellService
             if (shell != null && isShellServiceBound) {
                 var pfd: ParcelFileDescriptor? = null
-                var reader: BufferedReader? = null
 
                 try {
-                    pfd = shell.executeCommandStream(realLocalCmd, requestRoot)
+                    pfd = withContext(Dispatchers.IO) {
+                        shell.executeCommandStream(realLocalCmd, requestRoot)
+                    }
 
                     if (pfd != null) {
-                        val inputStream = ParcelFileDescriptor.AutoCloseInputStream(pfd)
-                        reader = BufferedReader(InputStreamReader(inputStream, Charsets.UTF_8), 16384)
+                        // 引入 UNLIMITED 无锁管道：生产者只管极速写入，消费者在主线程批量刷新
+                        val logChannel = Channel<String>(Channel.UNLIMITED)
 
-                        // UI 批量刷新缓冲区：避免高频单行 flush 卡死主线程
-                        val logBuffer = ArrayList<String>(128)
-                        var lastFlushTime = System.currentTimeMillis()
+                        coroutineScope {
+                            // 1. 生产者协程：IO 线程极速读流，无锁入队
+                            launch(Dispatchers.IO) {
+                                try {
+                                    ParcelFileDescriptor.AutoCloseInputStream(pfd).use { inputStream ->
+                                        BufferedReader(InputStreamReader(inputStream, Charsets.UTF_8), 32768).use { reader ->
+                                            while (isActive) {
+                                                val line = try {
+                                                    reader.readLine()
+                                                } catch (_: java.io.IOException) {
+                                                    null
+                                                } ?: break
 
-                        var line: String?
-                        while (isActive) {
-                            line = try {
-                                reader.readLine()
-                            } catch (_: java.io.IOException) {
-                                break
+                                                logChannel.send(line)
+                                            }
+                                        }
+                                    }
+                                } finally {
+                                    logChannel.close()
+                                }
                             }
 
-                            if (line == null) break
+                            // 2. 消费者协程：Main 线程批量渲染，防止卡死 UI
+                            launch(Dispatchers.Main) {
+                                val logBuffer = ArrayList<String>(128)
+                                var lastFlushTime = System.currentTimeMillis()
 
-                            logBuffer.add(line)
+                                for (line in logChannel) {
+                                    logBuffer.add(line)
 
-                            // 每 50 毫秒或积攒 100 行集中向主线程提交一次
-                            val now = System.currentTimeMillis()
-                            if (logBuffer.size >= 100 || (now - lastFlushTime >= 50)) {
-                                val chunkToFlush = ArrayList(logBuffer)
-                                logBuffer.clear()
-                                lastFlushTime = now
+                                    val now = System.currentTimeMillis()
+                                    if (logBuffer.size >= 100 || (now - lastFlushTime >= 50)) {
+                                        logBuffer.forEach { appendLog(it) }
+                                        logBuffer.clear()
+                                        lastFlushTime = now
+                                    }
+                                }
 
-                                withContext(Dispatchers.Main) {
-                                    chunkToFlush.forEach { appendLog(it) }
+                                // 刷新末尾残留日志
+                                if (logBuffer.isNotEmpty()) {
+                                    logBuffer.forEach { appendLog(it) }
+                                    logBuffer.clear()
                                 }
                             }
                         }
-
-                        // 冲刷残留日志
-                        if (logBuffer.isNotEmpty()) {
-                            val remainingChunk = ArrayList(logBuffer)
-                            logBuffer.clear()
-                            withContext(Dispatchers.Main) {
-                                remainingChunk.forEach { appendLog(it) }
-                            }
-                        }
-
                     } else {
-                        withContext(Dispatchers.Main) {
-                            appendLog("[错误] 无法建立管道连接！")
-                        }
+                        appendLog("[错误] 无法建立管道连接！")
                     }
                 } catch (e: Exception) {
                     if (isActive) {
-                        withContext(Dispatchers.Main) {
-                            appendLog("[错误] 执行异常: ${e.message}")
-                        }
+                        appendLog("[错误] 执行异常: ${e.message}")
                     }
                 } finally {
-                    runCatching { reader?.close() }
                     runCatching { pfd?.close() }
                 }
             } else {
-                withContext(Dispatchers.Main) {
-                    appendLog("[错误] 跨进程本地 Shell 服务未就绪！")
-                }
+                appendLog("[错误] 跨进程本地 Shell 服务未就绪！")
             }
         }
     }
@@ -861,11 +882,9 @@ class MainActivity : ComponentActivity() {
             return
         }
 
-        // 1. 取消协程 Job
         job.cancel()
         currentShellJob = null
 
-        // 2. 跨进程通知服务端强杀底层进程树
         lifecycleScope.launch(Dispatchers.IO + NonCancellable) {
             val shell = shellService
             if (shell != null && isShellServiceBound) {
@@ -2025,10 +2044,12 @@ class MainActivity : ComponentActivity() {
             unbindService(serviceConnection)
             isServiceBound = false
         }
-        if (isShellServiceBound) {
-            runCatching { unbindService(shellServiceConnection) }
-            isShellServiceBound = false
+        currentShellJob?.cancel()
+        currentShellJob = null
+        if (isShellServiceBound && shellService != null) {
+            runCatching { shellService?.terminateCurrentCommand() }
         }
+        unbindShellService()
         viewModel.setAdbService(null)
         super.onDestroy()
         readerJob?.cancel()

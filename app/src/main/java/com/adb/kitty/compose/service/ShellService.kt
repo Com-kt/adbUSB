@@ -20,17 +20,20 @@ import android.os.Environment
 import android.os.IBinder
 import android.os.ParcelFileDescriptor
 import android.os.Process
-import androidx.collection.MutableIntList
-import androidx.collection.MutableObjectList
-import androidx.collection.mutableIntListOf
-import androidx.collection.mutableObjectListOf
+import android.system.Os
+import android.system.OsConstants
 import androidx.core.app.NotificationCompat
-import java.io.*
+import java.io.DataOutputStream
+import java.io.File
+import java.io.InputStream
+import java.io.OutputStream
+import java.io.OutputStreamWriter
 import java.lang.reflect.Field
-import java.util.concurrent.ArrayBlockingQueue
-import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.concurrent.thread
+import kotlinx.coroutines.channels.Channel
 
 class ShellService : Service() {
 
@@ -38,6 +41,9 @@ class ShellService : Service() {
 
     @Volatile
     private var currentProcess: java.lang.Process? = null
+
+    @Volatile
+    private var currentTaskKey: String? = null
 
     private val binder = object : IShellService.Stub() {
         override fun executeCommandStream(cmd: String, useRoot: Boolean): ParcelFileDescriptor {
@@ -56,14 +62,14 @@ class ShellService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         promoteToForeground()
-        return START_STICKY
+        return START_NOT_STICKY
     }
 
     override fun onBind(intent: Intent?): IBinder = binder
 
     override fun onUnbind(intent: Intent?): Boolean {
         terminateCurrentCommandInternal()
-        return super.onUnbind(intent)
+        return false
     }
 
     override fun onDestroy() {
@@ -82,7 +88,7 @@ class ShellService : Service() {
         val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val groupName = getString(R.string.action_service_aaf)
+            val groupName = runCatching { getString(R.string.action_service_aaf) }
             val channelGroup = NotificationChannelGroup(GROUP_ID, groupName)
             notificationManager.createNotificationChannelGroup(channelGroup)
 
@@ -121,13 +127,17 @@ class ShellService : Service() {
     }
 
     private fun performLocalShellPipeline(cmd: String, useRoot: Boolean): ParcelFileDescriptor {
+        // 先清理上一条可能残留的任务
         terminateCurrentCommandInternal()
+
+        val taskKey = "TASK_${System.currentTimeMillis()}_${(1000..9999).random()}"
 
         val pipe = ParcelFileDescriptor.createPipe()
         val readSide = pipe[0]
         val writeSide = pipe[1]
 
         val cwdSnapshot = synchronized(this) {
+            currentTaskKey = taskKey
             if (cmd == "cd" || cmd.startsWith("cd ")) {
                 val cdResult = handleCdCommand(cmd)
                 writeDirectMessageToPipe(writeSide, cdResult)
@@ -142,16 +152,26 @@ class ShellService : Service() {
 
             try {
                 val safeCmd = sanitizeCommand(cmd)
+
                 val builder = if (useRoot || safeCmd.startsWith("su")) {
                     val baseSuCmd = if (safeCmd.contains(" -c ")) safeCmd.substringBefore(" -c ") else safeCmd
                     val args = parseCommandLine(baseSuCmd.ifBlank { "su" })
-                    if (useRoot && !args.contains("su")) ProcessBuilder("su") else ProcessBuilder(args)
+
+                    if (useRoot && !args.contains("su")) {
+                        ProcessBuilder("su")
+                    } else {
+                        ProcessBuilder(args)
+                    }
                 } else {
                     ProcessBuilder("sh")
                 }
 
                 builder.redirectErrorStream(true)
-                builder.environment().putAll(System.getenv())
+
+                val envMap = builder.environment()
+                envMap.putAll(System.getenv())
+                envMap["SHELL_TASK_KEY"] = taskKey
+
                 builder.directory(cwdSnapshot)
 
                 process = builder.start()
@@ -160,32 +180,38 @@ class ShellService : Service() {
                 }
 
                 os = DataOutputStream(process.outputStream)
+
                 val realExecutionCmd = when {
-                    safeCmd.contains(" -c ") -> safeCmd.substringAfter(" -c ").trim('\'', '"', ' ', '\u00A0')
-                    safeCmd == "su" || safeCmd.startsWith("su ") -> "id"
+                    safeCmd.contains(" -c ") -> {
+                        safeCmd.substringAfter(" -c ").trim {
+                            it == '\'' || it == '"' || it.isWhitespace() || it.code == 160
+                        }
+                    }
+                    safeCmd == "su" || safeCmd.startsWith("su ") -> {
+                        "id"
+                    }
                     else -> safeCmd
                 }
 
-                os.writeBytes("$realExecutionCmd\n")
+                val taggedCmd = "export SHELL_TASK_KEY='$taskKey'; $realExecutionCmd"
+
+                os.writeBytes("$taggedCmd\n")
                 os.writeBytes("exit\n")
                 os.flush()
 
-                // 启动抗压双线程字节抽吸
+                val activeProcess = process
                 startAntiStallPump(
-                    processInputStream = process.inputStream,
-                    ipcOutputStream = ParcelFileDescriptor.AutoCloseOutputStream(writeSide)
-                )
-
-                val exitCode = process.waitFor()
-                
-                // 拼接进程结束提示
-                runCatching {
-                    val exitMsg = "\n[进程结束，状态码: $exitCode]\n".toByteArray(Charsets.UTF_8)
-                    ParcelFileDescriptor.AutoCloseOutputStream(writeSide).use { 
-                        it.write(exitMsg)
-                        it.flush()
+                    processInputStream = activeProcess.inputStream,
+                    ipcOutputStream = ParcelFileDescriptor.AutoCloseOutputStream(writeSide),
+                    onPumpComplete = { stream ->
+                        val exitCode = runCatching { activeProcess.waitFor() }.getOrDefault(-1)
+                        val exitMsg = "\n[进程结束，状态码: $exitCode]\n".toByteArray(Charsets.UTF_8)
+                        runCatching {
+                            stream.write(exitMsg)
+                            stream.flush()
+                        }
                     }
-                }
+                )
 
             } catch (e: Exception) {
                 runCatching {
@@ -204,9 +230,12 @@ class ShellService : Service() {
                     if (currentProcess == process) {
                         currentProcess = null
                     }
+                    if (currentTaskKey == taskKey) {
+                        currentTaskKey = null
+                    }
                 }
                 runCatching { os?.close() }
-                process?.let { killProcessTree(it) }
+                process?.let { killProcessTree(it, taskKey) }
             }
         }
 
@@ -215,48 +244,44 @@ class ShellService : Service() {
 
     private fun startAntiStallPump(
         processInputStream: InputStream,
-        ipcOutputStream: OutputStream
+        ipcOutputStream: OutputStream,
+        onPumpComplete: (OutputStream) -> Unit
     ) {
         Process.setThreadPriority(Process.THREAD_PRIORITY_URGENT_AUDIO)
 
-        val byteChunkQueue = ArrayBlockingQueue<ByteArray>(128)
-        val isProcessFinished = AtomicBoolean(false)
+        // 使用 Channel.UNLIMITED 无锁队列作为内存缓冲桥梁
+        val channel = Channel<ByteArray>(Channel.UNLIMITED)
 
-        val drainThread = Thread({
+        // 1. NativePipeDrainer：非阻塞从底层进程 stdout 读取 Raw 字节流并送入无锁 Channel
+        thread(name = "NativePipeDrainer") {
             val rawBuffer = ByteArray(32768)
             try {
                 var bytesRead: Int
                 while (processInputStream.read(rawBuffer).also { bytesRead = it } != -1) {
                     val chunk = rawBuffer.copyOf(bytesRead)
-                    if (!byteChunkQueue.offer(chunk)) {
-                        byteChunkQueue.poll()
-                        byteChunkQueue.offer(chunk)
-                    }
+                    channel.trySend(chunk) // 无锁极速入队
                 }
             } catch (_: Exception) {
             } finally {
-                isProcessFinished.set(true)
+                channel.close()
             }
-        }, "NativePipeDrainer")
+        }
 
-        drainThread.start()
-
-        val ipcWriterThread = Thread({
+        // 2. IpcStreamWriter：从 Channel 读取数据并写入跨进程 ParcelFileDescriptor 管道
+        thread(name = "IpcStreamWriter") {
             try {
-                while (!isProcessFinished.get() || byteChunkQueue.isNotEmpty()) {
-                    val chunk = byteChunkQueue.poll(100, TimeUnit.MILLISECONDS)
-                    if (chunk != null) {
+                runBlocking {
+                    for (chunk in channel) {
                         ipcOutputStream.write(chunk)
                         ipcOutputStream.flush()
                     }
                 }
+                onPumpComplete(ipcOutputStream)
             } catch (_: Exception) {
             } finally {
                 runCatching { ipcOutputStream.close() }
             }
-        }, "IpcStreamWriter")
-
-        ipcWriterThread.start()
+        }
     }
 
     private fun sanitizeCommand(cmd: String): String {
@@ -272,28 +297,36 @@ class ShellService : Service() {
         return processedCmd
     }
 
-    private fun killProcessTree(proc: java.lang.Process?) {
+    private fun killProcessTree(proc: java.lang.Process?, taskKey: String? = null) {
         proc ?: return
         runCatching {
+            if (!taskKey.isNullOrEmpty()) {
+                runCatching {
+                    Runtime.getRuntime().exec(arrayOf("sh", "-c", "pkill -9 -f '$taskKey'"))
+                }
+            }
+
             if (proc.isAliveCompat()) {
                 val pid = getProcessPid(proc)
-                if (pid > 0) {
-                    runCatching { Runtime.getRuntime().exec("pkill -P $pid") }
+                if (pid > 1000) {
+                    runCatching { Runtime.getRuntime().exec(arrayOf("sh", "-c", "pkill -9 -P $pid")) }
+                    runCatching { Os.kill(pid, OsConstants.SIGKILL) }
+                } else {
+                    proc.destroyForciblyCompat()
                 }
-                proc.destroyForciblyCompat()
             }
         }
     }
 
     private fun getProcessPid(proc: java.lang.Process): Int {
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            runCatching { proc.pid().toInt() }.getOrDefault(-1)
-        } else {
-            runCatching {
-                val field: Field = proc.javaClass.getDeclaredField("pid")
-                field.isAccessible = true
-                field.getInt(proc)
-            }.getOrDefault(-1)
+        return runCatching {
+            val field: Field = proc.javaClass.getDeclaredField("pid")
+            field.isAccessible = true
+            field.getInt(proc)
+        }.getOrElse {
+            val procStr = proc.toString()
+            val pidMatch = Regex("pid=(\\d+)").find(procStr)
+            pidMatch?.groupValues?.get(1)?.toIntOrNull() ?: -1
         }
     }
 
@@ -320,8 +353,17 @@ class ShellService : Service() {
 
     private fun terminateCurrentCommandInternal() {
         synchronized(this@ShellService) {
+            val key = currentTaskKey
+            currentTaskKey = null
+
+            if (!key.isNullOrEmpty()) {
+                runCatching {
+                    Runtime.getRuntime().exec(arrayOf("sh", "-c", "pkill -9 -f '$key'"))
+                }
+            }
+
             currentProcess?.let { proc ->
-                killProcessTree(proc)
+                killProcessTree(proc, key)
                 currentProcess = null
             }
         }
@@ -365,34 +407,25 @@ class ShellService : Service() {
     }
 
     private fun parseCommandLine(cmd: String): List<String> {
-        val tokens: MutableObjectList<String> = mutableObjectListOf()
-        val charBuf: MutableIntList = mutableIntListOf()
+        val tokens = mutableListOf<String>()
+        val sb = StringBuilder()
         var inQuotes = false
 
-        for (i in 0 until cmd.length) {
-            val ch = cmd[i]
-            if (ch == '\"' || ch == '\'') {
+        for (ch in cmd.toCharArray()) {
+            if (ch == '"' || ch == '\'') {
                 inQuotes = !inQuotes
             } else if (ch == ' ' && !inQuotes) {
-                if (charBuf.isNotEmpty()) {
-                    tokens.add(charBufToString(charBuf))
-                    charBuf.clear()
+                if (sb.isNotEmpty()) {
+                    tokens.add(sb.toString())
+                    sb.setLength(0)
                 }
             } else {
-                charBuf.add(ch.code)
+                sb.append(ch)
             }
         }
-        if (charBuf.isNotEmpty()) {
-            tokens.add(charBufToString(charBuf))
+        if (sb.isNotEmpty()) {
+            tokens.add(sb.toString())
         }
-        return tokens.asList()
-    }
-
-    private fun charBufToString(buf: MutableIntList): String {
-        val chars = CharArray(buf.size)
-        for (i in 0 until buf.size) {
-            chars[i] = buf[i].toChar()
-        }
-        return String(chars)
+        return tokens
     }
 }
