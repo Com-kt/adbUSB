@@ -28,6 +28,7 @@ import androidx.core.app.NotificationCompat
 import java.io.*
 import java.lang.reflect.Field
 import java.util.concurrent.ArrayBlockingQueue
+import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.TimeUnit
 import kotlin.concurrent.thread
 
@@ -212,9 +213,6 @@ class ShellService : Service() {
         return readSide
     }
 
-    /**
-     * 抗压双线程 Pump：保证写端与 IPC 解耦，防止管道卡死
-     */
     private fun startAntiStallPump(
         processInputStream: InputStream,
         ipcOutputStream: OutputStream
@@ -222,7 +220,7 @@ class ShellService : Service() {
         Process.setThreadPriority(Process.THREAD_PRIORITY_URGENT_AUDIO)
 
         val byteChunkQueue = ArrayBlockingQueue<ByteArray>(128)
-        @Volatile var isProcessFinished = false
+        val isProcessFinished = AtomicBoolean(false)
 
         val drainThread = Thread({
             val rawBuffer = ByteArray(32768)
@@ -237,7 +235,7 @@ class ShellService : Service() {
                 }
             } catch (_: Exception) {
             } finally {
-                isProcessFinished = true
+                isProcessFinished.set(true)
             }
         }, "NativePipeDrainer")
 
@@ -245,7 +243,7 @@ class ShellService : Service() {
 
         val ipcWriterThread = Thread({
             try {
-                while (!isProcessFinished || byteChunkQueue.isNotEmpty()) {
+                while (!isProcessFinished.get() || byteChunkQueue.isNotEmpty()) {
                     val chunk = byteChunkQueue.poll(100, TimeUnit.MILLISECONDS)
                     if (chunk != null) {
                         ipcOutputStream.write(chunk)
