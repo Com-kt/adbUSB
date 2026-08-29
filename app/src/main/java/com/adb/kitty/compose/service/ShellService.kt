@@ -88,7 +88,7 @@ class ShellService : Service() {
         val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val groupName = runCatching { getString(R.string.action_service_aaf) }
+            val groupName = getString(R.string.action_service_aaf)
             val channelGroup = NotificationChannelGroup(GROUP_ID, groupName)
             notificationManager.createNotificationChannelGroup(channelGroup)
 
