@@ -11,6 +11,7 @@ import com.adb.kitty.compose.R
 import android.graphics.Typeface
 import android.view.ViewGroup
 import android.widget.TextView
+import android.annotation.SuppressLint
 import androidx.annotation.Keep
 import androidx.compose.foundation.border
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -29,6 +30,7 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.Flow
 
 @Keep
+@SuppressLint("NotifyDataSetChanged")
 @Composable
 fun LogSection(
     getLogCount: () -> Int,
