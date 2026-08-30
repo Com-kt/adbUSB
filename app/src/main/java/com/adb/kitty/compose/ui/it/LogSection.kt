@@ -14,9 +14,12 @@ import android.view.ViewGroup
 import android.widget.HorizontalScrollView
 import android.widget.TextView
 import androidx.annotation.Keep
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.text.PrecomputedTextCompat
 import androidx.core.text.buildSpannedString
@@ -24,15 +27,15 @@ import androidx.core.widget.NestedScrollView
 import androidx.core.widget.TextViewCompat
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.sample
 import kotlinx.coroutines.withContext
+import kotlin.time.Duration.Companion.milliseconds
 
 @Keep
 private class LogContainerView(context: Context) : NestedScrollView(context) {
     val horizontalScrollView = HorizontalScrollView(context)
     val textView = TextView(context)
     var lastRenderedCount = 0
-
-    // 控制是否开启自动追尾滚动
     var isAutoScrollEnabled = true
 
     init {
@@ -62,11 +65,17 @@ private class LogContainerView(context: Context) : NestedScrollView(context) {
         horizontalScrollView.addView(textView)
         addView(horizontalScrollView)
 
-        // NestedScrollView 滑动监听：精准捕捉滑动距离与底部追尾状态
         setOnScrollChangeListener { _, _, scrollY, _, _ ->
             val contentHeight = getChildAt(0)?.height ?: 0
             val maxScrollY = (contentHeight - height).coerceAtLeast(0)
             isAutoScrollEnabled = (maxScrollY - scrollY) <= 30
+        }
+    }
+
+    // 显式更新文字颜色（防止变灰色）
+    fun setLogTextColor(colorInt: Int) {
+        if (textView.currentTextColor != colorInt) {
+            textView.setTextColor(colorInt)
         }
     }
 
@@ -104,44 +113,47 @@ fun LogSection(
 ) {
     var containerView by remember { mutableStateOf<LogContainerView?>(null) }
 
+    // 主题深暗色切换：浅色模式下使用加深纯黑 #111111，深色模式下使用 #EEEEEE
+    val isDark = isSystemInDarkTheme()
+    val logTextColor = remember(isDark) {
+        if (isDark) Color(0xFFEEEEEE).toArgb() else Color(0xFF111111).toArgb()
+    }
+
     LaunchedEffect(logUpdateFlow, containerView) {
         val view = containerView ?: return@LaunchedEffect
 
-        logUpdateFlow.collect {
-            val totalCount = getLogCount()
-            val lastRendered = view.lastRenderedCount
+        logUpdateFlow
+            .sample(8.milliseconds)
+            .collect {
+                val totalCount = getLogCount()
+                val lastRendered = view.lastRenderedCount
 
-            if (totalCount < lastRendered) {
-                withContext(Dispatchers.Main) {
-                    view.clearLogs()
-                }
-            }
-
-            if (totalCount > lastRendered) {
-                // 1. 主线程获取当前 TextView 测量参数
-                val params = withContext(Dispatchers.Main) {
-                    view.getTextMetricsParams()
-                }
-
-                // 2. 在 Dispatchers.Default 后台子线程中完成：纯文本拼接 + 耗时预排版
-                val precomputedText = withContext(Dispatchers.Default) {
-                    val spanned = buildSpannedString {
-                        for (i in lastRendered until totalCount) {
-                            if (i > 0) {
-                                append("\n")
-                            }
-                            append(getLogLineAt(i))
-                        }
+                if (totalCount < lastRendered) {
+                    withContext(Dispatchers.Main) {
+                        view.clearLogs()
                     }
-                    PrecomputedTextCompat.create(spanned, params)
                 }
 
-                // 3. 切回 Main 线程挂载渲染结果
-                withContext(Dispatchers.Main) {
-                    view.appendPrecomputedText(precomputedText, totalCount)
+                if (totalCount > lastRendered) {
+                    val params = withContext(Dispatchers.Main) {
+                        view.getTextMetricsParams()
+                    }
+
+                    val precomputedText = withContext(Dispatchers.Default) {
+                        val spanned = buildSpannedString {
+                            for (i in lastRendered until totalCount) {
+                                if (i > 0) append("\n")
+                                append(getLogLineAt(i))
+                            }
+                        }
+                        PrecomputedTextCompat.create(spanned, params)
+                    }
+
+                    withContext(Dispatchers.Main) {
+                        view.appendPrecomputedText(precomputedText, totalCount)
+                    }
                 }
             }
-        }
     }
 
     AndroidView(
@@ -150,7 +162,10 @@ fun LogSection(
                 containerView = it
             }
         },
-        update = { /* 由 LaunchedEffect 驱动更新 */ },
+        update = { view ->
+            // 实时确保文本色彩纯正
+            view.setLogTextColor(logTextColor)
+        },
         modifier = modifier.clipToBounds()
     )
 }

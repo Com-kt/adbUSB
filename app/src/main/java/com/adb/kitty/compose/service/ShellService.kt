@@ -25,6 +25,7 @@ import android.system.OsConstants
 import androidx.core.app.NotificationCompat
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.runBlocking
+import java.io.ByteArrayOutputStream
 import java.io.DataOutputStream
 import java.io.File
 import java.io.InputStream
@@ -267,12 +268,38 @@ class ShellService : Service() {
         val ipcWriterThread = Thread({
             try {
                 runBlocking {
+                    val batchBuffer = ByteArrayOutputStream()
+                    var lastFlushTime = System.currentTimeMillis()
+
                     for (chunk in channel) {
-                        ipcOutputStream.write(chunk)
-                        ipcOutputStream.flush()
+                        batchBuffer.write(chunk)
+
+                        // 耗尽 Channel 中当前所有已存入的碎片数据
+                        while (true) {
+                            val nextChunk = channel.tryReceive().getOrNull() ?: break
+                            batchBuffer.write(nextChunk)
+                            if (batchBuffer.size() >= 65536) break
+                        }
+
+                        val now = System.currentTimeMillis()
+                        // 限流阈值：达到 ~8ms (120 FPS 频率) 或 缓冲区存满 64KB 或 管道空闲时批量刷入 IPC
+                        if (now - lastFlushTime >= 8 || batchBuffer.size() >= 65536 || channel.isEmpty) {
+                            batchBuffer.writeTo(ipcOutputStream)
+                            ipcOutputStream.flush()
+                            batchBuffer.reset()
+                            lastFlushTime = now
+                        }
                     }
+
+                    // 写入末尾剩余字节
+                    if (batchBuffer.size() > 0) {
+                        batchBuffer.writeTo(ipcOutputStream)
+                        ipcOutputStream.flush()
+                        batchBuffer.reset()
+                    }
+
+                    onPumpComplete(ipcOutputStream)
                 }
-                onPumpComplete(ipcOutputStream)
             } catch (_: Exception) {
             } finally {
                 runCatching { ipcOutputStream.close() }

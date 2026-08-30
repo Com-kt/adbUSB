@@ -797,7 +797,7 @@ class MainActivity : ComponentActivity() {
             appendLog("[提示] 当前系统级别低于 API 36，不支持高级保护模式。")
         }
     }
-    
+
     private fun handleLocalShellPipeline(cmd: String) {
         currentShellJob?.cancel()
 
@@ -833,15 +833,16 @@ class MainActivity : ComponentActivity() {
                     }
 
                     if (pfd != null) {
-                        // 引入 UNLIMITED 无锁管道：生产者只管极速写入，消费者在主线程批量刷新
-                        val logChannel = Channel<String>(Channel.UNLIMITED)
+                        val logChannel = Channel<List<String>>(Channel.UNLIMITED)
 
                         coroutineScope {
-                            // 1. 生产者协程：IO 线程极速读流，无锁入队
                             launch(Dispatchers.IO) {
                                 try {
                                     ParcelFileDescriptor.AutoCloseInputStream(pfd).use { inputStream ->
                                         BufferedReader(InputStreamReader(inputStream, Charsets.UTF_8), 32768).use { reader ->
+                                            val chunkBuffer = ArrayList<String>(128)
+                                            var lastChunkTime = System.currentTimeMillis()
+
                                             while (isActive) {
                                                 val line = try {
                                                     reader.readLine()
@@ -849,7 +850,19 @@ class MainActivity : ComponentActivity() {
                                                     null
                                                 } ?: break
 
-                                                logChannel.send(line)
+                                                chunkBuffer.add(line)
+                                                val now = System.currentTimeMillis()
+
+                                                if (chunkBuffer.size >= 100 || (now - lastChunkTime >= 8)) {
+                                                    logChannel.send(ArrayList(chunkBuffer))
+                                                    chunkBuffer.clear()
+                                                    lastChunkTime = now
+                                                }
+                                            }
+
+                                            if (chunkBuffer.isNotEmpty()) {
+                                                logChannel.send(ArrayList(chunkBuffer))
+                                                chunkBuffer.clear()
                                             }
                                         }
                                     }
@@ -858,26 +871,24 @@ class MainActivity : ComponentActivity() {
                                 }
                             }
 
-                            // 2. 消费者协程：Main 线程批量渲染，防止卡死 UI
                             launch(Dispatchers.Main) {
-                                val logBuffer = ArrayList<String>(128)
+                                val mainBuffer = ArrayList<String>(256)
                                 var lastFlushTime = System.currentTimeMillis()
 
-                                for (line in logChannel) {
-                                    logBuffer.add(line)
+                                for (batch in logChannel) {
+                                    mainBuffer.addAll(batch)
 
                                     val now = System.currentTimeMillis()
-                                    if (logBuffer.size >= 100 || (now - lastFlushTime >= 50)) {
-                                        logBuffer.forEach { appendLog(it) }
-                                        logBuffer.clear()
+                                    if (mainBuffer.size >= 200 || (now - lastFlushTime >= 8)) {
+                                        mainBuffer.forEach { appendLog(it) }
+                                        mainBuffer.clear()
                                         lastFlushTime = now
                                     }
                                 }
 
-                                // 刷新末尾残留日志
-                                if (logBuffer.isNotEmpty()) {
-                                    logBuffer.forEach { appendLog(it) }
-                                    logBuffer.clear()
+                                if (mainBuffer.isNotEmpty()) {
+                                    mainBuffer.forEach { appendLog(it) }
+                                    mainBuffer.clear()
                                 }
                             }
                         }
