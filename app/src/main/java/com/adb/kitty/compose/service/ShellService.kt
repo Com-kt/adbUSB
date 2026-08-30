@@ -33,6 +33,7 @@ import java.io.OutputStream
 import java.io.OutputStreamWriter
 import java.lang.reflect.Field
 import kotlin.concurrent.thread
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 
 class ShellService : Service() {
 
@@ -240,6 +241,7 @@ class ShellService : Service() {
         return readSide
     }
 
+    @OptIn(ExperimentalCoroutinesApi::class)
     private fun startAntiStallPump(
         processInputStream: InputStream,
         ipcOutputStream: OutputStream,

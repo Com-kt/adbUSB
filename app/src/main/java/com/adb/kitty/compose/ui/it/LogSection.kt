@@ -29,6 +29,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.sample
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.FlowPreview
 import kotlin.time.Duration.Companion.milliseconds
 
 @Keep
@@ -103,6 +104,7 @@ private class LogContainerView(context: Context) : NestedScrollView(context) {
     }
 }
 
+@OptIn(FlowPreview::class)
 @Keep
 @Composable
 fun LogSection(
