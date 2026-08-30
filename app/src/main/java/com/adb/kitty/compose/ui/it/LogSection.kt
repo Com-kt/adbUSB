@@ -52,7 +52,6 @@ private class LogContainerView(context: Context) : ScrollView(context) {
     val horizontalScrollView = HorizontalScrollView(context)
     val textView = TextView(context)
     
-    // 异步数据源的回调缓存
     private var currentScope: CoroutineScope? = null
     private var currentGetLogLineAt: ((Int) -> String)? = null
     private var currentColors: NativeLogColors? = null
@@ -62,10 +61,9 @@ private class LogContainerView(context: Context) : ScrollView(context) {
     private var windowEndIdx = 0
     private var isRendering = false
 
-    // 🌟 滑动窗口核心配置（保证海量数据不崩溃、不卡顿、可无限加载）
-    private val maxWindowSize = 15000       // TextView中同时容纳的最大日志行数
-    private val scrollBufferTrigger = 600   // 距离顶部多少像素时触发向上无缝加载历史日志
-    private val pageChunkSize = 2500        // 每次向上滚动时，往前追加的历史日志行数
+    private val maxWindowSize = 15000
+    private val scrollBufferTrigger = 600
+    private val pageChunkSize = 2500
 
     init {
         layoutParams = ViewGroup.LayoutParams(
@@ -89,15 +87,13 @@ private class LogContainerView(context: Context) : ScrollView(context) {
             typeface = Typeface.MONOSPACE
             textSize = 12f
             setPadding(16, 16, 16, 16)
-            setTextIsSelectable(true) // 保留核心功能：原生长按跨行自由框选复制
+            setTextIsSelectable(true)
 
             // 🌟 核心优化 1：彻底打破16384px的GPU纹理限制，让海量文本使用系统内存渲染，永不崩溃
             setLayerType(View.LAYER_TYPE_SOFTWARE, null) 
             
-            // 核心优化 2：关闭高耗能的现代折行排版引擎
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                hyphenationFrequency = Layout.HYPHENATION_FREQUENCY_NONE
-            }
+            hyphenationFrequency = Layout.HYPHENATION_FREQUENCY_NONE
+
             includeFontPadding = false
         }
 
