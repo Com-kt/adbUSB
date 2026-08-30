@@ -66,21 +66,18 @@ private class LogContainerView(context: Context) : ScrollView(context) {
     private val pageChunkSize = 2500        
 
     init {
-        // 1. Force the root ScrollView to occupy the full parent space allocated by Compose weight
         layoutParams = ViewGroup.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
             ViewGroup.LayoutParams.MATCH_PARENT
         )
-        isFillViewport = true // CRITICAL: Forces inner children to stretch to container height
+        isFillViewport = true 
         descendantFocusability = ViewGroup.FOCUS_BEFORE_DESCENDANTS
 
-        // 2. 🌟 FIX BLANK SCREEN: Change height from WRAP_CONTENT to MATCH_PARENT
-        // This ensures the horizontal container takes up the full space provided by the root ScrollView
         horizontalScrollView.layoutParams = ViewGroup.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
             ViewGroup.LayoutParams.MATCH_PARENT
         )
-        horizontalScrollView.isFillViewport = true // CRITICAL: Forces TextView to fill width correctly
+        horizontalScrollView.isFillViewport = true 
 
         textView.apply {
             layoutParams = ViewGroup.LayoutParams(
@@ -93,7 +90,6 @@ private class LogContainerView(context: Context) : ScrollView(context) {
             setTextIsSelectable(true) 
 
             setLayerType(View.LAYER_TYPE_SOFTWARE, null) 
-            
             hyphenationFrequency = Layout.HYPHENATION_FREQUENCY_NONE
             includeFontPadding = false
         }
@@ -121,12 +117,20 @@ private class LogContainerView(context: Context) : ScrollView(context) {
             return
         }
 
+        // 🌟 FIX BLANK BUG 1: If TextView isn't laid out yet, defer initialization using a view post loop
+        if (!textView.isLaidOut) {
+            windowStartIdx = (totalCount - maxWindowSize).coerceAtLeast(0)
+            windowEndIdx = totalCount
+            
+            // Render directly on the UI thread for the very first frame to establish structural bounds safely
+            renderFirstFrameDirectly(getLogLineAt, colors)
+            return
+        }
+
         val viewScrollBoundsHeight = height
         val currentMaxScrollY = (textView.height - viewScrollBoundsHeight).coerceAtLeast(0)
         val isUserAtBottom = scrollY >= currentMaxScrollY - 600 || scrollY == 0
 
-        // 🌟 FIX UNRENDERED INITIAL BLANK TEXT: 
-        // If the window indices have never been initialized (both are 0), force the window to match the data stream range immediately
         if (windowStartIdx == 0 && windowEndIdx == 0 && totalCount > 0) {
             windowStartIdx = (totalCount - maxWindowSize).coerceAtLeast(0)
             windowEndIdx = totalCount
@@ -145,11 +149,47 @@ private class LogContainerView(context: Context) : ScrollView(context) {
         }
     }
 
+    // 🌟 FIX BLANK BUG 2: Safe synchronous builder fallback exclusively for the initial logcat burst frame
+    private fun renderFirstFrameDirectly(getLogLineAt: (Int) -> String, colors: NativeLogColors) {
+        val firstFrameBuilder = SpannableStringBuilder()
+        val start = windowStartIdx
+        val end = windowEndIdx
+
+        for (i in start until end) {
+            if (firstFrameBuilder.isNotEmpty()) {
+                firstFrameBuilder.append("\n")
+            }
+            val line = getLogLineAt(i)
+            val lineStart = firstFrameBuilder.length
+            firstFrameBuilder.append(line)
+            val lineEnd = firstFrameBuilder.length
+
+            val color = determineNativeLogColor(line, colors)
+            firstFrameBuilder.setSpan(
+                ForegroundColorSpan(color),
+                lineStart,
+                lineEnd,
+                Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+            )
+        }
+        
+        // Apply directly without PrecomputedText to give the layout system its initial dimensions
+        textView.text = firstFrameBuilder
+        
+        post {
+            val maxScrollY = (textView.height - height).coerceAtLeast(0)
+            scrollTo(scrollX, maxScrollY)
+        }
+    }
+
     private fun renderActiveWindow(isScrollUpAction: Boolean) {
         val scope = currentScope ?: return
         val getLogLineAt = currentGetLogLineAt ?: return
         val colors = currentColors ?: return
         if (isRendering) return
+
+        // Extra layer of protection: do not allow background measuring if view layout is corrupted
+        if (!textView.isLaidOut) return
 
         isRendering = true
         val metricsParams = TextViewCompat.getTextMetricsParams(textView)
