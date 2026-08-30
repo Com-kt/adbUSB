@@ -10,8 +10,6 @@ import com.adb.kitty.compose.R
 
 import android.content.Context
 import android.graphics.Typeface
-import android.os.Build
-import android.text.Layout
 import android.text.SpannableStringBuilder
 import android.text.Spanned
 import android.text.style.ForegroundColorSpan
@@ -28,8 +26,6 @@ import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.core.text.PrecomputedTextCompat
-import androidx.core.widget.TextViewCompat
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -56,14 +52,13 @@ private class LogContainerView(context: Context) : ScrollView(context) {
     private var currentGetLogLineAt: ((Int) -> String)? = null
     private var currentColors: NativeLogColors? = null
 
-    private var totalAvailableLogs = 0
     private var windowStartIdx = 0
     private var windowEndIdx = 0
     private var isRendering = false
 
-    private val maxWindowSize = 15000       
-    private val scrollBufferTrigger = 600   
-    private val pageChunkSize = 2500        
+    private val maxWindowSize = 8000
+    private val scrollBufferTrigger = 400   
+    private val pageChunkSize = 2000        
 
     init {
         layoutParams = ViewGroup.LayoutParams(
@@ -71,26 +66,24 @@ private class LogContainerView(context: Context) : ScrollView(context) {
             ViewGroup.LayoutParams.MATCH_PARENT
         )
         isFillViewport = true 
-        descendantFocusability = ViewGroup.FOCUS_BEFORE_DESCENDANTS
 
         horizontalScrollView.layoutParams = ViewGroup.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
             ViewGroup.LayoutParams.MATCH_PARENT
         )
-        horizontalScrollView.isFillViewport = true 
+        horizontalScrollView.isFillViewport = false 
 
         textView.apply {
             layoutParams = ViewGroup.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
             )
             typeface = Typeface.MONOSPACE
             textSize = 12f
-            setPadding(16, 16, 16, 16)
-            setTextIsSelectable(true) 
+            setPadding(24, 24, 24, 24)
+            setTextIsSelectable(true)
 
             setLayerType(View.LAYER_TYPE_SOFTWARE, null) 
-            hyphenationFrequency = Layout.HYPHENATION_FREQUENCY_NONE
             includeFontPadding = false
         }
 
@@ -107,9 +100,8 @@ private class LogContainerView(context: Context) : ScrollView(context) {
         this.currentScope = scope
         this.currentGetLogLineAt = getLogLineAt
         this.currentColors = colors
-        this.totalAvailableLogs = totalCount
         
-        if (totalCount == 0 || totalCount < windowEndIdx) {
+        if (totalCount == 0) {
             windowStartIdx = 0
             windowEndIdx = 0
             textView.text = ""
@@ -117,18 +109,9 @@ private class LogContainerView(context: Context) : ScrollView(context) {
             return
         }
 
-        // 🌟 FIX BLANK BUG 1: If TextView isn't laid out yet, defer initialization using a view post loop
-        if (!textView.isLaidOut) {
-            windowStartIdx = (totalCount - maxWindowSize).coerceAtLeast(0)
-            windowEndIdx = totalCount
-            
-            // Render directly on the UI thread for the very first frame to establish structural bounds safely
-            renderFirstFrameDirectly(getLogLineAt, colors)
-            return
-        }
-
         val viewScrollBoundsHeight = height
         val currentMaxScrollY = (textView.height - viewScrollBoundsHeight).coerceAtLeast(0)
+        
         val isUserAtBottom = scrollY >= currentMaxScrollY - 600 || scrollY == 0
 
         if (windowStartIdx == 0 && windowEndIdx == 0 && totalCount > 0) {
@@ -149,50 +132,13 @@ private class LogContainerView(context: Context) : ScrollView(context) {
         }
     }
 
-    // 🌟 FIX BLANK BUG 2: Safe synchronous builder fallback exclusively for the initial logcat burst frame
-    private fun renderFirstFrameDirectly(getLogLineAt: (Int) -> String, colors: NativeLogColors) {
-        val firstFrameBuilder = SpannableStringBuilder()
-        val start = windowStartIdx
-        val end = windowEndIdx
-
-        for (i in start until end) {
-            if (firstFrameBuilder.isNotEmpty()) {
-                firstFrameBuilder.append("\n")
-            }
-            val line = getLogLineAt(i)
-            val lineStart = firstFrameBuilder.length
-            firstFrameBuilder.append(line)
-            val lineEnd = firstFrameBuilder.length
-
-            val color = determineNativeLogColor(line, colors)
-            firstFrameBuilder.setSpan(
-                ForegroundColorSpan(color),
-                lineStart,
-                lineEnd,
-                Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
-            )
-        }
-        
-        // Apply directly without PrecomputedText to give the layout system its initial dimensions
-        textView.text = firstFrameBuilder
-        
-        post {
-            val maxScrollY = (textView.height - height).coerceAtLeast(0)
-            scrollTo(scrollX, maxScrollY)
-        }
-    }
-
     private fun renderActiveWindow(isScrollUpAction: Boolean) {
         val scope = currentScope ?: return
         val getLogLineAt = currentGetLogLineAt ?: return
         val colors = currentColors ?: return
         if (isRendering) return
 
-        // Extra layer of protection: do not allow background measuring if view layout is corrupted
-        if (!textView.isLaidOut) return
-
         isRendering = true
-        val metricsParams = TextViewCompat.getTextMetricsParams(textView)
         val start = windowStartIdx
         val end = windowEndIdx
         
@@ -219,10 +165,8 @@ private class LogContainerView(context: Context) : ScrollView(context) {
                 )
             }
 
-            val precomputedPayload = PrecomputedTextCompat.create(windowBuilder, metricsParams)
-
             withContext(Dispatchers.Main) {
-                textView.setText(precomputedPayload)
+                textView.text = windowBuilder
                 
                 post {
                     val newTextViewHeight = textView.height
