@@ -44,9 +44,19 @@ class NativeLogColors(
 )
 
 @Keep
+private class LogTextView(context: Context) : TextView(context) {
+    override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+        super.onMeasure(widthMeasureSpec, heightMeasureSpec)
+        val measuredW = measuredWidth.coerceAtLeast(100)
+        val measuredH = measuredHeight.coerceAtLeast(100)
+        setMeasuredDimension(measuredW, measuredH)
+    }
+}
+
+@Keep
 private class LogContainerView(context: Context) : ScrollView(context) {
     val horizontalScrollView = HorizontalScrollView(context)
-    val textView = TextView(context)
+    val textView = LogTextView(context)
     
     private var currentScope: CoroutineScope? = null
     private var currentGetLogLineAt: ((Int) -> String)? = null
@@ -56,7 +66,7 @@ private class LogContainerView(context: Context) : ScrollView(context) {
     private var windowEndIdx = 0
     private var isRendering = false
 
-    private val maxWindowSize = 8000
+    private val maxWindowSize = 8000       
     private val scrollBufferTrigger = 400   
     private val pageChunkSize = 2000        
 
@@ -68,20 +78,21 @@ private class LogContainerView(context: Context) : ScrollView(context) {
         isFillViewport = true 
 
         horizontalScrollView.layoutParams = ViewGroup.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT, 
             ViewGroup.LayoutParams.MATCH_PARENT
         )
         horizontalScrollView.isFillViewport = false 
 
         textView.apply {
             layoutParams = ViewGroup.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
             )
             typeface = Typeface.MONOSPACE
             textSize = 12f
-            setPadding(24, 24, 24, 24)
-            setTextIsSelectable(true)
+            setPadding(32, 32, 32, 32)
+            
+            setTextIsSelectable(true) 
 
             setLayerType(View.LAYER_TYPE_SOFTWARE, null) 
             includeFontPadding = false
@@ -111,7 +122,6 @@ private class LogContainerView(context: Context) : ScrollView(context) {
 
         val viewScrollBoundsHeight = height
         val currentMaxScrollY = (textView.height - viewScrollBoundsHeight).coerceAtLeast(0)
-        
         val isUserAtBottom = scrollY >= currentMaxScrollY - 600 || scrollY == 0
 
         if (windowStartIdx == 0 && windowEndIdx == 0 && totalCount > 0) {
