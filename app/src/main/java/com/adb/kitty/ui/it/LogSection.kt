@@ -230,7 +230,7 @@ fun LogSection(
 
     val isDark = isSystemInDarkTheme()
     val logTextColor = remember(isDark) {
-        if (isDark) Color(0xFFEEEEEE).toArgb() else Color(0xFF111111).toArgb()
+        if (isDark) 0xFFEEEEEE.toInt() else 0xFF111111.toInt()
     }
 
     LaunchedEffect(logUpdateFlow, containerView) {
