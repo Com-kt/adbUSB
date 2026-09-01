@@ -8,7 +8,9 @@ import com.adb.kitty.*
 import com.adb.kitty.service.*
 import com.adb.kitty.R
 
+import android.content.ComponentCallbacks2
 import android.content.Context
+import android.content.res.Configuration
 import android.graphics.Typeface
 import android.view.ViewGroup
 import android.widget.HorizontalScrollView
@@ -18,6 +20,7 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.widget.NestedScrollView
 import kotlinx.coroutines.Dispatchers
@@ -27,10 +30,6 @@ import kotlinx.coroutines.flow.sample
 import kotlinx.coroutines.withContext
 import kotlin.time.Duration.Companion.milliseconds
 
-/**
- * 原生 TextView 极简日志视图
- * 全自动兼容 HyperOS / MIUI 系统级“问小爱”、AI 分析、翻译、选择游标与放大镜
- */
 @Keep
 private class LogContainerView(context: Context) : NestedScrollView(context) {
     val horizontalScrollView = HorizontalScrollView(context)
@@ -58,18 +57,13 @@ private class LogContainerView(context: Context) : NestedScrollView(context) {
             typeface = Typeface.MONOSPACE
             textSize = 12f
             setPadding(16, 16, 16, 16)
-            
-            // 核心配置：开启原生可选中功能，全自动挂载系统的 AI/问小爱/翻译/搜索浮动菜单
             setTextIsSelectable(true)
-            
-            // 禁止自动换行，允许在 HorizontalScrollView 内横向滚动
             setHorizontallyScrolling(true)
         }
 
         horizontalScrollView.addView(textView)
         addView(horizontalScrollView)
 
-        // 监听滚动状态，判断用户是否向上翻阅日志（翻阅时暂时停用自动置底）
         setOnScrollChangeListener { _, _, scrollY, _, _ ->
             val contentHeight = getChildAt(0)?.height ?: 0
             val maxScrollY = (contentHeight - height).coerceAtLeast(0)
@@ -97,6 +91,16 @@ private class LogContainerView(context: Context) : NestedScrollView(context) {
             textView.setTextColor(textColor)
         }
     }
+
+    /**
+     * 显式清空 View 内存与内部 CharSequence 引用
+     */
+    fun releaseMemory() {
+        textView.text = ""
+        removeAllViews()
+        horizontalScrollView.removeAllViews()
+        setOnScrollChangeListener(null as OnScrollChangeListener?)
+    }
 }
 
 @OptIn(FlowPreview::class)
@@ -106,8 +110,10 @@ fun LogSection(
     getLogCount: () -> Int,
     getLogLineAt: (index: Int) -> String,
     logUpdateFlow: Flow<Unit>,
+    onTrimMemoryRequested: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
     var containerView by remember { mutableStateOf<LogContainerView?>(null) }
 
     val isDark = isSystemInDarkTheme()
@@ -115,15 +121,47 @@ fun LogSection(
         if (isDark) 0xFFEEEEEE.toInt() else 0xFF111111.toInt()
     }
 
+    // 1. 显式注册组件级内存回调与 Lifecycle 解绑处理（脱离 Application 类依赖）
+    DisposableEffect(context) {
+        val applicationContext = context.applicationContext
+
+        val memoryCallback = object : ComponentCallbacks2 {
+            override fun onTrimMemory(level: Int) {
+                // 系统内存紧张时显式触发释放
+                if (level >= ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW ||
+                    level >= ComponentCallbacks2.TRIM_MEMORY_BACKGROUND
+                ) {
+                    onTrimMemoryRequested()
+                    containerView?.releaseMemory()
+                }
+            }
+
+            override fun onConfigurationChanged(newConfig: Configuration) {}
+            override fun onLowMemory() {
+                onTrimMemoryRequested()
+                containerView?.releaseMemory()
+            }
+        }
+
+        applicationContext.registerComponentCallbacks(memoryCallback)
+
+        onDispose {
+            // LogSection 退出 Compose 视图树时显式释放一切 View 与 Callback 引用
+            applicationContext.unregisterComponentCallbacks(memoryCallback)
+            containerView?.releaseMemory()
+            containerView = null
+        }
+    }
+
+    // 2. 日志采样更新逻辑
     LaunchedEffect(logUpdateFlow, containerView) {
         val view = containerView ?: return@LaunchedEffect
 
         logUpdateFlow
-            .sample(100.milliseconds) // 节流采样，避免高频日志冲刷导致 TextView 频繁触发重新布局
+            .sample(100.milliseconds)
             .collect {
                 val totalCount = getLogCount()
 
-                // 子线程并发构建巨型字符串，不占用主线程耗时
                 val fullText = withContext(Dispatchers.Default) {
                     val sb = StringBuilder()
                     for (i in 0 until totalCount) {
@@ -141,14 +179,14 @@ fun LogSection(
             }
     }
 
+    // 3. 原生 View 渲染容器
     AndroidView(
-        factory = { context ->
-            LogContainerView(context).also {
+        factory = { ctx ->
+            LogContainerView(ctx).also {
                 containerView = it
             }
         },
         update = { view ->
-            // 响应 Compose 深浅色主题切换，仅更变文字颜色，绝不重复生成字符串
             view.setLogTextColor(logTextColor)
         },
         modifier = modifier.clipToBounds()

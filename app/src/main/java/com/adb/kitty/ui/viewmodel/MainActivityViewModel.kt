@@ -83,13 +83,6 @@ import com.adb.kitty.*
 import com.adb.kitty.service.*
 import com.adb.kitty.ui.it.*
 
-/**
- * 静态硬编码配置常量
- * 10 万行字符与指针总共仅占约 15MB ~ 20MB 堆内存，无需动态配置即可安全覆盖绝大多数高频 Log 场景
- */
-private const val MAX_BUFFER_LINES = 100_000
-private const val TRIM_STEP_LINES = 20_000
-
 @Keep
 class MainActivityViewModel(application: Application) : AndroidViewModel(application) {
     
@@ -109,6 +102,12 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
         sharedPrefs.edit {
             putBoolean(KEY_USE_DYNAMIC_COLOR, enabled)
         }
+    }
+    
+    companion object {
+        private const val MAX_BUFFER_LINES = 100_000
+        private const val TRIM_STEP_LINES = 20_000
+        private const val LOW_MEMORY_KEEP_LINES = 5_000
     }
     
     // 堆外/大字符区主缓冲区，避免对象数组垃圾回收
@@ -202,7 +201,7 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
      */
     private fun trimEarlyLogs(linesToTrim: Int) {
         if (logLineRanges.size <= linesToTrim) return
-        
+
         val cutPointer = LogRangePointer(logLineRanges[linesToTrim - 1])
         val cutOffset = cutPointer.end + 1 // 包含换行符
 
@@ -219,11 +218,33 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
             )
             logLineRanges[i] = newPointer.packed
         }
-        
+
         // 截断尾部多余元素并释放未使用的底层数组空间
         logLineRanges.removeRange(remainingCount, logLineRanges.size)
         logLineRanges.trim()
         masterLogBuffer.trimToSize()
+    }
+
+    /**
+     * 响应 ComponentCallbacks2 系统低内存告警的主动释放策略
+     */
+    @Synchronized
+    fun onTrimMemoryRequested() {
+        // 1. 排水策略：清空 Channel 积压的消息，防止管道在后台暴涨引发 OOM
+        while (logInputChannel.tryReceive().isSuccess) { /* drain */ }
+
+        // 2. 激进降级：若日志行数较多，直接裁切至仅保留最后 5,000 行
+        if (logLineRanges.size > LOW_MEMORY_KEEP_LINES) {
+            val linesToTrim = logLineRanges.size - LOW_MEMORY_KEEP_LINES
+            trimEarlyLogs(linesToTrim)
+        } else {
+            // 3. 强行向 JVM/C++ 堆申请收缩底层的 char[] 与 long[] 物理空间
+            masterLogBuffer.trimToSize()
+            logLineRanges.trim()
+        }
+
+        // 4. 通知 UI 刷新绘制
+        _uiUpdateEvent.tryEmit(Unit)
     }
 
     @Synchronized
