@@ -1,5 +1,5 @@
--keep class com.adb.kitty.compose.** { *; }
--dontwarn com.adb.kitty.compose.**
+-keep class com.adb.kitty.** { *; }
+-dontwarn com.adb.kitty.**
 
 -keep class com.android.tools.build.** { *; }
 -dontwarn com.android.tools.build.**

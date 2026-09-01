@@ -1,1 +1,1 @@
-package com.adb.kitty.compose
+package com.adb.kitty

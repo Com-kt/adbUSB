@@ -767,7 +767,7 @@ static std::string parseApkSigningBlock(const std::string& apkPath) {
 extern "C" {
 
 JNIEXPORT jstring JNICALL
-Java_com_adb_kitty_compose_data_NativeLibs_ApkSignature(JNIEnv *env, jobject thiz, jstring apk_path) {
+Java_com_adb_kitty_data_NativeLibs_ApkSignature(JNIEnv *env, jobject thiz, jstring apk_path) {
     if (!apk_path) {
         return env->NewStringUTF("Error: apkPath is null");
     }
@@ -780,7 +780,7 @@ Java_com_adb_kitty_compose_data_NativeLibs_ApkSignature(JNIEnv *env, jobject thi
 }
 
 JNIEXPORT jboolean JNICALL
-Java_com_adb_kitty_compose_data_NativeLibs_hasV1Scheme(JNIEnv *env, jobject thiz, jstring apk_path) {
+Java_com_adb_kitty_data_NativeLibs_hasV1Scheme(JNIEnv *env, jobject thiz, jstring apk_path) {
     if (!apk_path) return JNI_FALSE;
     const char* path = env->GetStringUTFChars(apk_path, nullptr);
     bool res = checkV1Present(std::string(path));
@@ -789,7 +789,7 @@ Java_com_adb_kitty_compose_data_NativeLibs_hasV1Scheme(JNIEnv *env, jobject thiz
 }
 
 JNIEXPORT jboolean JNICALL
-Java_com_adb_kitty_compose_data_NativeLibs_hasV2Scheme(JNIEnv *env, jobject thiz, jstring apk_path) {
+Java_com_adb_kitty_data_NativeLibs_hasV2Scheme(JNIEnv *env, jobject thiz, jstring apk_path) {
     if (!apk_path) return JNI_FALSE;
     const char* path = env->GetStringUTFChars(apk_path, nullptr);
     bool res = checkBlockIdPresent(std::string(path), APK_V2_SIGNATURE_SCHEME_ID);
@@ -798,7 +798,7 @@ Java_com_adb_kitty_compose_data_NativeLibs_hasV2Scheme(JNIEnv *env, jobject thiz
 }
 
 JNIEXPORT jboolean JNICALL
-Java_com_adb_kitty_compose_data_NativeLibs_hasV3Scheme(JNIEnv *env, jobject thiz, jstring apk_path) {
+Java_com_adb_kitty_data_NativeLibs_hasV3Scheme(JNIEnv *env, jobject thiz, jstring apk_path) {
     if (!apk_path) return JNI_FALSE;
     const char* path = env->GetStringUTFChars(apk_path, nullptr);
     bool res = checkBlockIdPresent(std::string(path), APK_V3_SIGNATURE_SCHEME_ID);
@@ -807,7 +807,7 @@ Java_com_adb_kitty_compose_data_NativeLibs_hasV3Scheme(JNIEnv *env, jobject thiz
 }
 
 JNIEXPORT jboolean JNICALL
-Java_com_adb_kitty_compose_data_NativeLibs_hasV31Scheme(JNIEnv *env, jobject thiz, jstring apk_path) {
+Java_com_adb_kitty_data_NativeLibs_hasV31Scheme(JNIEnv *env, jobject thiz, jstring apk_path) {
     if (!apk_path) return JNI_FALSE;
     const char* path = env->GetStringUTFChars(apk_path, nullptr);
     bool res = checkBlockIdPresent(std::string(path), APK_V31_SIGNATURE_SCHEME_ID);
@@ -816,7 +816,7 @@ Java_com_adb_kitty_compose_data_NativeLibs_hasV31Scheme(JNIEnv *env, jobject thi
 }
 
 JNIEXPORT jboolean JNICALL
-Java_com_adb_kitty_compose_data_NativeLibs_hasV32Scheme(JNIEnv *env, jobject thiz, jstring apk_path) {
+Java_com_adb_kitty_data_NativeLibs_hasV32Scheme(JNIEnv *env, jobject thiz, jstring apk_path) {
     if (!apk_path) return JNI_FALSE;
     const char* path = env->GetStringUTFChars(apk_path, nullptr);
     bool res = checkBlockIdPresent(std::string(path), APK_V32_SIGNATURE_SCHEME_ID);

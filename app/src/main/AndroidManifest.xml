@@ -424,18 +424,20 @@
     <uses-permission android:name="android.permission.DETECT_SCREEN_CAPTURE" />
     <!-- 检测屏幕录屏 -->
     <uses-permission android:name="android.permission.DETECT_SCREEN_RECORDING" />
+    <!-- 计算应用存储空间 -->
+    <uses-permission android:name="android.permission.GET_PACKAGE_SIZE" />
     
     <!-- Application 私有 API -->
-    <uses-permission android:name="com.adb.kitty.compose.USE_PRIVATE_API" />
+    <uses-permission android:name="com.adb.kitty.USE_PRIVATE_API" />
     <permission
-        android:name="com.adb.kitty.compose.USE_PRIVATE_API"
+        android:name="com.adb.kitty.USE_PRIVATE_API"
         android:description="@string/permission_description"
         android:icon="@drawable/ic_launcher_foreground"
         android:label="@string/permission_label"
         android:protectionLevel="signature" />
     
     <queries>
-        <package android:name="com.adb.kitty.compose" />
+        <package android:name="com.adb.kitty" />
         <package android:name="com.android.browser" />
         <package android:name="com.android.chrome" />
         <package android:name="org.telegram.messenger.beta" />
@@ -637,7 +639,7 @@
             android:foregroundServiceType="connectedDevice|specialUse"
             android:exported="true"
             android:directBootAware="true"
-            android:permission="com.adb.kitty.compose.USE_PRIVATE_API" >
+            android:permission="com.adb.kitty.USE_PRIVATE_API" >
             <property
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="adbd daemon service" />
@@ -648,7 +650,7 @@
             android:exported="true"
             android:directBootAware="true"
             android:foregroundServiceType="specialUse"
-            android:permission="com.adb.kitty.compose.USE_PRIVATE_API" >
+            android:permission="com.adb.kitty.USE_PRIVATE_API" >
             <property
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="Terminal shell execution service for local developer tool" />

@@ -1,7 +1,7 @@
 #include "common.h"
 
 extern "C" JNIEXPORT jboolean JNICALL
-Java_com_adb_kitty_compose_data_NativeLibs_VerifyAllSignatures(JNIEnv* env, jobject thiz, jstring apk_path_obj) {
+Java_com_adb_kitty_data_NativeLibs_VerifyAllSignatures(JNIEnv* env, jobject thiz, jstring apk_path_obj) {
     if (!apk_path_obj) return JNI_FALSE;
     const char* apk_path = env->GetStringUTFChars(apk_path_obj, nullptr);
     if (!apk_path) return JNI_FALSE;
