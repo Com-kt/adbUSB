@@ -30,7 +30,7 @@ class BypassApi : Application(), DefaultLifecycleObserver {
     }
 
     override fun onCreate() {
-        super.onCreate()
+        super<Application>.onCreate()
         ProcessLifecycleOwner.get().lifecycle.addObserver(this)
         thread {
             val apkPath = packageCodePath
