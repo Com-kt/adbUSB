@@ -37,7 +37,6 @@ import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.sample
 import kotlinx.coroutines.withContext
-import kotlin.math.max
 import kotlin.time.Duration.Companion.milliseconds
 
 /**
@@ -57,11 +56,11 @@ private class TerminalCanvasView(context: Context) : View(context) {
     private val fontMetrics = textPaint.fontMetrics
     private val lineSpacing = (fontMetrics.bottom - fontMetrics.top) * 1.25f
 
-    // 利用等宽字体特性预计算字符宽度，彻底消除 measureText 遍历开销
+    private val clipBoundsRect = Rect()
+
     private val charWidth = textPaint.measureText("M")
     private var maxLineWidth = 0f
 
-    // 选中区域与系统原生浮动菜单（小爱/翻译/复制）支持
     private var selectedText = ""
     private val selectionRect = Rect()
     private var activeActionMode: ActionMode? = null
@@ -69,14 +68,12 @@ private class TerminalCanvasView(context: Context) : View(context) {
     private val gestureDetector = GestureDetector(context, object : GestureDetector.SimpleOnGestureListener() {
         override fun onLongPress(e: MotionEvent) {
             if (lines.isEmpty()) return
-            // 长按全选当前文本，并调起厂商系统浮动菜单
             selectedText = lines.joinToString("\n")
             selectionRect.set(0, 0, width, (lines.size * lineSpacing).toInt())
             showSystemFloatingMenu()
         }
 
         override fun onSingleTapUp(e: MotionEvent): Boolean {
-            // 点击空白处收起浮动菜单
             activeActionMode?.finish()
             return true
         }
@@ -87,9 +84,6 @@ private class TerminalCanvasView(context: Context) : View(context) {
         isFocusableInTouchMode = true
     }
 
-    /**
-     * 仅用于深浅色主题切换时的轻量颜色更新
-     */
     fun setTextColor(textColor: Int) {
         if (textPaint.color != textColor) {
             textPaint.color = textColor
@@ -97,16 +91,12 @@ private class TerminalCanvasView(context: Context) : View(context) {
         }
     }
 
-    /**
-     * 接收全量日志与预计算的最大字符长度
-     */
     fun setLogData(newLines: List<String>, textColor: Int, maxLineLength: Int) {
         this.lines = newLines
         if (textPaint.color != textColor) {
             textPaint.color = textColor
         }
 
-        // 乘法直接计算画布总宽度，耗时 0ms
         maxLineWidth = maxLineLength * charWidth + 32f
 
         requestLayout()
@@ -126,10 +116,9 @@ private class TerminalCanvasView(context: Context) : View(context) {
         super.onDraw(canvas)
         if (lines.isEmpty()) return
 
-        // 视口裁剪：几万行日志下，Canvas 每一帧仅绘制屏幕当前可见的十几行
-        val clip = canvas.clipBounds
-        val startLine = (clip.top / lineSpacing).toInt().coerceAtLeast(0)
-        val endLine = (clip.bottom / lineSpacing).toInt().coerceAtMost(lines.size - 1)
+        canvas.getClipBounds(clipBoundsRect)
+        val startLine = (clipBoundsRect.top / lineSpacing).toInt().coerceAtLeast(0)
+        val endLine = (clipBoundsRect.bottom / lineSpacing).toInt().coerceAtMost(lines.size - 1)
 
         val x = 16f
         var y = (startLine * lineSpacing) - fontMetrics.top + 16f
@@ -140,15 +129,19 @@ private class TerminalCanvasView(context: Context) : View(context) {
         }
     }
 
+    override fun performClick(): Boolean {
+        super.performClick()
+        return true
+    }
+
     override fun onTouchEvent(event: MotionEvent): Boolean {
+        if (event.action == MotionEvent.ACTION_UP) {
+            performClick()
+        }
         gestureDetector.onTouchEvent(event)
         return true
     }
 
-    /**
-     * 手动唤起系统的 ActionMode.TYPE_FLOATING 菜单
-     * 自动包含小米 HyperOS / MIUI "问小爱"、"翻译"、"复制" 等选项
-     */
     private fun showSystemFloatingMenu() {
         activeActionMode?.finish()
         activeActionMode = startActionMode(object : ActionMode.Callback2() {
@@ -158,7 +151,7 @@ private class TerminalCanvasView(context: Context) : View(context) {
                     android.R.id.copy,
                     Menu.NONE,
                     android.R.string.copy
-                ).setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS)
+                ).setShowAsAction(MenuItem.SHOW_AS_ACTION_IF_ROOM)
 
                 return true
             }
@@ -249,11 +242,10 @@ fun LogSection(
         val view = containerView ?: return@LaunchedEffect
 
         logUpdateFlow
-            .sample(60.milliseconds) // 节流至 ~16FPS，平衡 CPU 开销与渲染流畅度
+            .sample(60.milliseconds)
             .collect {
                 val totalCount = getLogCount()
 
-                // 子线程并发提取字符串列表并同步算出最长行的字符数，不占用 UI 主线程耗时
                 val (lines, maxLen) = withContext(Dispatchers.Default) {
                     var maxLineLen = 0
                     val list = List(totalCount) { i ->
@@ -279,7 +271,6 @@ fun LogSection(
             }
         },
         update = { view ->
-            // 仅响因 Compose 重构/主题切换更新字体颜色，不执行任何列表提取构建
             view.canvasView.setTextColor(logTextColor)
         },
         modifier = modifier.clipToBounds()
