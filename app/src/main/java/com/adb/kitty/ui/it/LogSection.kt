@@ -69,12 +69,23 @@ private class TerminalCanvasView(context: Context) : View(context) {
         override fun onLongPress(e: MotionEvent) {
             if (lines.isEmpty()) return
             selectedText = lines.joinToString("\n")
-            selectionRect.set(0, 0, width, (lines.size * lineSpacing).toInt())
+            
+            // 以当前手指触摸点为中心建立 100x100 的锚点框
+            val touchX = e.x.toInt()
+            val touchY = e.y.toInt()
+            selectionRect.set(
+                (touchX - 50).coerceAtLeast(0),
+                (touchY - 50).coerceAtLeast(0),
+                (touchX + 50).coerceAtMost(width),
+                (touchY + 50).coerceAtMost(height)
+            )
+            
             showSystemFloatingMenu()
         }
 
         override fun onSingleTapUp(e: MotionEvent): Boolean {
             activeActionMode?.finish()
+            performClick()
             return true
         }
     })
@@ -146,6 +157,7 @@ private class TerminalCanvasView(context: Context) : View(context) {
         activeActionMode?.finish()
         activeActionMode = startActionMode(object : ActionMode.Callback2() {
             override fun onCreateActionMode(mode: ActionMode, menu: Menu): Boolean {
+                // 1. 添加标准复制按钮
                 menu.add(
                     Menu.NONE,
                     android.R.id.copy,
@@ -153,18 +165,31 @@ private class TerminalCanvasView(context: Context) : View(context) {
                     android.R.string.copy
                 ).setShowAsAction(MenuItem.SHOW_AS_ACTION_IF_ROOM)
 
+                // 2. 动态注入系统的“问小爱”、“翻译”、“Web 搜索”等 ACTION_PROCESS_TEXT 菜单
+                populateProcessTextItems(menu)
+
                 return true
             }
 
             override fun onPrepareActionMode(mode: ActionMode, menu: Menu): Boolean = false
 
             override fun onActionItemClicked(mode: ActionMode, item: MenuItem): Boolean {
-                if (item.itemId == android.R.id.copy) {
-                    val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                    val clip = ClipData.newPlainText("terminal_log", selectedText)
-                    cm.setPrimaryClip(clip)
-                    mode.finish()
-                    return true
+                when {
+                    item.itemId == android.R.id.copy -> {
+                        val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                        val clip = ClipData.newPlainText("terminal_log", selectedText)
+                        cm.setPrimaryClip(clip)
+                        mode.finish()
+                        return true
+                    }
+                    // 处理小爱/翻译等第三方/系统 Intent
+                    item.intent != null -> {
+                        val intent = item.intent
+                        intent?.putExtra(android.content.Intent.EXTRA_PROCESS_TEXT, selectedText)
+                        context.startActivity(intent)
+                        mode.finish()
+                        return true
+                    }
                 }
                 return false
             }
@@ -177,6 +202,28 @@ private class TerminalCanvasView(context: Context) : View(context) {
                 outRect.set(selectionRect)
             }
         }, ActionMode.TYPE_FLOATING)
+    }
+
+    private fun populateProcessTextItems(menu: Menu) {
+        val processTextIntent = android.content.Intent()
+            .setAction(android.content.Intent.ACTION_PROCESS_TEXT)
+            .setType("text/plain")
+
+        val packageManager = context.packageManager
+        val supportedActivities = packageManager.queryIntentActivities(processTextIntent, 0)
+
+        for (i in supportedActivities.indices) {
+            val info = supportedActivities[i]
+            val intent = android.content.Intent()
+                .setAction(android.content.Intent.ACTION_PROCESS_TEXT)
+                .setType("text/plain")
+                .putExtra(android.content.Intent.EXTRA_PROCESS_TEXT_READONLY, true)
+                .setClassName(info.activityInfo.packageName, info.activityInfo.name)
+
+            menu.add(Menu.NONE, Menu.NONE, 100 + i, info.loadLabel(packageManager))
+                .setIntent(intent)
+                .setShowAsAction(MenuItem.SHOW_AS_ACTION_IF_ROOM)
+        }
     }
 }
 
