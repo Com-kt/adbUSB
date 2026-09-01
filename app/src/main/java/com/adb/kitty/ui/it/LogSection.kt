@@ -142,7 +142,7 @@ private class TerminalCanvasView(context: Context) : View(context) {
         activeActionMode?.finish()
         activeActionMode = startActionMode(object : ActionMode.Callback2() {
             override fun onCreateActionMode(mode: ActionMode, menu: Menu): Boolean {
-                mode.menuInflater.inflate(android.R.R.menu.text_select_alternative, menu)
+                mode.menuInflater.inflate(android.R.menu.text_select_alternative, menu)
                 return true
             }
 
