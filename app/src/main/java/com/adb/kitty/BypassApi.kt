@@ -2,16 +2,12 @@ package com.adb.kitty
 
 import android.app.Application
 import android.content.Context
-import android.content.ComponentCallbacks2
 import org.lsposed.hiddenapibypass.HiddenApiBypass
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.widget.Toast
 import androidx.annotation.Keep
-import androidx.lifecycle.DefaultLifecycleObserver
-import androidx.lifecycle.LifecycleOwner
-import androidx.lifecycle.ProcessLifecycleOwner
 import kotlin.concurrent.thread
 import kotlin.system.exitProcess
 import com.adb.kitty.ui.theme.*
@@ -21,7 +17,7 @@ import com.adb.kitty.data.*
 import com.adb.kitty.R
 
 @Keep
-class BypassApi : Application(), DefaultLifecycleObserver {
+class BypassApi : Application() {
     override fun attachBaseContext(base: Context?) {
         super.attachBaseContext(base)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
@@ -30,8 +26,7 @@ class BypassApi : Application(), DefaultLifecycleObserver {
     }
 
     override fun onCreate() {
-        super<Application>.onCreate()
-        ProcessLifecycleOwner.get().lifecycle.addObserver(this)
+        super.onCreate()
         thread {
             val apkPath = packageCodePath
             val isNativeVerified = NativeLibs.VerifyAllSignatures(apkPath)
@@ -49,17 +44,6 @@ class BypassApi : Application(), DefaultLifecycleObserver {
                     }
                 })
             }
-        }
-    }
-
-    override fun onStop(owner: LifecycleOwner) {
-        System.gc()
-    }
-
-    override fun onTrimMemory(level: Int) {
-        super.onTrimMemory(level)
-        if (level >= ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN) {
-            System.gc()
         }
     }
 }
