@@ -8,6 +8,7 @@ import com.adb.kitty.*
 import com.adb.kitty.service.*
 import com.adb.kitty.R
 
+import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.graphics.Canvas
@@ -167,7 +168,8 @@ private class TerminalCanvasView(context: Context) : View(context) {
             override fun onActionItemClicked(mode: ActionMode, item: MenuItem): Boolean {
                 if (item.itemId == android.R.id.copy) {
                     val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                    cm.setText(selectedText)
+                    val clip = ClipData.newPlainText("terminal_log", selectedText)
+                    cm.setPrimaryClip(clip)
                     mode.finish()
                     return true
                 }
