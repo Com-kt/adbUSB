@@ -83,6 +83,13 @@ import com.adb.kitty.*
 import com.adb.kitty.service.*
 import com.adb.kitty.ui.it.*
 
+/**
+ * 静态硬编码配置常量
+ * 10 万行字符与指针总共仅占约 15MB ~ 20MB 堆内存，无需动态配置即可安全覆盖绝大多数高频 Log 场景
+ */
+private const val MAX_BUFFER_LINES = 100_000
+private const val TRIM_STEP_LINES = 20_000
+
 @Keep
 class MainActivityViewModel(application: Application) : AndroidViewModel(application) {
     
@@ -104,27 +111,29 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
         }
     }
     
+    // 堆外/大字符区主缓冲区，避免对象数组垃圾回收
     private val masterLogBuffer = StringBuilder()
 
-    // 1. 修改点：使用 androidx.collection:1.6.0 的 MutableLongList 替换 ArrayList<Long>，零装箱开销
+    // MutableLongList 避免 Long 装箱，打包存储字符串范围指针
     private val logLineRanges = MutableLongList()
 
     val logCount: Int
         @Synchronized get() = logLineRanges.size
 
-    // 防 AMS 锁的核心：后台无阻管道
+    // 高并发无阻管道，接收原生 Shell/ADB 实时数据流
     private val logInputChannel = Channel<String>(Channel.UNLIMITED)
 
-    // 通知 UI 增量刷新的事件流
+    // 通知 UI 刷新的事件流
     private val _uiUpdateEvent = MutableSharedFlow<Unit>(extraBufferCapacity = 64)
     val uiUpdateEvent: Flow<Unit> = _uiUpdateEvent.asSharedFlow()
 
-    // 2. 修改点：全局复用 DateTimeFormatter，并增加秒级缓存机制
+    // 全局复用 DateTimeFormatter 与秒级缓存
     private val timeFormatter = DateTimeFormatter.ofPattern("yyyy.MM.dd HH:mm:ss")
     private var lastSecondTimestamp: Long = 0L
     private var cachedTimeString: String = ""
 
     init {
+        // 在后台线程不断抽取管道数据，处理文本格式并写入 Buffer
         viewModelScope.launch(Dispatchers.Default) {
             for (msg in logInputChannel) {
                 processAndPushLog(msg)
@@ -141,7 +150,6 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
     private fun processAndPushLog(msg: String) {
         val timeStr = getCachedTimeStamp()
 
-        // 3. 修改点：改用 indexOf('\n') 零分配遍历，替代 msg.split("\n")
         var start = 0
         val len = msg.length
         while (start < len) {
@@ -159,6 +167,11 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
     }
 
     private fun pushToBuffer(fullLine: String) {
+        // 达到 100,000 行固定上限时，批量清理最旧的 20,000 行
+        if (logLineRanges.size >= MAX_BUFFER_LINES) {
+            trimEarlyLogs(TRIM_STEP_LINES)
+        }
+
         val startIdx = masterLogBuffer.length
         masterLogBuffer.append(fullLine)
         val endIdx = masterLogBuffer.length
@@ -168,7 +181,6 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
         logLineRanges.add(pointer.packed)
     }
 
-    // 秒级缓存时间戳，高频下减少 99% 的字符串转换开销
     private fun getCachedTimeStamp(): String {
         val currentSecond = System.currentTimeMillis() / 1000
         if (currentSecond != lastSecondTimestamp) {
@@ -180,17 +192,44 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
 
     @Synchronized
     fun getLogLineAt(index: Int): String {
-        // 4. 修改点：匹配 MutableLongList 的索引校验方式
         if (index !in 0 until logLineRanges.size) return ""
         val pointer = LogRangePointer(logLineRanges[index])
         return masterLogBuffer.substring(pointer.start, pointer.end)
+    }
+
+    /**
+     * 超出阈值时批量删除头部数据并重置 offset 指针
+     */
+    private fun trimEarlyLogs(linesToTrim: Int) {
+        if (logLineRanges.size <= linesToTrim) return
+        
+        val cutPointer = LogRangePointer(logLineRanges[linesToTrim - 1])
+        val cutOffset = cutPointer.end + 1 // 包含换行符
+
+        // 移除前 cutOffset 个字符
+        masterLogBuffer.delete(0, cutOffset)
+
+        // 更新剩余所有 Pointer 的相对偏移量
+        val remainingCount = logLineRanges.size - linesToTrim
+        for (i in 0 until remainingCount) {
+            val oldPointer = LogRangePointer(logLineRanges[i + linesToTrim])
+            val newPointer = LogRangePointer.create(
+                oldPointer.start - cutOffset,
+                oldPointer.end - cutOffset
+            )
+            logLineRanges[i] = newPointer.packed
+        }
+        
+        // 截断尾部多余元素并释放未使用的底层数组空间
+        logLineRanges.removeRange(remainingCount, logLineRanges.size)
+        logLineRanges.trim()
+        masterLogBuffer.trimToSize()
     }
 
     @Synchronized
     fun clearLogs() {
         while (logInputChannel.tryReceive().isSuccess) { /* drain */ }
 
-        // 5. 修改点：清空并使用 1.6.0 的 trim() 强行释放大日志冲刷后的数组内存
         logLineRanges.clear()
         logLineRanges.trim()
 
@@ -204,7 +243,8 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
     fun exportFullLogToFile(targetFile: File): Boolean {
         return try {
             targetFile.bufferedWriter().use { writer ->
-                writer.write(masterLogBuffer.toString())
+                // 使用 CharSequence 追加写，避免巨型临时 String 对象分配
+                writer.append(masterLogBuffer)
             }
             true
         } catch (e: Exception) {

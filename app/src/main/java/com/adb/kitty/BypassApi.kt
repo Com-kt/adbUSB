@@ -53,14 +53,12 @@ class BypassApi : Application(), DefaultLifecycleObserver {
     }
 
     override fun onStop(owner: LifecycleOwner) {
-        LogBufferRepository.clearUiCache()
         System.gc()
     }
 
     override fun onTrimMemory(level: Int) {
         super.onTrimMemory(level)
         if (level >= ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN) {
-            LogBufferRepository.clearUiCache()
             System.gc()
         }
     }
