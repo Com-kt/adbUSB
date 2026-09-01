@@ -27,23 +27,6 @@ class BypassApi : Application() {
 
     override fun onCreate() {
         super.onCreate()
-        thread {
-            val apkPath = packageCodePath
-            val isNativeVerified = NativeLibs.VerifyAllSignatures(apkPath)
-            if (!isNativeVerified) {
-                val appContext = this
-                val mainHandler = Handler(Looper.getMainLooper())
-                mainHandler.post(object : Runnable {
-                    override fun run() {
-                        Toast.makeText(
-                            appContext,
-                            "您正在使用非官方正版应用，注意代码安全",
-                            Toast.LENGTH_LONG
-                        ).show()
-                        mainHandler.postDelayed(this, 3000)
-                    }
-                })
-            }
-        }
+        
     }
 }
