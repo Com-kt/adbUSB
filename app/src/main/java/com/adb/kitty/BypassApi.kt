@@ -9,9 +9,6 @@ import android.os.Handler
 import android.os.Looper
 import android.widget.Toast
 import androidx.annotation.Keep
-import androidx.lifecycle.DefaultLifecycleObserver
-import androidx.lifecycle.LifecycleOwner
-import androidx.lifecycle.ProcessLifecycleOwner
 import kotlin.concurrent.thread
 import kotlin.system.exitProcess
 import kotlinx.coroutines.flow.Flow
@@ -32,19 +29,24 @@ class BypassApi : Application() {
         }
     }
 
-    private val _appBackgroundEvents = MutableSharedFlow<Unit>(extraBufferCapacity = 16)
-    val appBackgroundEvents: Flow<Unit> = _appBackgroundEvents.asSharedFlow()
-
     override fun onCreate() {
         super.onCreate()
+        
+    }
+    
+    private val _trimMemoryEvents = MutableSharedFlow<Int>(extraBufferCapacity = 16)
+    val trimMemoryEvents: Flow<Int> = _trimMemoryEvents.asSharedFlow()
 
-        ProcessLifecycleOwner.get().lifecycle.addObserver(object : DefaultLifecycleObserver {
-            /**
-             * 当整个应用移动到后台（用户按下 Home 键、切换应用、切到后台等）时触发
-             */
-            override fun onStop(owner: LifecycleOwner) {
-                _appBackgroundEvents.tryEmit(Unit)
-            }
-        })
+    @Suppress("DEPRECATION")
+    override fun onTrimMemory(level: Int) {
+        super.onTrimMemory(level)
+        _trimMemoryEvents.tryEmit(level)
+    }
+
+    @Suppress("DEPRECATION")
+    override fun onLowMemory() {
+        super.onLowMemory()
+        // 低内存兜底：分发 TRIM_MEMORY_COMPLETE 等效信号
+        _trimMemoryEvents.tryEmit(ComponentCallbacks2.TRIM_MEMORY_COMPLETE)
     }
 }

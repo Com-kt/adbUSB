@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name" translatable="false">neko</string>
+    <string name="app_logs">null</string>
     <string name="documents_name">App data storage directory</string>
     <string name="app_bar_name">Debug Tools</string>
     <string name="push_cmd_name">send</string>

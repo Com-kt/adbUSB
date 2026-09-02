@@ -571,6 +571,9 @@
             android:name="android.tv.support"
             android:value="true" />
         <meta-data 
+            android:name="app_logs"
+            android:value="@string/app_logs" />
+        <meta-data 
             android:name="android.abi.level"
             android:resource="@xml/android_abi_version" />
         <meta-data 

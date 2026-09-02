@@ -22,6 +22,7 @@ import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.widget.NestedScrollView
+import com.adb.kitty.KittyApplication
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.Flow
@@ -117,18 +118,23 @@ fun LogSection(
         if (isDark) 0xFFEEEEEE.toInt() else 0xFF111111.toInt()
     }
 
-    // 1. 订阅 ProcessLifecycleOwner 的切后台事件
+    // 1. 配合 Application 类，无缝收集全局低内存事件
     LaunchedEffect(context) {
         val app = context.applicationContext as? BypassApi ?: return@LaunchedEffect
         
-        app.appBackgroundEvents.collect {
-            // App 切后台时主动清理 View 引用并裁切日志 Buffer
-            onTrimMemoryRequested()
-            containerView?.releaseMemory()
+        @Suppress("DEPRECATION")
+        app.trimMemoryEvents.collect { level ->
+            if (level >= ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW ||
+                level >= ComponentCallbacks2.TRIM_MEMORY_BACKGROUND ||
+                level == ComponentCallbacks2.TRIM_MEMORY_COMPLETE
+            ) {
+                onTrimMemoryRequested()
+                containerView?.releaseMemory()
+            }
         }
     }
 
-    // 2. 组件离开 Compose 视图树时释放 View 内存
+    // 2. 组件销毁时清空 View 内存
     DisposableEffect(Unit) {
         onDispose {
             containerView?.releaseMemory()
@@ -136,7 +142,7 @@ fun LogSection(
         }
     }
 
-    // 3. 日志更新逻辑
+    // 3. 日志采样更新逻辑
     LaunchedEffect(logUpdateFlow, containerView) {
         val view = containerView ?: return@LaunchedEffect
 
