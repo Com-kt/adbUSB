@@ -10,7 +10,6 @@ import com.adb.kitty.R
 
 import android.content.ComponentCallbacks2
 import android.content.Context
-import android.content.res.Configuration
 import android.graphics.Typeface
 import android.view.ViewGroup
 import android.widget.HorizontalScrollView
@@ -92,9 +91,6 @@ private class LogContainerView(context: Context) : NestedScrollView(context) {
         }
     }
 
-    /**
-     * 显式清空 View 内存与内部 CharSequence 引用
-     */
     fun releaseMemory() {
         textView.text = ""
         removeAllViews()
@@ -121,39 +117,26 @@ fun LogSection(
         if (isDark) 0xFFEEEEEE.toInt() else 0xFF111111.toInt()
     }
 
-    // 1. 显式注册组件级内存回调与 Lifecycle 解绑处理（脱离 Application 类依赖）
-    DisposableEffect(context) {
-        val applicationContext = context.applicationContext
-
-        val memoryCallback = object : ComponentCallbacks2 {
-            override fun onTrimMemory(level: Int) {
-                // 系统内存紧张时显式触发释放
-                if (level >= ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW ||
-                    level >= ComponentCallbacks2.TRIM_MEMORY_BACKGROUND
-                ) {
-                    onTrimMemoryRequested()
-                    containerView?.releaseMemory()
-                }
-            }
-
-            override fun onConfigurationChanged(newConfig: Configuration) {}
-            override fun onLowMemory() {
-                onTrimMemoryRequested()
-                containerView?.releaseMemory()
-            }
+    // 1. 订阅 ProcessLifecycleOwner 的切后台事件
+    LaunchedEffect(context) {
+        val app = context.applicationContext as? BypassApi ?: return@LaunchedEffect
+        
+        app.appBackgroundEvents.collect {
+            // App 切后台时主动清理 View 引用并裁切日志 Buffer
+            onTrimMemoryRequested()
+            containerView?.releaseMemory()
         }
+    }
 
-        applicationContext.registerComponentCallbacks(memoryCallback)
-
+    // 2. 组件离开 Compose 视图树时释放 View 内存
+    DisposableEffect(Unit) {
         onDispose {
-            // LogSection 退出 Compose 视图树时显式释放一切 View 与 Callback 引用
-            applicationContext.unregisterComponentCallbacks(memoryCallback)
             containerView?.releaseMemory()
             containerView = null
         }
     }
 
-    // 2. 日志采样更新逻辑
+    // 3. 日志更新逻辑
     LaunchedEffect(logUpdateFlow, containerView) {
         val view = containerView ?: return@LaunchedEffect
 
@@ -179,7 +162,7 @@ fun LogSection(
             }
     }
 
-    // 3. 原生 View 渲染容器
+    // 4. 原生 View 容器
     AndroidView(
         factory = { ctx ->
             LogContainerView(ctx).also {
