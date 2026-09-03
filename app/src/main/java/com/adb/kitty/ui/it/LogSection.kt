@@ -22,9 +22,12 @@ import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.widget.NestedScrollView
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.repeatOnLifecycle
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
-import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.sample
 import kotlinx.coroutines.withContext
 import kotlin.time.Duration.Companion.milliseconds
@@ -105,11 +108,11 @@ private class LogContainerView(context: Context) : NestedScrollView(context) {
 fun LogSection(
     getLogCount: () -> Int,
     getLogLineAt: (index: Int) -> String,
-    logUpdateFlow: Flow<Unit>,
-    onTrimMemoryRequested: () -> Unit,
+    uiUpdateVersionFlow: StateFlow<Long>,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
     var containerView by remember { mutableStateOf<LogContainerView?>(null) }
 
     val isDark = isSystemInDarkTheme()
@@ -117,23 +120,49 @@ fun LogSection(
         if (isDark) 0xFFEEEEEE.toInt() else 0xFF111111.toInt()
     }
 
-    // 1. 配合 Application 类，无缝收集全局低内存事件
+    // 1. 低内存回调清理 UI 渲染层
     LaunchedEffect(context) {
         val app = context.applicationContext as? BypassApi ?: return@LaunchedEffect
-        
+
         @Suppress("DEPRECATION")
         app.trimMemoryEvents.collect { level ->
             if (level >= ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW ||
                 level >= ComponentCallbacks2.TRIM_MEMORY_BACKGROUND ||
                 level == ComponentCallbacks2.TRIM_MEMORY_COMPLETE
             ) {
-                onTrimMemoryRequested()
                 containerView?.releaseMemory()
             }
         }
     }
 
-    // 2. 组件销毁时清空 View 内存
+    // 2. 只有前台 (STARTED) 状态才采样更新 UI，切回前台自动触发 StateFlow 重绘恢复
+    LaunchedEffect(uiUpdateVersionFlow, containerView, lifecycleOwner) {
+        val view = containerView ?: return@LaunchedEffect
+
+        lifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            uiUpdateVersionFlow
+                .sample(100.milliseconds)
+                .collect {
+                    val totalCount = getLogCount()
+
+                    val fullText = withContext(Dispatchers.Default) {
+                        val sb = StringBuilder()
+                        for (i in 0 until totalCount) {
+                            sb.append(getLogLineAt(i))
+                            if (i < totalCount - 1) {
+                                sb.append('\n')
+                            }
+                        }
+                        sb.toString()
+                    }
+
+                    withContext(Dispatchers.Main) {
+                        view.updateLogs(fullText, logTextColor)
+                    }
+                }
+        }
+    }
+
     DisposableEffect(Unit) {
         onDispose {
             containerView?.releaseMemory()
@@ -141,33 +170,6 @@ fun LogSection(
         }
     }
 
-    // 3. 日志采样更新逻辑
-    LaunchedEffect(logUpdateFlow, containerView) {
-        val view = containerView ?: return@LaunchedEffect
-
-        logUpdateFlow
-            .sample(100.milliseconds)
-            .collect {
-                val totalCount = getLogCount()
-
-                val fullText = withContext(Dispatchers.Default) {
-                    val sb = StringBuilder()
-                    for (i in 0 until totalCount) {
-                        sb.append(getLogLineAt(i))
-                        if (i < totalCount - 1) {
-                            sb.append('\n')
-                        }
-                    }
-                    sb.toString()
-                }
-
-                withContext(Dispatchers.Main) {
-                    view.updateLogs(fullText, logTextColor)
-                }
-            }
-    }
-
-    // 4. 原生 View 容器
     AndroidView(
         factory = { ctx ->
             LogContainerView(ctx).also {

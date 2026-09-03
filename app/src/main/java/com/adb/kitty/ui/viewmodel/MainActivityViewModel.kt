@@ -109,34 +109,43 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
         private const val TRIM_STEP_LINES = 20_000
         private const val LOW_MEMORY_KEEP_LINES = 5_000
     }
-    
-    // 堆外/大字符区主缓冲区，避免对象数组垃圾回收
-    private val masterLogBuffer = StringBuilder()
 
-    // MutableLongList 避免 Long 装箱，打包存储字符串范围指针
+    private val masterLogBuffer = StringBuilder()
     private val logLineRanges = MutableLongList()
 
     val logCount: Int
         @Synchronized get() = logLineRanges.size
 
-    // 高并发无阻管道，接收原生 Shell/ADB 实时数据流
     private val logInputChannel = Channel<String>(Channel.UNLIMITED)
 
-    // 通知 UI 刷新的事件流
-    private val _uiUpdateEvent = MutableSharedFlow<Unit>(extraBufferCapacity = 64)
-    val uiUpdateEvent: Flow<Unit> = _uiUpdateEvent.asSharedFlow()
+    private val _uiUpdateVersion = MutableStateFlow(0L)
+    val uiUpdateVersion: StateFlow<Long> = _uiUpdateVersion.asStateFlow()
 
-    // 全局复用 DateTimeFormatter 与秒级缓存
     private val timeFormatter = DateTimeFormatter.ofPattern("yyyy.MM.dd HH:mm:ss")
     private var lastSecondTimestamp: Long = 0L
     private var cachedTimeString: String = ""
 
     init {
-        // 在后台线程不断抽取管道数据，处理文本格式并写入 Buffer
+        // 1. 自动监听 Application 广播的低内存信号
+        val app = application as? BypassApi
+        app?.let {
+            viewModelScope.launch(Dispatchers.Default) {
+                it.trimMemoryEvents.collect { level ->
+                    if (level >= ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW ||
+                        level >= ComponentCallbacks2.TRIM_MEMORY_BACKGROUND ||
+                        level == ComponentCallbacks2.TRIM_MEMORY_COMPLETE
+                    ) {
+                        onTrimMemoryRequested()
+                    }
+                }
+            }
+        }
+
+        // 2. 消费数据通道
         viewModelScope.launch(Dispatchers.Default) {
             for (msg in logInputChannel) {
                 processAndPushLog(msg)
-                _uiUpdateEvent.emit(Unit)
+                _uiUpdateVersion.value++
             }
         }
     }
@@ -158,7 +167,10 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
             if (end > start) {
                 val line = msg.substring(start, end)
                 if (line.isNotBlank()) {
-                    pushToBuffer("$timeStr $line")
+                    val fullLine = "$timeStr $line"
+                    pushToBuffer(fullLine)
+                    // 同步推送给 Native C++17 堆外缓冲区
+                    NativeLibs.appendNativeLog(fullLine)
                 }
             }
             start = end + 1
@@ -166,7 +178,6 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
     }
 
     private fun pushToBuffer(fullLine: String) {
-        // 达到 100,000 行固定上限时，批量清理最旧的 20,000 行
         if (logLineRanges.size >= MAX_BUFFER_LINES) {
             trimEarlyLogs(TRIM_STEP_LINES)
         }
@@ -196,19 +207,14 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
         return masterLogBuffer.substring(pointer.start, pointer.end)
     }
 
-    /**
-     * 超出阈值时批量删除头部数据并重置 offset 指针
-     */
     private fun trimEarlyLogs(linesToTrim: Int) {
         if (logLineRanges.size <= linesToTrim) return
 
         val cutPointer = LogRangePointer(logLineRanges[linesToTrim - 1])
-        val cutOffset = cutPointer.end + 1 // 包含换行符
+        val cutOffset = cutPointer.end + 1
 
-        // 移除前 cutOffset 个字符
         masterLogBuffer.delete(0, cutOffset)
 
-        // 更新剩余所有 Pointer 的相对偏移量
         val remainingCount = logLineRanges.size - linesToTrim
         for (i in 0 until remainingCount) {
             val oldPointer = LogRangePointer(logLineRanges[i + linesToTrim])
@@ -219,32 +225,25 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
             logLineRanges[i] = newPointer.packed
         }
 
-        // 截断尾部多余元素并释放未使用的底层数组空间
         logLineRanges.removeRange(remainingCount, logLineRanges.size)
         logLineRanges.trim()
         masterLogBuffer.trimToSize()
     }
 
-    /**
-     * 响应 ComponentCallbacks2 系统低内存告警的主动释放策略
-     */
     @Synchronized
     fun onTrimMemoryRequested() {
-        // 1. 排水策略：清空 Channel 积压的消息，防止管道在后台暴涨引发 OOM
         while (logInputChannel.tryReceive().isSuccess) { /* drain */ }
 
-        // 2. 激进降级：若日志行数较多，直接裁切至仅保留最后 5,000 行
         if (logLineRanges.size > LOW_MEMORY_KEEP_LINES) {
             val linesToTrim = logLineRanges.size - LOW_MEMORY_KEEP_LINES
             trimEarlyLogs(linesToTrim)
         } else {
-            // 3. 强行向 JVM/C++ 堆申请收缩底层的 char[] 与 long[] 物理空间
             masterLogBuffer.trimToSize()
             logLineRanges.trim()
         }
 
-        // 4. 通知 UI 刷新绘制
-        _uiUpdateEvent.tryEmit(Unit)
+        NativeLibs.clearNativeBuffer()
+        _uiUpdateVersion.value++
     }
 
     @Synchronized
@@ -257,21 +256,22 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
         masterLogBuffer.setLength(0)
         masterLogBuffer.trimToSize()
 
-        _uiUpdateEvent.tryEmit(Unit)
+        NativeLibs.clearNativeBuffer()
+        _uiUpdateVersion.value++
     }
 
-    @Synchronized
-    fun exportFullLogToFile(targetFile: File): Boolean {
-        return try {
-            targetFile.bufferedWriter().use { writer ->
-                // 使用 CharSequence 追加写，避免巨型临时 String 对象分配
-                writer.append(masterLogBuffer)
+    /**
+     * 仅在用户点击【导出/打印】时调用，一键顺序写入磁盘文件
+     */
+    suspend fun exportFullLogToFile(targetFile: File): Boolean = withContext(Dispatchers.IO) {
+        runCatching {
+            synchronized(this@MainActivityViewModel) {
+                targetFile.bufferedWriter().use { writer ->
+                    writer.append(masterLogBuffer)
+                }
             }
             true
-        } catch (e: Exception) {
-            e.printStackTrace()
-            false
-        }
+        }.getOrDefault(false)
     }
     
     val items: List<CommandUiItem> by lazy { rememberCombinedItems() }

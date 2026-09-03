@@ -41,8 +41,36 @@ data class AdbDevice(val ip: String, val port: Int, val wifiSsid: String, val la
 @Keep
 object NativeLibs {
     init {
-        System.loadLibrary("native-lib")
+        runCatching {
+            System.loadLibrary("native-lib")
+        }
     }
+    /**
+     * 初始化 C++17 堆外内存引擎
+     * @param capacity 堆外内存容量（字节），例如 16 * 1024 * 1024 (16MB)
+     */
+    external fun initNativeEngine(capacity: Int)
+
+    /**
+     * 获取 C++ 堆外内存映射的 DirectByteBuffer（零拷贝通道）
+     */
+    external fun getDirectBuffer(): ByteBuffer?
+
+    /**
+     * 高速追加日志到 Native 堆外缓冲区
+     */
+    external fun appendNativeLog(log: String)
+
+    /**
+     * 获取当前 Native 堆外缓冲区的写偏移指针
+     */
+    external fun getWriteOffset(): Long
+
+    /**
+     * 清空 Native 堆外内存
+     */
+    external fun clearNativeBuffer()
+    
     external fun VerifyAllSignatures(apkPath: String): Boolean
     external fun ApkSignature(apkPath: String): String
     

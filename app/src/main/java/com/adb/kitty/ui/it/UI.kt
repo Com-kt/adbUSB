@@ -485,8 +485,7 @@ fun CenterAlignedTopAppBarExample(
             LogSection(
                 getLogCount = { viewModel.logCount },
                 getLogLineAt = { index -> viewModel.getLogLineAt(index) },
-                logUpdateFlow = viewModel.uiUpdateEvent,
-                onTrimMemoryRequested = { viewModel.onTrimMemoryRequested() },
+                uiUpdateVersionFlow = viewModel.uiUpdateVersion,
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth()

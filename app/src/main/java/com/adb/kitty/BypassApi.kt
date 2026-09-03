@@ -1,5 +1,11 @@
 package com.adb.kitty
 
+import com.adb.kitty.ui.theme.*
+import com.adb.kitty.ui.viewmodel.*
+import com.adb.kitty.ui.it.*
+import com.adb.kitty.data.*
+import com.adb.kitty.R
+
 import android.app.Application
 import android.content.Context
 import android.content.ComponentCallbacks2
@@ -14,11 +20,6 @@ import kotlin.system.exitProcess
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
-import com.adb.kitty.ui.theme.*
-import com.adb.kitty.ui.viewmodel.*
-import com.adb.kitty.ui.it.*
-import com.adb.kitty.data.*
-import com.adb.kitty.R
 
 @Keep
 class BypassApi : Application() {
@@ -31,12 +32,12 @@ class BypassApi : Application() {
 
     override fun onCreate() {
         super.onCreate()
-        
+        NativeLibs.initNativeEngine(16 * 1024 * 1024)
     }
     
     private val _trimMemoryEvents = MutableSharedFlow<Int>(extraBufferCapacity = 16)
     val trimMemoryEvents: Flow<Int> = _trimMemoryEvents.asSharedFlow()
-
+    
     @Suppress("DEPRECATION")
     override fun onTrimMemory(level: Int) {
         super.onTrimMemory(level)
@@ -46,7 +47,6 @@ class BypassApi : Application() {
     @Suppress("DEPRECATION")
     override fun onLowMemory() {
         super.onLowMemory()
-        // 低内存兜底：分发 TRIM_MEMORY_COMPLETE 等效信号
         _trimMemoryEvents.tryEmit(ComponentCallbacks2.TRIM_MEMORY_COMPLETE)
     }
 }
