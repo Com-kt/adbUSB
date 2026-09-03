@@ -13,7 +13,6 @@ import android.text.Editable
 import android.text.InputFilter
 import android.text.InputType
 import android.text.TextWatcher
-import android.text.method.ScrollingMovementMethod
 import android.view.MotionEvent
 import android.widget.EditText
 import androidx.compose.foundation.interaction.FocusInteraction
@@ -54,7 +53,6 @@ fun <T> CommandInputSection(
     val coroutineScope = rememberCoroutineScope()
     var focusInteraction by remember { mutableStateOf<FocusInteraction.Focus?>(null) }
 
-    // 使用 Channel.CONFLATED：限制容量为 1 并丢弃旧值，解决内存堆积同时保证非阻塞与菜单弹出
     val searchChannel = remember { Channel<String>(capacity = Channel.CONFLATED) }
 
     LaunchedEffect(searchChannel) {
@@ -91,17 +89,15 @@ fun <T> CommandInputSection(
 
                                 overScrollMode = android.view.View.OVER_SCROLL_NEVER
 
-                                // 32KB 缓冲区（16384 个 UTF-16 字符）
                                 filters = arrayOf(InputFilter.LengthFilter(16384))
 
-                                // 准确锁定 3 行最大像素高度
                                 post {
                                     if (lineHeight > 0) {
                                         maxHeight = lineHeight * 3 + compoundPaddingTop + compoundPaddingBottom
                                     }
                                 }
 
-                                movementMethod = ScrollingMovementMethod.getInstance()
+                                // 已移除 ScrollingMovementMethod，保留原生 ArrowKeyMovementMethod 以保证长按选择与复制菜单正常工作
                                 isVerticalScrollBarEnabled = false
                                 setHorizontallyScrolling(false)
 
@@ -144,8 +140,6 @@ fun <T> CommandInputSection(
                                     override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
                                         val newText = s?.toString() ?: ""
                                         if (newText != query.text) {
-                                            // 对 selectionStart 和 selectionEnd 进行安全裁切 [0, newText.length]，
-                                            // 修复 setText() 触发时返回 -1 导致的 IllegalArgumentException 崩溃
                                             val safeStart = selectionStart.coerceIn(0, newText.length)
                                             val safeEnd = selectionEnd.coerceIn(0, newText.length)
 
@@ -155,13 +149,11 @@ fun <T> CommandInputSection(
                                                     selection = TextRange(safeStart, safeEnd)
                                                 )
                                             )
-                                            // 恢复 trySend 驱动 searchChannel，确保下拉菜单正常展示
                                             searchChannel.trySend(newText)
                                         }
                                     }
 
                                     override fun afterTextChanged(s: Editable?) {
-                                        // 仅当行数增减时才计算视口对齐，避免单字输入产生无谓计算
                                         val currentLineCount = lineCount
                                         if (currentLineCount != lastLineCount) {
                                             lastLineCount = currentLineCount
@@ -183,7 +175,6 @@ fun <T> CommandInputSection(
                             }
                         },
                         update = { editText ->
-                            // 仅在外部赋值（如点击下拉项）时同步，避免覆盖输入法预读拼音
                             if (editText.text.toString() != query.text) {
                                 editText.setText(query.text)
                                 editText.setSelection(query.text.length)
