@@ -1347,12 +1347,12 @@ class MainActivity : ComponentActivity() {
 
         lifecycleScope.launch {
             val isSuccess = viewModel.exportFullLogToFile(targetFile)
-        }
 
-        if (isSuccess) {
-            appendLog("[系统] 🎉 日志已成功安全写入文件：${targetFile.absolutePath}")
-        } else {
-            appendLog("[错误] ❌ 写入文件时发生异常，请检查磁盘权限或空间是否充足。")
+            if (isSuccess) {
+                appendLog("[系统] 🎉 日志已成功安全写入文件：${targetFile.absolutePath}")
+            } else {
+                appendLog("[错误] ❌ 写入文件时发生异常，请检查磁盘权限或空间是否充足。")
+            }
         }
     }
 
