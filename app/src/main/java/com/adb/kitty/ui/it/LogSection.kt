@@ -37,6 +37,8 @@ private class LogContainerView(context: Context) : NestedScrollView(context) {
     val horizontalScrollView = HorizontalScrollView(context)
     val textView = TextView(context)
     var isAutoScrollEnabled = true
+    
+    private var lastLoadedText: String? = null
 
     init {
         layoutParams = ViewGroup.LayoutParams(
@@ -61,6 +63,8 @@ private class LogContainerView(context: Context) : NestedScrollView(context) {
             setPadding(16, 16, 16, 16)
             setTextIsSelectable(true)
             setHorizontallyScrolling(true)
+            
+            importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_NO
         }
 
         horizontalScrollView.addView(textView)
@@ -78,8 +82,8 @@ private class LogContainerView(context: Context) : NestedScrollView(context) {
             textView.setTextColor(textColor)
         }
 
-        if (textView.text.toString() != fullText) {
-            // 使用 BufferType.NORMAL 降低 Editor 内部 Spannable 逻辑消耗
+        if (lastLoadedText != fullText) {
+            lastLoadedText = fullText
             textView.setText(fullText, TextView.BufferType.NORMAL)
         }
 
@@ -99,10 +103,8 @@ private class LogContainerView(context: Context) : NestedScrollView(context) {
     }
 
     fun releaseMemory() {
+        lastLoadedText = null
         textView.text = ""
-        removeAllViews()
-        horizontalScrollView.removeAllViews()
-        setOnScrollChangeListener(null as OnScrollChangeListener?)
     }
 }
 
@@ -150,6 +152,7 @@ fun LogSection(
                     val totalCount = getLogCount()
 
                     val fullText = withContext(Dispatchers.Default) {
+                        if (totalCount == 0) return@withContext ""
                         val sb = StringBuilder()
                         for (i in 0 until totalCount) {
                             sb.append(getLogLineAt(i))
