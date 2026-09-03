@@ -129,6 +129,7 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
         // 1. 自动监听 Application 广播的低内存信号
         val app = application as? BypassApi
         app?.let {
+            @Suppress("DEPRECATION")
             viewModelScope.launch(Dispatchers.Default) {
                 it.trimMemoryEvents.collect { level ->
                     if (level >= ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW ||
