@@ -37,8 +37,9 @@ private class LogContainerView(context: Context) : NestedScrollView(context) {
     val horizontalScrollView = HorizontalScrollView(context)
     val textView = TextView(context)
     var isAutoScrollEnabled = true
-    
+
     private var lastLoadedText: String? = null
+    private var isProgrammaticScrolling = false
 
     init {
         layoutParams = ViewGroup.LayoutParams(
@@ -63,7 +64,6 @@ private class LogContainerView(context: Context) : NestedScrollView(context) {
             setPadding(16, 16, 16, 16)
             setTextIsSelectable(true)
             setHorizontallyScrolling(true)
-            
             importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_NO
         }
 
@@ -71,9 +71,12 @@ private class LogContainerView(context: Context) : NestedScrollView(context) {
         addView(horizontalScrollView)
 
         setOnScrollChangeListener { _, _, scrollY, _, _ ->
-            val contentHeight = getChildAt(0)?.height ?: 0
-            val maxScrollY = (contentHeight - height).coerceAtLeast(0)
-            isAutoScrollEnabled = (maxScrollY - scrollY) <= 30
+            if (!isProgrammaticScrolling) {
+                val contentHeight = getChildAt(0)?.height ?: 0
+                val maxScrollY = (contentHeight - height).coerceAtLeast(0)
+                // 允许 50px 的容差范围
+                isAutoScrollEnabled = (maxScrollY - scrollY) <= 50
+            }
         }
     }
 
@@ -85,13 +88,16 @@ private class LogContainerView(context: Context) : NestedScrollView(context) {
         if (lastLoadedText != fullText) {
             lastLoadedText = fullText
             textView.setText(fullText, TextView.BufferType.NORMAL)
-        }
 
-        if (isAutoScrollEnabled) {
-            post {
-                val contentHeight = getChildAt(0)?.height ?: 0
-                val maxScrollY = (contentHeight - height).coerceAtLeast(0)
-                scrollTo(scrollX, maxScrollY)
+            // 只有文本真正变化且开启自动滚动时才执行
+            if (isAutoScrollEnabled) {
+                // 等待 TextView 重新 Layout 测量完最新文本高度后，再执行到底部滚动
+                textView.post {
+                    isProgrammaticScrolling = true
+                    // 原生 API：自动定位并滚动到最底部
+                    fullScroll(FOCUS_DOWN)
+                    isProgrammaticScrolling = false
+                }
             }
         }
     }
