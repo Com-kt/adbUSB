@@ -32,7 +32,7 @@ class BypassApi : Application() {
 
     override fun onCreate() {
         super.onCreate()
-        NativeLibs.initNativeEngine(2 * 1024 * 1024)
+        NativeLibs.initNativeEngine(3 * 1024 * 1024)
     }
     
     private val _trimMemoryEvents = MutableSharedFlow<Int>(extraBufferCapacity = 16)
