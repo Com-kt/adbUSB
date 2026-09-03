@@ -77,7 +77,11 @@ private class LogContainerView(context: Context) : NestedScrollView(context) {
         if (textView.currentTextColor != textColor) {
             textView.setTextColor(textColor)
         }
-        textView.text = fullText
+
+        if (textView.text.toString() != fullText) {
+            // 使用 BufferType.NORMAL 降低 Editor 内部 Spannable 逻辑消耗
+            textView.setText(fullText, TextView.BufferType.NORMAL)
+        }
 
         if (isAutoScrollEnabled) {
             post {
@@ -96,6 +100,7 @@ private class LogContainerView(context: Context) : NestedScrollView(context) {
 
     fun releaseMemory() {
         textView.text = ""
+        textView.destroyDrawingCache()
         removeAllViews()
         horizontalScrollView.removeAllViews()
         setOnScrollChangeListener(null as OnScrollChangeListener?)

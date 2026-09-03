@@ -30,9 +30,8 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import kotlinx.coroutines.FlowPreview
-import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.debounce
-import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 
 @SuppressLint("ClickableViewAccessibility")
@@ -54,13 +53,13 @@ fun <T> CommandInputSection(
     val coroutineScope = rememberCoroutineScope()
     var focusInteraction by remember { mutableStateOf<FocusInteraction.Focus?>(null) }
 
-    val searchChannel = remember { Channel<String>(Channel.UNLIMITED) }
-
-    LaunchedEffect(searchChannel) {
-        searchChannel.receiveAsFlow()
+    // 放弃 Channel(UNLIMITED)，改用 Compose 原生 snapshotFlow，零额外对象分配
+    LaunchedEffect(Unit) {
+        snapshotFlow { query.text }
             .debounce(150)
-            .collect { latestText ->
-                onExpandedChange(latestText.isNotEmpty())
+            .distinctUntilChanged()
+            .collect { text ->
+                onExpandedChange(text.isNotEmpty())
             }
     }
 
@@ -87,7 +86,7 @@ fun <T> CommandInputSection(
                                 maxLines = 3
                                 isSingleLine = false
                                 textSize = 16f
-                                
+
                                 overScrollMode = android.view.View.OVER_SCROLL_NEVER
 
                                 // 32KB 缓冲区（16384 个 UTF-16 字符）
@@ -104,8 +103,8 @@ fun <T> CommandInputSection(
                                 isVerticalScrollBarEnabled = false
                                 setHorizontallyScrolling(false)
 
+                                // 删除 setTextIsSelectable(true)，EditText 原生即支持选择，避免重复创建 Editor 内部结构
                                 isLongClickable = true
-                                setTextIsSelectable(true)
 
                                 setOnTouchListener { view, event ->
                                     when (event.actionMasked) {
@@ -136,35 +135,35 @@ fun <T> CommandInputSection(
                                     }
                                 }
 
+                                var lastLineCount = -1
+
                                 addTextChangedListener(object : TextWatcher {
                                     override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+                                    
                                     override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
                                         val newText = s?.toString() ?: ""
                                         if (newText != query.text) {
-                                            val currentStart = selectionStart
-                                            val currentEnd = selectionEnd
-
                                             onQueryChange(
                                                 TextFieldValue(
                                                     text = newText,
-                                                    selection = TextRange(currentStart, currentEnd)
+                                                    selection = TextRange(selectionStart, selectionEnd)
                                                 )
                                             )
-                                            searchChannel.trySend(newText)
                                         }
                                     }
 
                                     override fun afterTextChanged(s: Editable?) {
-                                        // 核心修复：回车或新增行时，立即计算光标位置并强行将视口滚动到当前光标所在行
-                                        post {
+                                        // 仅当行数真正增加/减少时才计算滚动，不再为每个字符 post Runnable
+                                        val currentLineCount = lineCount
+                                        if (currentLineCount != lastLineCount) {
+                                            lastLineCount = currentLineCount
                                             layout?.let { l ->
                                                 val sel = selectionStart
                                                 if (sel >= 0) {
                                                     val line = l.getLineForOffset(sel)
                                                     val lineBottom = l.getLineBottom(line)
                                                     val visibleBottom = scrollY + (height - paddingTop - paddingBottom)
-                                                    
-                                                    // 如果光标在可视区域下方（如切到第 4 行），精准滚动对齐
+
                                                     if (lineBottom > visibleBottom) {
                                                         scrollTo(0, lineBottom - (height - paddingTop - paddingBottom))
                                                     }
@@ -176,9 +175,10 @@ fun <T> CommandInputSection(
                             }
                         },
                         update = { editText ->
+                            // 防止打字时被外部状态反复覆盖，仅在从外部（如点击下拉菜单项）改变时刷新
                             if (editText.text.toString() != query.text) {
                                 editText.setText(query.text)
-                                editText.setSelection(query.text.length.coerceAtMost(editText.text?.length ?: 0))
+                                editText.setSelection(query.text.length)
                             }
                         }
                     )
