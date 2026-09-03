@@ -100,7 +100,6 @@ private class LogContainerView(context: Context) : NestedScrollView(context) {
 
     fun releaseMemory() {
         textView.text = ""
-        textView.destroyDrawingCache()
         removeAllViews()
         horizontalScrollView.removeAllViews()
         setOnScrollChangeListener(null as OnScrollChangeListener?)

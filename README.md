@@ -13,6 +13,12 @@
 - For the Shell executor, we may need to migrate to the foreground service to fully use all the instructions that come with Android 14+. The background process daemon service solution may no longer be a recommended solution for Android 14+ systems.
 - For the existing local shell service, I would refactor it in V4.2 or V4.3
 
+# Android JVM GC
+```kotlin
+System.gc()
+Runtime.getRuntime().gc()
+```
+
 # DocumentsProvider
 - You don't need to use MT Manager to inject a file provider for your APK to create the corresponding local storage directory
 
