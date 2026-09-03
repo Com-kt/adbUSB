@@ -11,6 +11,7 @@ import com.adb.kitty.R
 import android.content.ComponentCallbacks2
 import android.content.Context
 import android.graphics.Typeface
+import android.view.MotionEvent
 import android.view.ViewGroup
 import android.widget.HorizontalScrollView
 import android.widget.TextView
@@ -36,10 +37,10 @@ import kotlin.time.Duration.Companion.milliseconds
 private class LogContainerView(context: Context) : NestedScrollView(context) {
     val horizontalScrollView = HorizontalScrollView(context)
     val textView = TextView(context)
+    
     var isAutoScrollEnabled = true
-
+    private var isUserInteracting = false
     private var lastLoadedText: String? = null
-    private var isProgrammaticScrolling = false
 
     init {
         layoutParams = ViewGroup.LayoutParams(
@@ -71,13 +72,34 @@ private class LogContainerView(context: Context) : NestedScrollView(context) {
         addView(horizontalScrollView)
 
         setOnScrollChangeListener { _, _, scrollY, _, _ ->
-            if (!isProgrammaticScrolling) {
-                val contentHeight = getChildAt(0)?.height ?: 0
-                val maxScrollY = (contentHeight - height).coerceAtLeast(0)
-                // 允许 50px 的容差范围
-                isAutoScrollEnabled = (maxScrollY - scrollY) <= 50
+            if (isAtBottom()) {
+                isAutoScrollEnabled = true
+            } else if (isUserInteracting) {
+                // 仅当用户正在手势滑动，且滑离了底部时，才关闭自动滚动
+                isAutoScrollEnabled = false
             }
         }
+    }
+
+    override fun dispatchTouchEvent(ev: MotionEvent?): Boolean {
+        when (ev?.actionMasked) {
+            MotionEvent.ACTION_DOWN, MotionEvent.ACTION_MOVE -> {
+                isUserInteracting = true
+            }
+            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                isUserInteracting = false
+                if (isAtBottom()) {
+                    isAutoScrollEnabled = true
+                }
+            }
+        }
+        return super.dispatchTouchEvent(ev)
+    }
+
+    private fun isAtBottom(): Boolean {
+        val child = getChildAt(0) ?: return true
+        val maxScrollY = (child.height - height).coerceAtLeast(0)
+        return (maxScrollY - scrollY) <= 50
     }
 
     fun updateLogs(fullText: String, textColor: Int) {
@@ -87,16 +109,17 @@ private class LogContainerView(context: Context) : NestedScrollView(context) {
 
         if (lastLoadedText != fullText) {
             lastLoadedText = fullText
+            val savedScrollY = scrollY
+
             textView.setText(fullText, TextView.BufferType.NORMAL)
 
-            // 只有文本真正变化且开启自动滚动时才执行
-            if (isAutoScrollEnabled) {
-                // 等待 TextView 重新 Layout 测量完最新文本高度后，再执行到底部滚动
-                textView.post {
-                    isProgrammaticScrolling = true
-                    // 原生 API：自动定位并滚动到最底部
-                    fullScroll(FOCUS_DOWN)
-                    isProgrammaticScrolling = false
+            post {
+                if (isAutoScrollEnabled) {
+                    // 使用 Int.MAX_VALUE 强制滚动到底部，不触碰 TextView 焦点
+                    scrollTo(0, Int.MAX_VALUE)
+                } else {
+                    // 用户正在翻看历史日志时，防止 setText 重新测量导致视口跳变归零
+                    scrollTo(scrollX, savedScrollY)
                 }
             }
         }
@@ -132,7 +155,6 @@ fun LogSection(
         if (isDark) 0xFFEEEEEE.toInt() else 0xFF111111.toInt()
     }
 
-    // 1. 低内存回调清理 UI 渲染层
     LaunchedEffect(context) {
         val app = context.applicationContext as? BypassApi ?: return@LaunchedEffect
 
@@ -147,7 +169,6 @@ fun LogSection(
         }
     }
 
-    // 2. 只有前台 (STARTED) 状态才采样更新 UI，切回前台自动触发 StateFlow 重绘恢复
     LaunchedEffect(uiUpdateVersionFlow, containerView, lifecycleOwner) {
         val view = containerView ?: return@LaunchedEffect
 
