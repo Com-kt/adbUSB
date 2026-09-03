@@ -40,13 +40,4 @@ std::string get_block_cert_sha256(const uint8_t* payload, size_t payload_size);
 
 bool parse_apk_signing_block(const std::string& apk_path, std::unordered_map<uint32_t, std::vector<uint8_t>>& out_pairs);
 
-bool verify_v1_signature(const std::string& apk_path, const std::string& expected_sha256);
-bool verify_v2_signature(const std::unordered_map<uint32_t, std::vector<uint8_t>>& pairs, const std::string& expected_sha256);
-bool verify_v3_signature(const std::unordered_map<uint32_t, std::vector<uint8_t>>& pairs, const std::string& expected_sha256);
-bool verify_v31_signature(const std::unordered_map<uint32_t, std::vector<uint8_t>>& pairs, const std::string& expected_sha256);
-
-bool verify_v32_signature(const std::unordered_map<uint32_t, std::vector<uint8_t>>& pairs, 
-                         const std::string& expected_classical_sha256, 
-                         const std::string& expected_pqc_sha256);
-
 #endif // COMMON_H

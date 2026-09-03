@@ -23,9 +23,7 @@ set_target_properties(ssl PROPERTIES
 
 add_library(native-lib SHARED
       native-lib.cpp
-      native-sig.cpp
       common.cpp
-      verifier.cpp
       textlogs/native_engine.cpp
 )
 
