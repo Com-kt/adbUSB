@@ -144,10 +144,15 @@ fun <T> CommandInputSection(
                                     override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
                                         val newText = s?.toString() ?: ""
                                         if (newText != query.text) {
+                                            // 对 selectionStart 和 selectionEnd 进行安全裁切 [0, newText.length]，
+                                            // 修复 setText() 触发时返回 -1 导致的 IllegalArgumentException 崩溃
+                                            val safeStart = selectionStart.coerceIn(0, newText.length)
+                                            val safeEnd = selectionEnd.coerceIn(0, newText.length)
+
                                             onQueryChange(
                                                 TextFieldValue(
                                                     text = newText,
-                                                    selection = TextRange(selectionStart, selectionEnd)
+                                                    selection = TextRange(safeStart, safeEnd)
                                                 )
                                             )
                                             // 恢复 trySend 驱动 searchChannel，确保下拉菜单正常展示
