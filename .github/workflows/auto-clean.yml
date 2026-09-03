@@ -2,7 +2,7 @@ name: Auto Clean Workflow Runs
 
 on:
   schedule:
-    - cron: '27 19 * * *'
+    - cron: '27 19 */3 * *'
   workflow_dispatch:
 
 jobs:
@@ -17,4 +17,4 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           repository: ${{ github.repository }}
           retain_days: 0
-          keep_minimum_runs: 7
+          keep_minimum_runs: 10

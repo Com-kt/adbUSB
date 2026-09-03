@@ -275,22 +275,6 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
         }.getOrDefault(false)
     }
     
-    val items: List<CommandUiItem> by lazy { rememberCombinedItems() }
-
-    private fun rememberCombinedItems(): List<CommandUiItem> {
-        val adbList = _adbCommands.map { 
-            CommandUiItem(command = it.command, description = it.description, isAdb = true, isApp = false) 
-        }
-        val fbList = _fbCommands.map { 
-            CommandUiItem(command = it.command, description = it.description, isAdb = false, isApp = false) 
-        }
-        val appList = _appCommands.map { 
-            CommandUiItem(command = it.command, description = it.description, isAdb = false, isApp = true) 
-        }
-        
-        return adbList + fbList + appList
-    }
-    
     private val _adbService = MutableStateFlow<AdbSessionService?>(null)
 
     fun setAdbService(service: AdbSessionService?) {
@@ -379,7 +363,23 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
     override fun onCleared() {
         _fastbootManager = null
     }
-    
+
+    val items: List<CommandUiItem> by lazy { buildCombinedItems() }
+
+    private fun buildCombinedItems(): List<CommandUiItem> = buildList(
+        _adbCommands.size + _fbCommands.size + _appCommands.size
+    ) {
+        _adbCommands.forEach { 
+            add(CommandUiItem(command = it.command, description = it.description, isAdb = true, isApp = false)) 
+        }
+        _fbCommands.forEach { 
+            add(CommandUiItem(command = it.command, description = it.description, isAdb = false, isApp = false)) 
+        }
+        _appCommands.forEach { 
+            add(CommandUiItem(command = it.command, description = it.description, isAdb = false, isApp = true)) 
+        }
+    }
+
     private val _appCommands = listOf(
         AppCommand("尝试设置selinux为宽容模式, 该扩展指令由app提供", "usb-selinux"),
         AppCommand("临时调用 Shell 的指令, 一般情况下用不上", "neko "),

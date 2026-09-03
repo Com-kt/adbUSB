@@ -151,14 +151,13 @@ fun CenterAlignedTopAppBarExample(
     var query by rememberSaveable(stateSaver = TextFieldValue.Saver) { 
         mutableStateOf(TextFieldValue("")) 
     }
-    val filteredItems by remember(query.text) {
-        derivedStateOf {
-            if (query.text.isEmpty()) emptyList() 
-            else {
-                viewModel.items.filter { 
-                    it.command.contains(query.text, ignoreCase = true) || 
-                    it.description.contains(query.text, ignoreCase = true)
-                }
+    val filteredItems = remember(query.text) {
+        if (query.text.isEmpty()) {
+            emptyList()
+        } else {
+            viewModel.items.filter { 
+                it.command.contains(query.text, ignoreCase = true) || 
+                it.description.contains(query.text, ignoreCase = true)
             }
         }
     }

@@ -30,8 +30,9 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.debounce
-import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 
 @SuppressLint("ClickableViewAccessibility")
@@ -53,13 +54,14 @@ fun <T> CommandInputSection(
     val coroutineScope = rememberCoroutineScope()
     var focusInteraction by remember { mutableStateOf<FocusInteraction.Focus?>(null) }
 
-    // 放弃 Channel(UNLIMITED)，改用 Compose 原生 snapshotFlow，零额外对象分配
-    LaunchedEffect(Unit) {
-        snapshotFlow { query.text }
+    // 使用 Channel.CONFLATED：限制容量为 1 并丢弃旧值，解决内存堆积同时保证非阻塞与菜单弹出
+    val searchChannel = remember { Channel<String>(capacity = Channel.CONFLATED) }
+
+    LaunchedEffect(searchChannel) {
+        searchChannel.receiveAsFlow()
             .debounce(150)
-            .distinctUntilChanged()
-            .collect { text ->
-                onExpandedChange(text.isNotEmpty())
+            .collect { latestText ->
+                onExpandedChange(latestText.isNotEmpty())
             }
     }
 
@@ -103,7 +105,6 @@ fun <T> CommandInputSection(
                                 isVerticalScrollBarEnabled = false
                                 setHorizontallyScrolling(false)
 
-                                // 删除 setTextIsSelectable(true)，EditText 原生即支持选择，避免重复创建 Editor 内部结构
                                 isLongClickable = true
 
                                 setOnTouchListener { view, event ->
@@ -149,11 +150,13 @@ fun <T> CommandInputSection(
                                                     selection = TextRange(selectionStart, selectionEnd)
                                                 )
                                             )
+                                            // 恢复 trySend 驱动 searchChannel，确保下拉菜单正常展示
+                                            searchChannel.trySend(newText)
                                         }
                                     }
 
                                     override fun afterTextChanged(s: Editable?) {
-                                        // 仅当行数真正增加/减少时才计算滚动，不再为每个字符 post Runnable
+                                        // 仅当行数增减时才计算视口对齐，避免单字输入产生无谓计算
                                         val currentLineCount = lineCount
                                         if (currentLineCount != lastLineCount) {
                                             lastLineCount = currentLineCount
@@ -175,7 +178,7 @@ fun <T> CommandInputSection(
                             }
                         },
                         update = { editText ->
-                            // 防止打字时被外部状态反复覆盖，仅在从外部（如点击下拉菜单项）改变时刷新
+                            // 仅在外部赋值（如点击下拉项）时同步，避免覆盖输入法预读拼音
                             if (editText.text.toString() != query.text) {
                                 editText.setText(query.text)
                                 editText.setSelection(query.text.length)
