@@ -71,7 +71,6 @@ object NativeLibs {
      */
     external fun clearNativeBuffer()
     
-    external fun VerifyAllSignatures(apkPath: String): Boolean
     external fun ApkSignature(apkPath: String): String
     
     external fun hasV1Scheme(apkPath: String): Boolean
