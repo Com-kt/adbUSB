@@ -7,8 +7,7 @@ set(CMAKE_C_STANDARD 17)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
-set(SOURCE_DIR src/main/cpp)
-set(OPENSSL_DIR openssl/${ANDROID_ABI})
+set(OPENSSL_DIR ${CMAKE_CURRENT_SOURCE_DIR}/openssl/${ANDROID_ABI})
 
 add_library(crypto STATIC IMPORTED)
 set_target_properties(crypto PROPERTIES

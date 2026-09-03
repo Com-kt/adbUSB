@@ -134,10 +134,19 @@ class MainActivity : ComponentActivity() {
     private var showAppSigBottomSheet by mutableStateOf(false)
     private var selectedSigReport by mutableStateOf<String?>(null)
     
+    // adb 与 fastboot 使用的路径
     private val flashFolder by lazy { File(getExternalFilesDir(null), "flash") }
     private fun ensureFlashDirExists() {
         if (!flashFolder.exists()) {
             flashFolder.mkdirs()
+        }
+    }
+    
+    // 日志文件输出专用路径
+    private val logsFolder by lazy { File(externalCacheDir, "logs") }
+    private fun ensureLogsDirExists() {
+        if (!logsFolder.exists()) {
+            logsFolder.mkdirs()
         }
     }
     
@@ -1330,13 +1339,15 @@ class MainActivity : ComponentActivity() {
         val formatter = DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss")
         val timeStamp = LocalDateTime.now().format(formatter)
         val fileName = "Log_$timeStamp.txt"
-        val targetFile = File(flashFolder, fileName)
+        val targetFile = File(logsFolder, fileName)
 
         if (targetFile.parentFile?.exists() == false) {
             targetFile.parentFile?.mkdirs()
         }
 
-        val isSuccess = viewModel.exportFullLogToFile(targetFile)
+        lifecycleScope.launch {
+            val isSuccess = viewModel.exportFullLogToFile(targetFile)
+        }
 
         if (isSuccess) {
             appendLog("[系统] 🎉 日志已成功安全写入文件：${targetFile.absolutePath}")
