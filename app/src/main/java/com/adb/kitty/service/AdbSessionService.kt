@@ -43,6 +43,7 @@ import androidx.annotation.RequiresApi
 import com.flyfishxu.kadb.Kadb
 import kotlin.concurrent.thread
 import kotlinx.coroutines.*
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.*
 import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
