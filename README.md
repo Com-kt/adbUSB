@@ -19,13 +19,13 @@
 ```shell
 #!/system/bin/sh
 
-neko() {
+fastboot() {
 #  am broadcast -a com.adb.kitty.MY_CMD --es "args" "$*" > /dev/null
     am broadcast -a com.adb.kitty.MY_CMD --es "cmd" "$*" > /dev/null
 }
 
-neko fastboot getvar unlocked
-neko fastboot oem device-info
+fastboot getvar unlocked
+fastboot oem device-info
 ```
 
 # DocumentsProvider
