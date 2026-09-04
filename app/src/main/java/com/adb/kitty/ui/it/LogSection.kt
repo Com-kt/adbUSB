@@ -12,6 +12,9 @@ import android.content.ComponentCallbacks2
 import android.content.Context
 import android.graphics.Rect
 import android.graphics.Typeface
+import android.os.Handler
+import android.os.Looper
+import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.widget.HorizontalScrollView
@@ -38,12 +41,24 @@ import kotlin.time.Duration.Companion.milliseconds
 private class LogContainerView(context: Context) : NestedScrollView(context) {
     val horizontalScrollView = HorizontalScrollView(context)
     val textView = TextView(context)
-    
+
     var isAutoScrollEnabled = true
+    private var isUserTouching = false
+    private var isScrolling = false
     private var isUpdatingText = false
-    private var pendingScrollToBottom = false
-    private var savedScrollY = 0
     private var lastLoadedText: String? = null
+
+    private val scrollIdleHandler = Handler(Looper.getMainLooper())
+    
+    private val scrollIdleRunnable = Runnable {
+        isScrolling = false
+        if (!isUserTouching) {
+            if (isAtBottom()) {
+                isAutoScrollEnabled = true
+                scrollToBottom()
+            }
+        }
+    }
 
     init {
         layoutParams = ViewGroup.LayoutParams(
@@ -74,26 +89,28 @@ private class LogContainerView(context: Context) : NestedScrollView(context) {
         horizontalScrollView.addView(textView)
         addView(horizontalScrollView)
 
-        horizontalScrollView.addOnLayoutChangeListener { _, _, top, _, bottom, _, _, oldTop, oldBottom ->
-            val newHeight = bottom - top
-            val oldHeight = oldBottom - oldTop
-            
-            if (newHeight != oldHeight) {
-                val maxScrollY = (newHeight - height).coerceAtLeast(0)
-                if (pendingScrollToBottom) {
-                    pendingScrollToBottom = false
-                    scrollTo(scrollX, maxScrollY)
-                } else if (!isAutoScrollEnabled) {
-                    scrollTo(scrollX, savedScrollY.coerceAtMost(maxScrollY))
-                }
-            }
-        }
-
-        setOnScrollChangeListener { _, _, scrollY, _, _ ->
+        setOnScrollChangeListener { _, _, _, _, _ ->
             if (!isUpdatingText) {
-                isAutoScrollEnabled = isAtBottom()
+                isScrolling = true
+                scrollIdleHandler.removeCallbacks(scrollIdleRunnable)
+                scrollIdleHandler.postDelayed(scrollIdleRunnable, 120)
             }
         }
+    }
+
+    override fun dispatchTouchEvent(ev: MotionEvent?): Boolean {
+        when (ev?.actionMasked) {
+            MotionEvent.ACTION_DOWN -> {
+                isUserTouching = true
+                isAutoScrollEnabled = false
+                scrollIdleHandler.removeCallbacks(scrollIdleRunnable)
+            }
+            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                isUserTouching = false
+                scrollIdleHandler.postDelayed(scrollIdleRunnable, 120)
+            }
+        }
+        return super.dispatchTouchEvent(ev)
     }
 
     override fun requestChildRectangleOnScreen(
@@ -110,6 +127,11 @@ private class LogContainerView(context: Context) : NestedScrollView(context) {
         return (maxScrollY - scrollY) <= 80
     }
 
+    private fun scrollToBottom() {
+        val maxScrollY = (horizontalScrollView.height - height).coerceAtLeast(0)
+        scrollTo(scrollX, maxScrollY)
+    }
+
     fun updateLogs(fullText: String, textColor: Int) {
         if (textView.currentTextColor != textColor) {
             textView.setTextColor(textColor)
@@ -117,26 +139,18 @@ private class LogContainerView(context: Context) : NestedScrollView(context) {
 
         if (lastLoadedText != fullText) {
             lastLoadedText = fullText
-
-            val wasAtBottom = isAutoScrollEnabled || isAtBottom()
-
-            if (wasAtBottom) {
-                isAutoScrollEnabled = true
-                pendingScrollToBottom = true
-            } else {
-                savedScrollY = scrollY
-                pendingScrollToBottom = false
-            }
+            val savedScrollY = scrollY
 
             isUpdatingText = true
-
             textView.setText(fullText, TextView.BufferType.NORMAL)
 
             post {
-                if (pendingScrollToBottom) {
-                    pendingScrollToBottom = false
-                    val maxScrollY = (horizontalScrollView.height - height).coerceAtLeast(0)
+                val maxScrollY = (horizontalScrollView.height - height).coerceAtLeast(0)
+                
+                if (isAutoScrollEnabled && !isUserTouching && !isScrolling) {
                     scrollTo(scrollX, maxScrollY)
+                } else {
+                    scrollTo(scrollX, savedScrollY.coerceAtMost(maxScrollY))
                 }
                 isUpdatingText = false
             }
@@ -150,10 +164,12 @@ private class LogContainerView(context: Context) : NestedScrollView(context) {
     }
 
     fun releaseMemory() {
+        scrollIdleHandler.removeCallbacks(scrollIdleRunnable)
         lastLoadedText = null
         textView.text = ""
         isAutoScrollEnabled = true
-        pendingScrollToBottom = false
+        isUserTouching = false
+        isScrolling = false
         isUpdatingText = false
     }
 }
