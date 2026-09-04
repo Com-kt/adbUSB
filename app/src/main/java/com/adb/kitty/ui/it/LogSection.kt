@@ -10,8 +10,10 @@ import com.adb.kitty.R
 
 import android.content.ComponentCallbacks2
 import android.content.Context
+import android.graphics.Rect
 import android.graphics.Typeface
 import android.view.MotionEvent
+import android.view.View
 import android.view.ViewGroup
 import android.widget.HorizontalScrollView
 import android.widget.TextView
@@ -40,6 +42,7 @@ private class LogContainerView(context: Context) : NestedScrollView(context) {
     
     var isAutoScrollEnabled = true
     private var isUserInteracting = false
+    private var userScrollY = 0
     private var lastLoadedText: String? = null
 
     init {
@@ -72,12 +75,19 @@ private class LogContainerView(context: Context) : NestedScrollView(context) {
         addView(horizontalScrollView)
 
         setOnScrollChangeListener { _, _, scrollY, _, _ ->
-            if (isAtBottom()) {
-                isAutoScrollEnabled = true
-            } else if (isUserInteracting) {
-                isAutoScrollEnabled = false
+            if (isUserInteracting) {
+                userScrollY = scrollY
+                isAutoScrollEnabled = isAtBottom()
             }
         }
+    }
+
+    override fun requestChildRectangleOnScreen(
+        child: View,
+        rectangle: Rect,
+        immediate: Boolean
+    ): Boolean {
+        return false
     }
 
     override fun dispatchTouchEvent(ev: MotionEvent?): Boolean {
@@ -108,19 +118,17 @@ private class LogContainerView(context: Context) : NestedScrollView(context) {
 
         if (lastLoadedText != fullText) {
             lastLoadedText = fullText
-            val savedScrollY = scrollY
 
             textView.setText(fullText, TextView.BufferType.NORMAL)
 
             post {
                 val child = getChildAt(0) ?: return@post
-                // 显式计算最大滑动高度，解决 Int.MAX_VALUE 引起的整数溢出白屏问题
                 val maxScrollY = (child.height - height).coerceAtLeast(0)
 
                 if (isAutoScrollEnabled) {
                     scrollTo(scrollX, maxScrollY)
                 } else {
-                    scrollTo(scrollX, savedScrollY.coerceAtMost(maxScrollY))
+                    scrollTo(scrollX, userScrollY.coerceAtMost(maxScrollY))
                 }
             }
         }
@@ -135,6 +143,7 @@ private class LogContainerView(context: Context) : NestedScrollView(context) {
     fun releaseMemory() {
         lastLoadedText = null
         textView.text = ""
+        userScrollY = 0
     }
 }
 
