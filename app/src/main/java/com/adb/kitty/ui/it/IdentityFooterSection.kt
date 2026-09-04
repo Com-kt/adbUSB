@@ -35,37 +35,44 @@ data class ProcessIdentity(
         fun current(): ProcessIdentity {
             val pid = Process.myPid()
             val tid = Process.myTid()
-            val ppid = runCatching { Os.getppid() }.getOrDefault(-1)
-            val pgid = runCatching { Os.getpgid(0) }.getOrDefault(-1)
-            val sid = runCatching { Os.getsid(0) }.getOrDefault(-1)
+            val ppid = try { Os.getppid() } catch (_: Throwable) { -1 }
+            val pgid = try { Os.getpgid(0) } catch (_: Throwable) { -1 }
+            val sid = try { Os.getsid(0) } catch (_: Throwable) { -1 }
 
-            // 从 /proc/self/status 中读取完整的 Real, Effective, Saved, File System IDs
             var uid = Process.myUid(); var euid = uid; var suid = uid; var fsuid = uid
             var gid = -1; var egid = -1; var sgid = -1; var fsgid = -1
 
-            runCatching {
+            try {
                 File("/proc/self/status").forEachLine { line ->
                     if (line.startsWith("Uid:")) {
-                        val parts = line.split("\\s+".toRegex()).drop(1).mapNotNull { it.toIntOrNull() }
+                        val parts = line.split(Regex("\\s+")).drop(1)
                         if (parts.size >= 4) {
-                            uid = parts[0]; euid = parts[1]; suid = parts[2]; fsuid = parts[3]
+                            uid = parts[0].toIntOrNull() ?: uid
+                            euid = parts[1].toIntOrNull() ?: euid
+                            suid = parts[2].toIntOrNull() ?: suid
+                            fsuid = parts[3].toIntOrNull() ?: fsuid
                         }
                     } else if (line.startsWith("Gid:")) {
-                        val parts = line.split("\\s+".toRegex()).drop(1).mapNotNull { it.toIntOrNull() }
+                        val parts = line.split(Regex("\\s+")).drop(1)
                         if (parts.size >= 4) {
-                            gid = parts[0]; egid = parts[1]; sgid = parts[2]; fsgid = parts[3]
+                            gid = parts[0].toIntOrNull() ?: gid
+                            egid = parts[1].toIntOrNull() ?: egid
+                            sgid = parts[2].toIntOrNull() ?: sgid
+                            fsgid = parts[3].toIntOrNull() ?: fsgid
                         }
                     }
                 }
+            } catch (_: Throwable) {
             }
 
-            // Android AID 计算：用户 App ID = UID % 100000
             val aid = uid % 100000
 
-            // 获取 SELinux 安全上下文
-            val selinuxContext = runCatching {
-                File("/proc/self/attr/current").readText().trim().ifEmpty { "unknown" }
-            }.getOrDefault("unsupported")
+            val selinuxContext = try {
+                val text = File("/proc/self/attr/current").readText().trim()
+                if (text.isEmpty()) "unknown" else text
+            } catch (_: Throwable) {
+                "unsupported"
+            }
 
             return ProcessIdentity(
                 uid = uid, euid = euid, suid = suid, fsuid = fsuid,
@@ -96,7 +103,7 @@ fun IdentityFooterSection(modifier: Modifier = Modifier) {
             verticalArrangement = Arrangement.SpaceBetween
         ) {
             Text(
-                text = "uid: ${identity.uid} | euid: ${identity.euid} | suid: ${identity.suid} | fsuid: ${identity.fsuid}",
+                text = "UID: ${identity.uid} | EUID: ${identity.euid} | SUID: ${identity.suid} | FSUID: ${identity.fsuid}",
                 style = MaterialTheme.typography.bodySmall,
                 fontFamily = FontFamily.Monospace,
                 fontSize = 10.sp,
@@ -104,7 +111,7 @@ fun IdentityFooterSection(modifier: Modifier = Modifier) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Text(
-                text = "gid: ${identity.gid} | egid: ${identity.egid} | sgid: ${identity.sgid} | fsgid: ${identity.fsgid}",
+                text = "GID: ${identity.gid} | EGID: ${identity.egid} | SGID: ${identity.sgid} | FSGID: ${identity.fsgid}",
                 style = MaterialTheme.typography.bodySmall,
                 fontFamily = FontFamily.Monospace,
                 fontSize = 10.sp,
@@ -112,7 +119,7 @@ fun IdentityFooterSection(modifier: Modifier = Modifier) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Text(
-                text = "pid: ${identity.pid} | ppid: ${identity.ppid} | tid: ${identity.tid} | pgid: ${identity.pgid} | sid: ${identity.sid} | aid: ${identity.aid}",
+                text = "PID: ${identity.pid} | PPID: ${identity.ppid} | TID: ${identity.tid} | PGID: ${identity.pgid} | SID: ${identity.sid} | AID: ${identity.aid}",
                 style = MaterialTheme.typography.bodySmall,
                 fontFamily = FontFamily.Monospace,
                 fontSize = 10.sp,
