@@ -786,68 +786,64 @@ class MainActivity : ComponentActivity() {
                         service.executeShellStream(realLocalCmd, requestRoot)
                     }
 
-                    if (pfd != null) {
-                        val logChannel = Channel<List<String>>(Channel.UNLIMITED)
+                    val logChannel = Channel<List<String>>(Channel.UNLIMITED)
 
-                        coroutineScope {
-                            launch(Dispatchers.IO) {
-                                try {
-                                    ParcelFileDescriptor.AutoCloseInputStream(pfd).use { inputStream ->
-                                        BufferedReader(InputStreamReader(inputStream, Charsets.UTF_8), 32768).use { reader ->
-                                            val chunkBuffer = ArrayList<String>(128)
-                                            var lastChunkTime = System.currentTimeMillis()
+                    coroutineScope {
+                        launch(Dispatchers.IO) {
+                            try {
+                                ParcelFileDescriptor.AutoCloseInputStream(pfd).use { inputStream ->
+                                    BufferedReader(InputStreamReader(inputStream, Charsets.UTF_8), 32768).use { reader ->
+                                        val chunkBuffer = ArrayList<String>(128)
+                                        var lastChunkTime = System.currentTimeMillis()
 
-                                            while (isActive) {
-                                                val line = try {
-                                                    reader.readLine()
-                                                } catch (_: java.io.IOException) {
-                                                    null
-                                                } ?: break
+                                        while (isActive) {
+                                            val line = try {
+                                                reader.readLine()
+                                            } catch (_: java.io.IOException) {
+                                                null
+                                            } ?: break
 
-                                                chunkBuffer.add(line)
-                                                val now = System.currentTimeMillis()
+                                            chunkBuffer.add(line)
+                                            val now = System.currentTimeMillis()
 
-                                                if (chunkBuffer.size >= 100 || (now - lastChunkTime >= 8)) {
-                                                    logChannel.send(ArrayList(chunkBuffer))
-                                                    chunkBuffer.clear()
-                                                    lastChunkTime = now
-                                                }
-                                            }
-
-                                            if (chunkBuffer.isNotEmpty()) {
+                                            if (chunkBuffer.size >= 100 || (now - lastChunkTime >= 8)) {
                                                 logChannel.send(ArrayList(chunkBuffer))
                                                 chunkBuffer.clear()
+                                                lastChunkTime = now
                                             }
                                         }
-                                    }
-                                } finally {
-                                    logChannel.close()
-                                }
-                            }
 
-                            launch(Dispatchers.Main) {
-                                val mainBuffer = ArrayList<String>(256)
-                                var lastFlushTime = System.currentTimeMillis()
-
-                                for (batch in logChannel) {
-                                    mainBuffer.addAll(batch)
-
-                                    val now = System.currentTimeMillis()
-                                    if (mainBuffer.size >= 200 || (now - lastFlushTime >= 8)) {
-                                        mainBuffer.forEach { appendLog(it) }
-                                        mainBuffer.clear()
-                                        lastFlushTime = now
+                                        if (chunkBuffer.isNotEmpty()) {
+                                            logChannel.send(ArrayList(chunkBuffer))
+                                            chunkBuffer.clear()
+                                        }
                                     }
                                 }
-
-                                if (mainBuffer.isNotEmpty()) {
-                                    mainBuffer.forEach { appendLog(it) }
-                                    mainBuffer.clear()
-                                }
+                            } finally {
+                                logChannel.close()
                             }
                         }
-                    } else {
-                        appendLog("[错误] 无法建立管道连接！")
+
+                        launch(Dispatchers.Main) {
+                            val mainBuffer = ArrayList<String>(256)
+                            var lastFlushTime = System.currentTimeMillis()
+
+                            for (batch in logChannel) {
+                                mainBuffer.addAll(batch)
+
+                                val now = System.currentTimeMillis()
+                                if (mainBuffer.size >= 200 || (now - lastFlushTime >= 8)) {
+                                    mainBuffer.forEach { appendLog(it) }
+                                    mainBuffer.clear()
+                                    lastFlushTime = now
+                                }
+                            }
+
+                            if (mainBuffer.isNotEmpty()) {
+                                mainBuffer.forEach { appendLog(it) }
+                                mainBuffer.clear()
+                            }
+                        }
                     }
                 } catch (e: Exception) {
                     if (isActive) {
