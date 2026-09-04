@@ -41,6 +41,8 @@ private class LogContainerView(context: Context) : NestedScrollView(context) {
     
     var isAutoScrollEnabled = true
     private var isUpdatingText = false
+    private var pendingScrollToBottom = false
+    private var savedScrollY = 0
     private var lastLoadedText: String? = null
 
     init {
@@ -72,6 +74,21 @@ private class LogContainerView(context: Context) : NestedScrollView(context) {
         horizontalScrollView.addView(textView)
         addView(horizontalScrollView)
 
+        horizontalScrollView.addOnLayoutChangeListener { _, _, top, _, bottom, _, _, oldTop, oldBottom ->
+            val newHeight = bottom - top
+            val oldHeight = oldBottom - oldTop
+            
+            if (newHeight != oldHeight) {
+                val maxScrollY = (newHeight - height).coerceAtLeast(0)
+                if (pendingScrollToBottom) {
+                    pendingScrollToBottom = false
+                    scrollTo(scrollX, maxScrollY)
+                } else if (!isAutoScrollEnabled) {
+                    scrollTo(scrollX, savedScrollY.coerceAtMost(maxScrollY))
+                }
+            }
+        }
+
         setOnScrollChangeListener { _, _, scrollY, _, _ ->
             if (!isUpdatingText) {
                 isAutoScrollEnabled = isAtBottom()
@@ -88,8 +105,7 @@ private class LogContainerView(context: Context) : NestedScrollView(context) {
     }
 
     private fun isAtBottom(): Boolean {
-        val child = getChildAt(0) ?: return true
-        val maxScrollY = (child.height - height).coerceAtLeast(0)
+        val maxScrollY = (horizontalScrollView.height - height).coerceAtLeast(0)
         if (maxScrollY == 0) return true
         return (maxScrollY - scrollY) <= 80
     }
@@ -102,24 +118,25 @@ private class LogContainerView(context: Context) : NestedScrollView(context) {
         if (lastLoadedText != fullText) {
             lastLoadedText = fullText
 
-            val shouldAutoScroll = isAutoScrollEnabled || isAtBottom()
-            val currentScrollY = scrollY
+            val wasAtBottom = isAutoScrollEnabled || isAtBottom()
+
+            if (wasAtBottom) {
+                isAutoScrollEnabled = true
+                pendingScrollToBottom = true
+            } else {
+                savedScrollY = scrollY
+                pendingScrollToBottom = false
+            }
 
             isUpdatingText = true
 
             textView.setText(fullText, TextView.BufferType.NORMAL)
 
             post {
-                val child = getChildAt(0)
-                if (child != null) {
-                    val maxScrollY = (child.height - height).coerceAtLeast(0)
-
-                    if (shouldAutoScroll) {
-                        scrollTo(scrollX, maxScrollY)
-                        isAutoScrollEnabled = true
-                    } else {
-                        scrollTo(scrollX, currentScrollY.coerceAtMost(maxScrollY))
-                    }
+                if (pendingScrollToBottom) {
+                    pendingScrollToBottom = false
+                    val maxScrollY = (horizontalScrollView.height - height).coerceAtLeast(0)
+                    scrollTo(scrollX, maxScrollY)
                 }
                 isUpdatingText = false
             }
@@ -136,6 +153,7 @@ private class LogContainerView(context: Context) : NestedScrollView(context) {
         lastLoadedText = null
         textView.text = ""
         isAutoScrollEnabled = true
+        pendingScrollToBottom = false
         isUpdatingText = false
     }
 }
