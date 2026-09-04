@@ -488,8 +488,10 @@ fun CenterAlignedTopAppBarExample(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth()
-                    .padding(top = 6.dp, bottom = 71.dp)
+                    .padding(top = 6.dp)
             )
+            
+            IdentityFooterSection()
         }
     }
 }
