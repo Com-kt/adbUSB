@@ -75,7 +75,6 @@ private class LogContainerView(context: Context) : NestedScrollView(context) {
             if (isAtBottom()) {
                 isAutoScrollEnabled = true
             } else if (isUserInteracting) {
-                // 仅当用户正在手势滑动，且滑离了底部时，才关闭自动滚动
                 isAutoScrollEnabled = false
             }
         }
@@ -114,12 +113,14 @@ private class LogContainerView(context: Context) : NestedScrollView(context) {
             textView.setText(fullText, TextView.BufferType.NORMAL)
 
             post {
+                val child = getChildAt(0) ?: return@post
+                // 显式计算最大滑动高度，解决 Int.MAX_VALUE 引起的整数溢出白屏问题
+                val maxScrollY = (child.height - height).coerceAtLeast(0)
+
                 if (isAutoScrollEnabled) {
-                    // 使用 Int.MAX_VALUE 强制滚动到底部，不触碰 TextView 焦点
-                    scrollTo(0, Int.MAX_VALUE)
+                    scrollTo(scrollX, maxScrollY)
                 } else {
-                    // 用户正在翻看历史日志时，防止 setText 重新测量导致视口跳变归零
-                    scrollTo(scrollX, savedScrollY)
+                    scrollTo(scrollX, savedScrollY.coerceAtMost(maxScrollY))
                 }
             }
         }
