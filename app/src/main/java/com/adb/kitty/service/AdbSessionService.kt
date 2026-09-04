@@ -1,5 +1,12 @@
 package com.adb.kitty.service
 
+import com.adb.kitty.ui.theme.*
+import com.adb.kitty.ui.viewmodel.*
+import com.adb.kitty.ui.it.*
+import com.adb.kitty.data.*
+import com.adb.kitty.R
+import com.adb.kitty.*
+
 import android.util.Log
 import android.graphics.*
 import android.app.Notification
@@ -16,7 +23,10 @@ import android.net.wifi.p2p.*
 import android.os.Binder
 import android.os.Build
 import android.os.IBinder
+import android.os.ParcelFileDescriptor
 import android.os.PowerManager
+import android.system.Os
+import android.system.OsConstants
 import androidx.core.app.Person
 import androidx.core.app.RemoteInput
 import androidx.core.net.toUri
@@ -37,12 +47,6 @@ import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
 import androidx.annotation.Keep
 import org.lsposed.hiddenapibypass.HiddenApiBypass
-import com.adb.kitty.ui.theme.*
-import com.adb.kitty.ui.viewmodel.*
-import com.adb.kitty.ui.it.*
-import com.adb.kitty.data.*
-import com.adb.kitty.R
-import com.adb.kitty.*
 
 import java.io.*
 import java.net.HttpURLConnection
@@ -74,6 +78,17 @@ class AdbSessionService : Service() {
     var onCommandReceivedListener: ((String) -> Unit)? = null
 
     private val kadbInstancePool = ConcurrentHashMap<String, Kadb>()
+    
+    @Volatile
+    private var currentWorkingDirectory: File = Environment.getExternalStorageDirectory()
+
+    @Volatile
+    private var currentShellProcess: java.lang.Process? = null
+
+    @Volatile
+    private var currentTaskKey: String? = null
+    
+    private var downloadJob: Job? = null
     
     private val serviceScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
     private var refreshJob: Job? = null
@@ -416,7 +431,8 @@ class AdbSessionService : Service() {
 
         onLog("[系统] 正在建立网络连接...")
 
-        refreshJob = serviceScope.launch(Dispatchers.IO) {
+        downloadJob?.cancel()
+        downloadJob = serviceScope.launch(Dispatchers.IO) {
             try {
                 val url = URL(urlStr)
                 val connection = url.openConnection() as HttpURLConnection
@@ -493,8 +509,304 @@ class AdbSessionService : Service() {
         }
     }
     
+    fun executeShellStream(cmd: String, useRoot: Boolean): ParcelFileDescriptor {
+        terminateCurrentCommand()
+
+        val taskKey = "TASK_${System.currentTimeMillis()}_${(1000..9999).random()}"
+        val pipe = ParcelFileDescriptor.createPipe()
+        val readSide = pipe[0]
+        val writeSide = pipe[1]
+
+        val cwdSnapshot = synchronized(this) {
+            currentTaskKey = taskKey
+            val trimmedCmd = cmd.trim()
+            if (trimmedCmd == "cd" || trimmedCmd.startsWith("cd ")) {
+                val cdResult = handleCdCommand(trimmedCmd)
+                writeDirectMessageToPipe(writeSide, cdResult)
+                return readSide
+            }
+            currentWorkingDirectory
+        }
+
+        thread(start = true, name = "AdbServiceShellThread") {
+            var process: java.lang.Process? = null
+            var os: DataOutputStream? = null
+
+            try {
+                val safeCmd = sanitizeCommand(cmd)
+
+                val builder = if (useRoot || safeCmd.startsWith("su")) {
+                    val baseSuCmd = if (safeCmd.contains(" -c ")) safeCmd.substringBefore(" -c ") else safeCmd
+                    val args = parseCommandLine(baseSuCmd.ifBlank { "su" })
+
+                    if (useRoot && !args.contains("su")) {
+                        ProcessBuilder("su")
+                    } else {
+                        ProcessBuilder(args)
+                    }
+                } else {
+                    ProcessBuilder("sh")
+                }
+
+                builder.redirectErrorStream(true)
+
+                val envMap = builder.environment()
+                envMap.putAll(System.getenv())
+                envMap["SHELL_TASK_KEY"] = taskKey
+
+                builder.directory(cwdSnapshot)
+
+                process = builder.start()
+                synchronized(this) {
+                    currentShellProcess = process
+                }
+
+                os = DataOutputStream(process.outputStream)
+
+                val realExecutionCmd = when {
+                    safeCmd.contains(" -c ") -> {
+                        safeCmd.substringAfter(" -c ").trim {
+                            it == '\'' || it == '"' || it.isWhitespace() || it.code == 160
+                        }
+                    }
+                    safeCmd == "su" || safeCmd.startsWith("su ") -> "id"
+                    else -> safeCmd
+                }
+
+                val taggedCmd = "export SHELL_TASK_KEY='$taskKey'; $realExecutionCmd"
+
+                os.writeBytes("$taggedCmd\n")
+                os.writeBytes("exit\n")
+                os.flush()
+
+                val activeProcess = process
+                startAntiStallPump(
+                    processInputStream = activeProcess.inputStream,
+                    ipcOutputStream = ParcelFileDescriptor.AutoCloseOutputStream(writeSide),
+                    onPumpComplete = { stream ->
+                        val exitCode = runCatching { activeProcess.waitFor() }.getOrDefault(-1)
+                        val exitMsg = "\n[进程结束，状态码: $exitCode]\n".toByteArray(Charsets.UTF_8)
+                        runCatching {
+                            stream.write(exitMsg)
+                            stream.flush()
+                        }
+                    }
+                )
+
+            } catch (e: Exception) {
+                runCatching {
+                    OutputStreamWriter(ParcelFileDescriptor.AutoCloseOutputStream(writeSide), "UTF-8").use { writer ->
+                        val errorMsg = if (useRoot && e is java.io.IOException) {
+                            "Root 提权被拒绝：请解锁手机并在系统 Root 管理器中允许超级用户请求。\n"
+                        } else {
+                            "执行中断或异常: ${e.message}\n"
+                        }
+                        writer.write(errorMsg)
+                        writer.flush()
+                    }
+                }
+            } finally {
+                synchronized(this) {
+                    if (currentShellProcess == process) {
+                        currentShellProcess = null
+                    }
+                    if (currentTaskKey == taskKey) {
+                        currentTaskKey = null
+                    }
+                }
+                runCatching { os?.close() }
+                process?.let { killProcessTree(it, taskKey) }
+            }
+        }
+
+        return readSide
+    }
+
+    fun terminateCurrentCommand() {
+        synchronized(this) {
+            val key = currentTaskKey
+            currentTaskKey = null
+
+            if (!key.isNullOrEmpty()) {
+                runCatching {
+                    Runtime.getRuntime().exec(arrayOf("sh", "-c", "pkill -9 -f '$key'"))
+                }
+            }
+
+            currentShellProcess?.let { proc ->
+                killProcessTree(proc, key)
+                currentShellProcess = null
+            }
+        }
+    }
+
+    fun getCurrentWorkingDirectory(): File = currentWorkingDirectory
+
+    /**
+     * 重构后的流数据传输，利用协程与纯 IO 穿透，消除手动线程与 runBlocking 开销
+     */
+    private fun startAntiStallPump(
+        processInputStream: InputStream,
+        ipcOutputStream: OutputStream,
+        onPumpComplete: (OutputStream) -> Unit
+    ) {
+        android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_URGENT_AUDIO)
+        
+        runBlocking {
+            withContext(Dispatchers.IO) {
+                try {
+                    val buffer = ByteArray(32768)
+                    var bytesRead: Int
+                    var lastFlushTime = System.currentTimeMillis()
+
+                    while (isActive && processInputStream.read(buffer).also { bytesRead = it } != -1) {
+                        ipcOutputStream.write(buffer, 0, bytesRead)
+                        val now = System.currentTimeMillis()
+                        if (now - lastFlushTime >= 8) {
+                            ipcOutputStream.flush()
+                            lastFlushTime = now
+                        }
+                    }
+                    ipcOutputStream.flush()
+                } catch (_: Exception) {
+                } finally {
+                    onPumpComplete(ipcOutputStream)
+                    runCatching { ipcOutputStream.close() }
+                }
+            }
+        }
+    }
+
+    private fun sanitizeCommand(cmd: String): String {
+        var processedCmd = cmd.trim()
+        if (processedCmd == "dumpsys" || processedCmd.startsWith("dumpsys ")) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                if (processedCmd == "dumpsys") return "dumpsys -t 3"
+                if (!processedCmd.contains(" -t ") && !processedCmd.contains(" --timeout ")) {
+                    processedCmd = processedCmd.replaceFirst("dumpsys", "dumpsys -t 3")
+                }
+            }
+        }
+        return processedCmd
+    }
+
+    private fun killProcessTree(proc: java.lang.Process?, taskKey: String? = null) {
+        proc ?: return
+        runCatching {
+            if (proc.isAliveCompat()) {
+                if (!taskKey.isNullOrEmpty()) {
+                    runCatching {
+                        Runtime.getRuntime().exec(arrayOf("sh", "-c", "pkill -9 -f '$taskKey'"))
+                    }
+                }
+
+                val pid = getProcessPid(proc)
+                if (pid > 1000) {
+                    runCatching { Runtime.getRuntime().exec(arrayOf("sh", "-c", "pkill -9 -P $pid")) }
+                    runCatching { Os.kill(pid, OsConstants.SIGKILL) }
+                } else {
+                    proc.destroyForciblyCompat()
+                }
+            }
+        }
+    }
+
+    private fun getProcessPid(proc: java.lang.Process): Int {
+        return runCatching {
+            val field: Field = proc.javaClass.getDeclaredField("pid")
+            field.isAccessible = true
+            field.getInt(proc)
+        }.getOrElse {
+            val procStr = proc.toString()
+            val pidMatch = Regex("pid=(\\d+)").find(procStr)
+            pidMatch?.groupValues?.get(1)?.toIntOrNull() ?: -1
+        }
+    }
+
+    private fun java.lang.Process.isAliveCompat(): Boolean {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            this.isAlive
+        } else {
+            try {
+                this.exitValue()
+                false
+            } catch (_: IllegalThreadStateException) {
+                true
+            }
+        }
+    }
+
+    private fun java.lang.Process.destroyForciblyCompat() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            this.destroyForcibly()
+        } else {
+            this.destroy()
+        }
+    }
+
+    private fun writeDirectMessageToPipe(writeSide: ParcelFileDescriptor, message: String) {
+        thread {
+            runCatching {
+                OutputStreamWriter(ParcelFileDescriptor.AutoCloseOutputStream(writeSide), "UTF-8").use { writer ->
+                    writer.write(message + "\n")
+                    writer.flush()
+                }
+            }
+        }
+    }
+
+    private fun handleCdCommand(cmd: String): String {
+        val targetPath = if (cmd == "cd") {
+            Environment.getExternalStorageDirectory().absolutePath
+        } else {
+            cmd.removePrefix("cd ").trim().removeSurrounding("\"", "\"")
+        }
+
+        val newDir = if (targetPath.startsWith("/")) {
+            File(targetPath)
+        } else {
+            File(currentWorkingDirectory, targetPath)
+        }
+
+        val canonicalDir = runCatching { newDir.canonicalFile }.getOrElse { newDir }
+
+        if (!canonicalDir.exists()) {
+            return "sh: cd: $targetPath: No such file or directory"
+        }
+        if (!canonicalDir.isDirectory) {
+            return "sh: cd: $targetPath: Not a directory"
+        }
+
+        currentWorkingDirectory = canonicalDir
+        return "[系统] 工作目录已成功切至: ${currentWorkingDirectory.absolutePath}"
+    }
+
+    private fun parseCommandLine(cmd: String): List<String> {
+        val tokens = mutableListOf<String>()
+        val sb = StringBuilder()
+        var inQuotes = false
+
+        for (ch in cmd.toCharArray()) {
+            if (ch == '"' || ch == '\'') {
+                inQuotes = !inQuotes
+            } else if (ch == ' ' && !inQuotes) {
+                if (sb.isNotEmpty()) {
+                    tokens.add(sb.toString())
+                    sb.setLength(0)
+                }
+            } else {
+                sb.append(ch)
+            }
+        }
+        if (sb.isNotEmpty()) {
+            tokens.add(sb.toString())
+        }
+        return tokens
+    }
+    
     override fun onDestroy() {
         serviceScope.cancel()
+        terminateCurrentCommand()
         kadbInstancePool.forEach { (_, instance) -> runCatching { instance.close() } }
         kadbInstancePool.clear()
         super.onDestroy()

@@ -505,6 +505,7 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
         AdbCommand("激活 AppManager (需要安装AppManager)", "adb shell sh /storage/emulated/0/Android/data/io.github.muntashirakon.AppManager/cache/run_server.sh 60001 wasp-lurk-ripen"),
         AdbCommand("查询系统信息", "uname -a"),
         AdbCommand("查看内核版本", "cat /proc/version"),
+        AdbCommand("读取进程启动信息", "cat /proc/self/status"),
         AdbCommand("getprop [参数]", "getprop "),
         AdbCommand("查看基带版本", "getprop gsm.version.baseband"),
         AdbCommand("查看安卓系统版本", "getprop ro.build.version.release"),

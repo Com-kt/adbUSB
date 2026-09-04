@@ -642,17 +642,6 @@
             android:permission="com.adb.kitty.USE_PRIVATE_API" >
             <property
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
-                android:value="adbd daemon service" />
-        </service>
-        <service 
-            android:name=".service.ShellService"
-            android:process=":shell"
-            android:exported="true"
-            android:directBootAware="true"
-            android:foregroundServiceType="specialUse"
-            android:permission="com.adb.kitty.USE_PRIVATE_API" >
-            <property
-                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="Terminal shell execution service for local developer tool" />
         </service>
         <provider

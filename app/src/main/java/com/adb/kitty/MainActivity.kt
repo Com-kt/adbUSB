@@ -188,25 +188,7 @@ class MainActivity : ComponentActivity() {
     }
     
     private var currentShellJob: Job? = null
-    private var shellService: IShellService? = null
-
-    @Volatile
-    private var isShellServiceBound = false
-
-    private val shellServiceConnection = object : ServiceConnection {
-        override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
-            shellService = IShellService.Stub.asInterface(service)
-            isShellServiceBound = true
-            appendLog("[系统] 跨进程本地 Shell 服务并网成功。")
-        }
-
-        override fun onServiceDisconnected(name: ComponentName?) {
-            shellService = null
-            isShellServiceBound = false
-            appendLog("[警告] 本地 Shell 服务意外断开。")
-        }
-    }
-
+    
     fun reloadServiceAvatar() {
         adbService?.reloadAvatar()
     }
@@ -516,7 +498,6 @@ class MainActivity : ComponentActivity() {
         keyManager = AdbKeyManager(this)
         ensureFlashDirExists()
         tryToStartService()
-        bindShellService()
 
         val exportFlag = ContextCompat.RECEIVER_NOT_EXPORTED
         ContextCompat.registerReceiver(this, usbPermissionReceiver, IntentFilter(ACTION_USB_PERMISSION), exportFlag)
@@ -536,42 +517,6 @@ class MainActivity : ComponentActivity() {
 
         inspector = RefreshRateInspector(this, this) { logText -> appendLog(logText) }
         
-    }
-
-    fun bindShellService() {
-        val intent = Intent(this, ShellService::class.java)
-
-        // 第一步：显式启动服务，满足系统 Foreground Service 声明契约
-        runCatching {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                startForegroundService(intent)
-            } else {
-                startService(intent)
-            }
-        }.onFailure { e ->
-            appendLog("[错误] 启动前台服务失败: ${e.message}")
-        }
-
-        // 第二步：建立 AIDL 绑定关系
-        if (!isShellServiceBound) {
-            val bound = bindService(intent, shellServiceConnection, Context.BIND_AUTO_CREATE)
-            if (!bound) {
-                appendLog("[错误] 绑定 Shell 服务失败！")
-            }
-        }
-    }
-
-    fun unbindShellService() {
-        if (isShellServiceBound) {
-            runCatching { unbindService(shellServiceConnection) }
-            isShellServiceBound = false
-            shellService = null
-        }
-    }
-
-    fun stopShellService() {
-        val intent = Intent(this, ShellService::class.java)
-        stopService(intent)
     }
 
     fun stopAdbService() {
@@ -832,13 +777,13 @@ class MainActivity : ComponentActivity() {
         appendLog(if (requestRoot) "[Root管道] 请求身份变更执行实时流..." else "[本地管道] 开始执行流式命令...")
 
         currentShellJob = lifecycleScope.launch {
-            val shell = shellService
-            if (shell != null && isShellServiceBound) {
+            val service = adbService
+            if (service != null && isServiceBound) {
                 var pfd: ParcelFileDescriptor? = null
 
                 try {
                     pfd = withContext(Dispatchers.IO) {
-                        shell.executeCommandStream(realLocalCmd, requestRoot)
+                        service.executeShellStream(realLocalCmd, requestRoot)
                     }
 
                     if (pfd != null) {
@@ -912,7 +857,7 @@ class MainActivity : ComponentActivity() {
                     runCatching { pfd?.close() }
                 }
             } else {
-                appendLog("[错误] 跨进程本地 Shell 服务未就绪！")
+                appendLog("[错误] 前台守护进程服务未就绪！")
             }
         }
     }
@@ -929,10 +874,10 @@ class MainActivity : ComponentActivity() {
         currentShellJob = null
 
         lifecycleScope.launch(Dispatchers.IO + NonCancellable) {
-            val shell = shellService
-            if (shell != null && isShellServiceBound) {
+            val service = adbService
+            if (service != null && isServiceBound) {
                 runCatching {
-                    shell.terminateCurrentCommand()
+                    service.terminateCurrentCommand()
                     withContext(Dispatchers.Main) {
                         appendLog("[系统] 用户强制终止了当前命令")
                     }
@@ -2095,12 +2040,6 @@ class MainActivity : ComponentActivity() {
         }
         stopAdbService()
         currentShellJob?.cancel()
-        currentShellJob = null
-        if (isShellServiceBound && shellService != null) {
-            runCatching { shellService?.terminateCurrentCommand() }
-        }
-        unbindShellService()
-        stopShellService()
         viewModel.setAdbService(null)
         super.onDestroy()
         readerJob?.cancel()
