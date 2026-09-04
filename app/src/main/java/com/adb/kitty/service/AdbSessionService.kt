@@ -20,11 +20,7 @@ import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.net.wifi.WifiManager
 import android.net.wifi.p2p.*
-import android.os.Binder
-import android.os.Build
-import android.os.IBinder
-import android.os.ParcelFileDescriptor
-import android.os.PowerManager
+import android.os.*
 import android.system.Os
 import android.system.OsConstants
 import androidx.core.app.Person
