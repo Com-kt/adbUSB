@@ -8,6 +8,8 @@ import com.adb.kitty.*
 import com.adb.kitty.service.*
 import com.adb.kitty.R
 
+import android.annotation.SuppressLint
+import android.os.Build
 import android.os.Process
 import android.system.Os
 import androidx.compose.foundation.horizontalScroll
@@ -33,26 +35,38 @@ data class ProcessIdentity(
     val selinuxContext: String
 ) {
     companion object {
+        @SuppressLint("NewApi")
+        private fun getPgidAndSid(): Pair<Int, Int> {
+            return try {
+                val libcoreClass = Class.forName("libcore.io.Libcore")
+                val osField = libcoreClass.getDeclaredField("os")
+                osField.isAccessible = true
+                val osInstance = osField.get(null) ?: return -1 to -1
+                val osClass = osInstance.javaClass
+
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                    val pgid = (HiddenApiBypass.invoke(osClass, osInstance, "getpgid", 0) as? Int) ?: -1
+                    val sid = (HiddenApiBypass.invoke(osClass, osInstance, "getsid", 0) as? Int) ?: -1
+                    pgid to sid
+                } else {
+                    // API < 28 无隐藏 API 限制，使用标准反射
+                    val getpgidMethod = osClass.getMethod("getpgid", Int::class.javaPrimitiveType)
+                    val getsidMethod = osClass.getMethod("getsid", Int::class.javaPrimitiveType)
+                    val pgid = (getpgidMethod.invoke(osInstance, 0) as? Int) ?: -1
+                    val sid = (getsidMethod.invoke(osInstance, 0) as? Int) ?: -1
+                    pgid to sid
+                }
+            } catch (_: Throwable) {
+                -1 to -1
+            }
+        }
+
         fun current(): ProcessIdentity {
             val pid = Process.myPid()
             val tid = Process.myTid()
             val ppid = try { Os.getppid() } catch (_: Throwable) { -1 }
 
-            // 通过 org.lsposed.hiddenapibypass 反射调用 libcore.io.Libcore.os 获取 getpgid 和 getsid
-            var pgid = -1
-            var sid = -1
-            try {
-                val libcoreClass = Class.forName("libcore.io.Libcore")
-                val osField = libcoreClass.getDeclaredField("os")
-                osField.isAccessible = true
-                val osInstance = osField.get(null)
-                if (osInstance != null) {
-                    val osClass = osInstance.javaClass
-                    pgid = (HiddenApiBypass.invoke(osClass, osInstance, "getpgid", 0) as? Int) ?: -1
-                    sid = (HiddenApiBypass.invoke(osClass, osInstance, "getsid", 0) as? Int) ?: -1
-                }
-            } catch (_: Throwable) {
-            }
+            val (pgid, sid) = getPgidAndSid()
 
             var uid = Process.myUid(); var euid = uid; var suid = uid; var fsuid = uid
             var gid = -1; var egid = -1; var sgid = -1; var fsgid = -1
