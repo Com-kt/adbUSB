@@ -19,6 +19,7 @@
 ```shell
 #!/system/bin/sh
 
+# The prerequisite for using the fastboot instruction is isFastbootMode = true
 fastboot() {
 #  am broadcast -a com.adb.kitty.MY_CMD --es "args" "$*" > /dev/null
     am broadcast -a com.adb.kitty.MY_CMD --es "cmd" "$*" > /dev/null
