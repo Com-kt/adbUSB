@@ -196,7 +196,7 @@ class AdbSessionService : Service() {
             this,
             shellCmdReceiver,
             IntentFilter("com.adb.kitty.MY_CMD"),
-            ContextCompat.RECEIVER_EXPORTED
+            ContextCompat.RECEIVER_NOT_EXPORTED
         )
     }
     
