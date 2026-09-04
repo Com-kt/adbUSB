@@ -748,11 +748,11 @@ class AdbSessionService : Service() {
     }
 
     private fun getProcessPid(proc: java.lang.Process): Int {
-        return runCatching {
+        return try {
             val field: Field = proc.javaClass.getDeclaredField("pid")
             field.isAccessible = true
             field.getInt(proc)
-        }.getOrElse {
+        } catch (_: Exception) {
             val procStr = proc.toString()
             val pidMatch = Regex("pid=(\\d+)").find(procStr)
             pidMatch?.groupValues?.get(1)?.toIntOrNull() ?: -1
