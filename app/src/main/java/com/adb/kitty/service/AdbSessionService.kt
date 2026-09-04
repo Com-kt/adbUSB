@@ -15,8 +15,10 @@ import android.app.NotificationChannelGroup
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.ServiceInfo
 import android.net.wifi.WifiManager
 import android.net.wifi.p2p.*
@@ -156,6 +158,17 @@ class AdbSessionService : Service() {
         }
         triggerTickerRefreshImmediate()
     }
+    
+    private val shellCmdReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (intent?.action == "com.adb.kitty.MY_CMD") {
+                // 获取广播发来的指令（兼容 extra 键名为 cmd 或 args）
+                val cmd = intent.getStringExtra("cmd") ?: intent.getStringExtra("args") ?: return
+
+                onCommandReceivedListener?.invoke(cmd)
+            }
+        }
+    }
 
     override fun onCreate() {
         super.onCreate()
@@ -177,6 +190,13 @@ class AdbSessionService : Service() {
         }
 
         startNotificationTicker()
+        
+        val filter = IntentFilter("com.adb.kitty.MY_CMD")
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(shellCmdReceiver, filter, Context.RECEIVER_EXPORTED)
+        } else {
+            registerReceiver(shellCmdReceiver, filter)
+        }
     }
     
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -836,6 +856,7 @@ class AdbSessionService : Service() {
     override fun onDestroy() {
         serviceScope.cancel()
         terminateCurrentCommand()
+        runCatching { unregisterReceiver(shellCmdReceiver) }
         kadbInstancePool.forEach { (_, instance) -> runCatching { instance.close() } }
         kadbInstancePool.clear()
         super.onDestroy()

@@ -508,15 +508,9 @@ class MainActivity : ComponentActivity() {
             addAction(UsbManager.ACTION_USB_ACCESSORY_DETACHED)
         }, exportFlag)
 
-        val filter = IntentFilter(WifiManager.WIFI_STATE_CHANGED_ACTION)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            registerReceiver(wifiReceiver, filter, Context.RECEIVER_EXPORTED)
-        } else {
-            registerReceiver(wifiReceiver, filter)
-        }
+        ContextCompat.registerReceiver(this, wifiReceiver, IntentFilter(WifiManager.WIFI_STATE_CHANGED_ACTION), ContextCompat.RECEIVER_EXPORTED)
 
         inspector = RefreshRateInspector(this, this) { logText -> appendLog(logText) }
-        
     }
 
     fun stopAdbService() {
