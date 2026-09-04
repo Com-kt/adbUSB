@@ -37,28 +37,56 @@ data class ProcessIdentity(
     companion object {
         @SuppressLint("NewApi")
         private fun getPgidAndSid(): Pair<Int, Int> {
-            return try {
+            var pgid = -1
+            var sid = -1
+
+            // 1. 尝试通过 HiddenApiBypass 反射底层 libcore.io.Os 接口
+            try {
                 val libcoreClass = Class.forName("libcore.io.Libcore")
                 val osField = libcoreClass.getDeclaredField("os")
                 osField.isAccessible = true
-                val osInstance = osField.get(null) ?: return -1 to -1
-                val osClass = osInstance.javaClass
+                val osInstance = osField.get(null)
 
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                    val pgid = (HiddenApiBypass.invoke(osClass, osInstance, "getpgid", 0) as? Int) ?: -1
-                    val sid = (HiddenApiBypass.invoke(osClass, osInstance, "getsid", 0) as? Int) ?: -1
-                    pgid to sid
-                } else {
-                    // API < 28 无隐藏 API 限制，使用标准反射
-                    val getpgidMethod = osClass.getMethod("getpgid", Int::class.javaPrimitiveType)
-                    val getsidMethod = osClass.getMethod("getsid", Int::class.javaPrimitiveType)
-                    val pgid = (getpgidMethod.invoke(osInstance, 0) as? Int) ?: -1
-                    val sid = (getsidMethod.invoke(osInstance, 0) as? Int) ?: -1
-                    pgid to sid
+                if (osInstance != null) {
+                    // 必须显式声明原生 primitive int 类型 (int.class)
+                    val intPrimitiveClass = Int::class.javaPrimitiveType!!
+
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                        // 在接口类 libcore.io.Os 上精准获取 Method
+                        val osInterface = Class.forName("libcore.io.Os")
+                        val getpgidMethod = HiddenApiBypass.getDeclaredMethod(osInterface, "getpgid", intPrimitiveClass)
+                        val getsidMethod = HiddenApiBypass.getDeclaredMethod(osInterface, "getsid", intPrimitiveClass)
+
+                        pgid = (getpgidMethod.invoke(osInstance, 0) as? Int) ?: -1
+                        sid = (getsidMethod.invoke(osInstance, 0) as? Int) ?: -1
+                    } else {
+                        val osClass = osInstance.javaClass
+                        val getpgidMethod = osClass.getMethod("getpgid", intPrimitiveClass)
+                        val getsidMethod = osClass.getMethod("getsid", intPrimitiveClass)
+
+                        pgid = (getpgidMethod.invoke(osInstance, 0) as? Int) ?: -1
+                        sid = (getsidMethod.invoke(osInstance, 0) as? Int) ?: -1
+                    }
                 }
             } catch (_: Throwable) {
-                -1 to -1
             }
+
+            // 2. 防御性兜底：若反射失败，精准解析 /proc/self/stat (Field 5: pgrp/pgid, Field 6: session/sid)
+            if (pgid == -1 || sid == -1) {
+                try {
+                    val stat = File("/proc/self/stat").readText()
+                    val lastParen = stat.lastIndexOf(')')
+                    if (lastParen != -1 && lastParen + 2 < stat.length) {
+                        val tokens = stat.substring(lastParen + 2).split(" ")
+                        // tokens[0]=state, tokens[1]=ppid, tokens[2]=pgrp(pgid), tokens[3]=session(sid)
+                        if (pgid == -1) pgid = tokens.getOrNull(2)?.toIntOrNull() ?: -1
+                        if (sid == -1) sid = tokens.getOrNull(3)?.toIntOrNull() ?: -1
+                    }
+                } catch (_: Throwable) {
+                }
+            }
+
+            return pgid to sid
         }
 
         fun current(): ProcessIdentity {
