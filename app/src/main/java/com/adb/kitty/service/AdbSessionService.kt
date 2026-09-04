@@ -34,6 +34,7 @@ import androidx.core.app.Person
 import androidx.core.app.RemoteInput
 import androidx.core.net.toUri
 import androidx.core.app.NotificationCompat
+import androidx.core.content.ContextCompat
 import androidx.core.content.pm.ShortcutInfoCompat
 import androidx.core.content.pm.ShortcutManagerCompat
 import androidx.core.graphics.drawable.IconCompat
@@ -191,12 +192,12 @@ class AdbSessionService : Service() {
 
         startNotificationTicker()
         
-        val filter = IntentFilter("com.adb.kitty.MY_CMD")
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            registerReceiver(shellCmdReceiver, filter, Context.RECEIVER_EXPORTED)
-        } else {
-            registerReceiver(shellCmdReceiver, filter)
-        }
+        ContextCompat.registerReceiver(
+            this,
+            shellCmdReceiver,
+            IntentFilter("com.adb.kitty.MY_CMD"),
+            ContextCompat.RECEIVER_EXPORTED
+        )
     }
     
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {

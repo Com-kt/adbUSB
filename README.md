@@ -13,10 +13,19 @@
 - For the Shell executor, we may need to migrate to the foreground service to fully use all the instructions that come with Android 14+. The background process daemon service solution may no longer be a recommended solution for Android 14+ systems.
 - For the existing local shell service, I would refactor it in V4.2 or V4.3
 
-# Android JVM GC
-```kotlin
-System.gc()
-Runtime.getRuntime().gc()
+# Android Shell actuator
+- How to use shell script to call internal instructions of the application
+- For example, calling the root-free fastboot command implemented inside the application
+```shell
+#!/system/bin/sh
+
+neko() {
+#  am broadcast -a com.adb.kitty.MY_CMD --es "args" "$*" > /dev/null
+    am broadcast -a com.adb.kitty.MY_CMD --es "cmd" "$*" > /dev/null
+}
+
+neko fastboot getvar unlocked
+neko fastboot oem device-info
 ```
 
 # DocumentsProvider
