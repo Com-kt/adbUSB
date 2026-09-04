@@ -150,7 +150,7 @@ fun IdentityFooterSection(modifier: Modifier = Modifier) {
         modifier = modifier
             .fillMaxWidth()
             .height(71.dp)
-            .padding(start = 7.dp, end = 105.dp, top = 4.dp, bottom = 3.dp),
+            .padding(start = 4.dp, end = 108.dp, top = 2.dp, bottom = 2.dp),
         contentAlignment = Alignment.CenterStart
     ) {
         Column(
