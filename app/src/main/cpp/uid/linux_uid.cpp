@@ -1,28 +1,48 @@
 #include <jni.h>
 #include <unistd.h>
 #include <sys/types.h>
-#include <sys/fsuid.h>
 #include <fcntl.h>
+#include <cstdio>
+#include <cstring>
 #include <string>
+
+/**
+ * 从 /proc/self/status 中解析真实的 Uid/Gid (包含 fsuid/fsgid)
+ * 避免触发 Android Seccomp 拦截 setfsuid/setfsgid
+ */
+static void parseProcStatusIds(uid_t &uid, uid_t &euid, uid_t &suid, uid_t &fsuid,
+                               gid_t &gid, gid_t &egid, gid_t &sgid, gid_t &fsgid) {
+    FILE *fp = fopen("/proc/self/status", "r");
+    if (!fp) return;
+
+    char line[256];
+    while (fgets(line, sizeof(line), fp)) {
+        if (strncmp(line, "Uid:", 4) == 0) {
+            sscanf(line + 4, "%u %u %u %u", &uid, &euid, &suid, &fsuid);
+        } else if (strncmp(line, "Gid:", 4) == 0) {
+            sscanf(line + 4, "%u %u %u %u", &gid, &egid, &sgid, &fsgid);
+        }
+    }
+    fclose(fp);
+}
 
 extern "C" {
 
-/**
- * 获取 14 个基础整数标识并填充到 jintArray 中返回
- * 数组顺序：[uid, euid, suid, fsuid, gid, egid, sgid, fsgid, pid, ppid, tid, pgid, sid, aid]
- */
 JNIEXPORT jintArray JNICALL
 Java_com_adb_kitty_data_NativeLibs_getRawIdentityInfo(JNIEnv *env, jclass /* clazz */) {
     uid_t uid = (uid_t)-1, euid = (uid_t)-1, suid = (uid_t)-1, fsuid = (uid_t)-1;
     gid_t gid = (gid_t)-1, egid = (gid_t)-1, sgid = (gid_t)-1, fsgid = (gid_t)-1;
 
-    // 1. 获取 UID / EUID / SUID / FSUID
+    // 1. 获取 POSIX API 允许的标准 ID
     getresuid(&uid, &euid, &suid);
-    fsuid = setfsuid(-1);
-
-    // 2. 获取 GID / EGID / SGID / FSGID
     getresgid(&gid, &egid, &sgid);
-    fsgid = setfsgid(-1);
+
+    // 预设兜底值
+    fsuid = euid;
+    fsgid = egid;
+
+    // 2. 解析 /proc/self/status 安全获取 fsuid / fsgid
+    parseProcStatusIds(uid, euid, suid, fsuid, gid, egid, sgid, fsgid);
 
     // 3. 获取进程与线程标识
     pid_t pid = getpid();
@@ -48,9 +68,6 @@ Java_com_adb_kitty_data_NativeLibs_getRawIdentityInfo(JNIEnv *env, jclass /* cla
     return result;
 }
 
-/**
- * 获取 SELinux Context 字符串
- */
 JNIEXPORT jstring JNICALL
 Java_com_adb_kitty_data_NativeLibs_getSelinuxContext(JNIEnv *env, jclass /* clazz */) {
     std::string selinuxContext = "unknown";
