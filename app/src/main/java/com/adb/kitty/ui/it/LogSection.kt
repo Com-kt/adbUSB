@@ -12,7 +12,6 @@ import android.content.ComponentCallbacks2
 import android.content.Context
 import android.graphics.Rect
 import android.graphics.Typeface
-import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.widget.HorizontalScrollView
@@ -41,8 +40,7 @@ private class LogContainerView(context: Context) : NestedScrollView(context) {
     val textView = TextView(context)
     
     var isAutoScrollEnabled = true
-    private var isUserInteracting = false
-    private var userScrollY = 0
+    private var isUpdatingText = false
     private var lastLoadedText: String? = null
 
     init {
@@ -75,8 +73,7 @@ private class LogContainerView(context: Context) : NestedScrollView(context) {
         addView(horizontalScrollView)
 
         setOnScrollChangeListener { _, _, scrollY, _, _ ->
-            if (isUserInteracting) {
-                userScrollY = scrollY
+            if (!isUpdatingText) {
                 isAutoScrollEnabled = isAtBottom()
             }
         }
@@ -90,25 +87,11 @@ private class LogContainerView(context: Context) : NestedScrollView(context) {
         return false
     }
 
-    override fun dispatchTouchEvent(ev: MotionEvent?): Boolean {
-        when (ev?.actionMasked) {
-            MotionEvent.ACTION_DOWN, MotionEvent.ACTION_MOVE -> {
-                isUserInteracting = true
-            }
-            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                isUserInteracting = false
-                if (isAtBottom()) {
-                    isAutoScrollEnabled = true
-                }
-            }
-        }
-        return super.dispatchTouchEvent(ev)
-    }
-
     private fun isAtBottom(): Boolean {
         val child = getChildAt(0) ?: return true
         val maxScrollY = (child.height - height).coerceAtLeast(0)
-        return (maxScrollY - scrollY) <= 50
+        if (maxScrollY == 0) return true
+        return (maxScrollY - scrollY) <= 80
     }
 
     fun updateLogs(fullText: String, textColor: Int) {
@@ -119,17 +102,26 @@ private class LogContainerView(context: Context) : NestedScrollView(context) {
         if (lastLoadedText != fullText) {
             lastLoadedText = fullText
 
+            val shouldAutoScroll = isAutoScrollEnabled || isAtBottom()
+            val currentScrollY = scrollY
+
+            isUpdatingText = true
+
             textView.setText(fullText, TextView.BufferType.NORMAL)
 
             post {
-                val child = getChildAt(0) ?: return@post
-                val maxScrollY = (child.height - height).coerceAtLeast(0)
+                val child = getChildAt(0)
+                if (child != null) {
+                    val maxScrollY = (child.height - height).coerceAtLeast(0)
 
-                if (isAutoScrollEnabled) {
-                    scrollTo(scrollX, maxScrollY)
-                } else {
-                    scrollTo(scrollX, userScrollY.coerceAtMost(maxScrollY))
+                    if (shouldAutoScroll) {
+                        scrollTo(scrollX, maxScrollY)
+                        isAutoScrollEnabled = true
+                    } else {
+                        scrollTo(scrollX, currentScrollY.coerceAtMost(maxScrollY))
+                    }
                 }
+                isUpdatingText = false
             }
         }
     }
@@ -143,7 +135,8 @@ private class LogContainerView(context: Context) : NestedScrollView(context) {
     fun releaseMemory() {
         lastLoadedText = null
         textView.text = ""
-        userScrollY = 0
+        isAutoScrollEnabled = true
+        isUpdatingText = false
     }
 }
 
