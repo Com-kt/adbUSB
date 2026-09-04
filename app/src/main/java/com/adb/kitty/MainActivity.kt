@@ -499,14 +499,13 @@ class MainActivity : ComponentActivity() {
         ensureFlashDirExists()
         tryToStartService()
 
-        val exportFlag = ContextCompat.RECEIVER_NOT_EXPORTED
-        ContextCompat.registerReceiver(this, usbPermissionReceiver, IntentFilter(ACTION_USB_PERMISSION), exportFlag)
+        ContextCompat.registerReceiver(this, usbPermissionReceiver, IntentFilter(ACTION_USB_PERMISSION), ContextCompat.RECEIVER_NOT_EXPORTED)
         ContextCompat.registerReceiver(this, usbStateReceiver, IntentFilter().apply {
             addAction(UsbManager.ACTION_USB_DEVICE_ATTACHED)
             addAction(UsbManager.ACTION_USB_DEVICE_DETACHED)
             addAction(UsbManager.ACTION_USB_ACCESSORY_ATTACHED)
             addAction(UsbManager.ACTION_USB_ACCESSORY_DETACHED)
-        }, exportFlag)
+        }, ContextCompat.RECEIVER_EXPORTED)
 
         ContextCompat.registerReceiver(this, wifiReceiver, IntentFilter(WifiManager.WIFI_STATE_CHANGED_ACTION), ContextCompat.RECEIVER_EXPORTED)
 
