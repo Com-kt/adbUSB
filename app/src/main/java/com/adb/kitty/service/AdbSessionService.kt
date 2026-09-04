@@ -20,7 +20,12 @@ import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.net.wifi.WifiManager
 import android.net.wifi.p2p.*
-import android.os.*
+import android.os.Binder
+import android.os.Build
+import android.os.Environment
+import android.os.IBinder
+import android.os.ParcelFileDescriptor
+import android.os.PowerManager
 import android.system.Os
 import android.system.OsConstants
 import androidx.core.app.Person
@@ -83,8 +88,6 @@ class AdbSessionService : Service() {
 
     @Volatile
     private var currentTaskKey: String? = null
-    
-    private var downloadJob: Job? = null
     
     private val serviceScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
     private var refreshJob: Job? = null
@@ -427,8 +430,7 @@ class AdbSessionService : Service() {
 
         onLog("[系统] 正在建立网络连接...")
 
-        downloadJob?.cancel()
-        downloadJob = serviceScope.launch(Dispatchers.IO) {
+        refreshJob = serviceScope.launch(Dispatchers.IO) {
             try {
                 val url = URL(urlStr)
                 val connection = url.openConnection() as HttpURLConnection
@@ -618,6 +620,9 @@ class AdbSessionService : Service() {
         return readSide
     }
 
+    /**
+     * 强行终止当前 Shell 任务
+     */
     fun terminateCurrentCommand() {
         synchronized(this) {
             val key = currentTaskKey
@@ -638,39 +643,73 @@ class AdbSessionService : Service() {
 
     fun getCurrentWorkingDirectory(): File = currentWorkingDirectory
 
-    /**
-     * 重构后的流数据传输，利用协程与纯 IO 穿透，消除手动线程与 runBlocking 开销
-     */
+    @OptIn(ExperimentalCoroutinesApi::class)
     private fun startAntiStallPump(
         processInputStream: InputStream,
         ipcOutputStream: OutputStream,
         onPumpComplete: (OutputStream) -> Unit
     ) {
         android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_URGENT_AUDIO)
-        
-        runBlocking {
-            withContext(Dispatchers.IO) {
-                try {
-                    val buffer = ByteArray(32768)
-                    var bytesRead: Int
+        val channel = Channel<ByteArray>(Channel.UNLIMITED)
+
+        val drainThread = Thread({
+            val rawBuffer = ByteArray(32768)
+            try {
+                var bytesRead: Int
+                while (processInputStream.read(rawBuffer).also { bytesRead = it } != -1) {
+                    val chunk = rawBuffer.copyOf(bytesRead)
+                    channel.trySend(chunk)
+                }
+            } catch (_: Exception) {
+            } finally {
+                channel.close()
+            }
+        }, "NativePipeDrainer")
+
+        drainThread.start()
+
+        val ipcWriterThread = Thread({
+            try {
+                runBlocking {
+                    val batchBuffer = ByteArrayOutputStream()
                     var lastFlushTime = System.currentTimeMillis()
 
-                    while (isActive && processInputStream.read(buffer).also { bytesRead = it } != -1) {
-                        ipcOutputStream.write(buffer, 0, bytesRead)
+                    for (chunk in channel) {
+                        batchBuffer.write(chunk)
+
+                        while (true) {
+                            val nextChunk = channel.tryReceive().getOrNull() ?: break
+                            batchBuffer.write(nextChunk)
+                            if (batchBuffer.size() >= 65536) break
+                        }
+
                         val now = System.currentTimeMillis()
-                        if (now - lastFlushTime >= 8) {
+                        if (now - lastFlushTime >= 8 || batchBuffer.size() >= 65536 || channel.isEmpty) {
+                            batchBuffer.writeTo(ipcOutputStream)
                             ipcOutputStream.flush()
+                            batchBuffer.reset()
                             lastFlushTime = now
                         }
                     }
-                    ipcOutputStream.flush()
-                } catch (_: Exception) {
-                } finally {
+
+                    if (batchBuffer.size() > 0) {
+                        batchBuffer.writeTo(ipcOutputStream)
+                        ipcOutputStream.flush()
+                        batchBuffer.reset()
+                    }
+
                     onPumpComplete(ipcOutputStream)
-                    runCatching { ipcOutputStream.close() }
                 }
+            } catch (_: Exception) {
+            } finally {
+                runCatching { ipcOutputStream.close() }
             }
-        }
+        }, "IpcStreamWriter")
+
+        ipcWriterThread.start()
+
+        runCatching { drainThread.join() }
+        runCatching { ipcWriterThread.join() }
     }
 
     private fun sanitizeCommand(cmd: String): String {
