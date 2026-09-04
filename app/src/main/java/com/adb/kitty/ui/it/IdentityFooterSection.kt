@@ -37,24 +37,22 @@ data class ProcessIdentity(
             val pid = Process.myPid()
             val tid = Process.myTid()
             val ppid = try { Os.getppid() } catch (_: Throwable) { -1 }
-            val sid = try { Os.getsid(0) } catch (_: Throwable) { -1 }
 
-            // 通过 org.lsposed.hiddenapibypass 反射调用 libcore.io.Libcore.os.getpgid(0)
-            val pgid = try {
+            // 通过 org.lsposed.hiddenapibypass 反射调用 libcore.io.Libcore.os 获取 getpgid 和 getsid
+            var pgid = -1
+            var sid = -1
+            try {
                 val libcoreClass = Class.forName("libcore.io.Libcore")
                 val osField = libcoreClass.getDeclaredField("os")
                 osField.isAccessible = true
                 val osInstance = osField.get(null)
                 if (osInstance != null) {
-                    val result = HiddenApiBypass.invoke(
-                        osInstance.javaClass,
-                        osInstance,
-                        "getpgid",
-                        0
-                    )
-                    (result as? Int) ?: -1
-                } else -1
-            } catch (_: Throwable) { -1 }
+                    val osClass = osInstance.javaClass
+                    pgid = (HiddenApiBypass.invoke(osClass, osInstance, "getpgid", 0) as? Int) ?: -1
+                    sid = (HiddenApiBypass.invoke(osClass, osInstance, "getsid", 0) as? Int) ?: -1
+                }
+            } catch (_: Throwable) {
+            }
 
             var uid = Process.myUid(); var euid = uid; var suid = uid; var fsuid = uid
             var gid = -1; var egid = -1; var sgid = -1; var fsgid = -1
