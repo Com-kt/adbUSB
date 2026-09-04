@@ -51,15 +51,8 @@ import androidx.annotation.Keep
 import org.lsposed.hiddenapibypass.HiddenApiBypass
 
 import java.io.*
-import java.net.HttpURLConnection
-import java.net.URL
-import java.net.InetAddress
-import java.net.InetSocketAddress
-import java.net.DatagramPacket
-import java.net.DatagramSocket
-import java.net.ServerSocket
-import java.net.Socket
-import java.lang.reflect.Method
+import java.net.*
+import java.lang.reflect.*
 
 @Keep
 class AdbSessionService : Service() {
