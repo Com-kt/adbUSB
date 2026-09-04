@@ -71,6 +71,12 @@ object NativeLibs {
      */
     external fun clearNativeBuffer()
     
+    @JvmStatic
+    external fun getRawIdentityInfo(): IntArray?
+
+    @JvmStatic
+    external fun getSelinuxContext(): String?
+    
     external fun ApkSignature(apkPath: String): String
     
     external fun hasV1Scheme(apkPath: String): Boolean

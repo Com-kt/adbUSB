@@ -565,11 +565,8 @@
             android:name="android.software.leanback.supports_touch"
             android:value="true" />
         <meta-data 
-            android:name="android.linux.support"
-            android:value="true" />
-        <meta-data 
-            android:name="android.tv.support"
-            android:value="true" />
+            android:name="android.system.support"
+            android:value="HyperOS3、Android 16" />
         <meta-data 
             android:name="app_logs"
             android:value="@string/app_logs" />
