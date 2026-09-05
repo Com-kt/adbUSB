@@ -536,6 +536,7 @@
     <!-- 通过 android:process 设置的进程来共享同一进程，以冒号开头的是应用私有进程，以非冒号开头的是同签名应用的共享进程 -->
     <application
         android:process=":task"
+        android:largeHeap="true"
         android:name="BypassApi"
         android:allowBackup="true"
         android:directBootAware="true"
