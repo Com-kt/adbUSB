@@ -68,7 +68,7 @@ private class LogContainerView(context: Context) : NestedScrollView(context) {
             setPadding(16, 16, 16, 16)
             setTextIsSelectable(true)
             setHorizontallyScrolling(true)
-           // importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_NO
+            importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_NO
         }
 
         horizontalScrollView.addView(textView)
