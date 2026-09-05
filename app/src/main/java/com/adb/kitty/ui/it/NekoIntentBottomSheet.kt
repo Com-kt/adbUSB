@@ -42,7 +42,9 @@ fun NekoIntentBottomSheet(
     var currentMode by remember { mutableStateOf(IntentMode.URL_DIRECT) }
     var menuExpanded by remember { mutableStateOf(false) }
 
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val sheetState = rememberBottomSheetState(
+        initialValue = SheetValue.Hidden
+    )
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
