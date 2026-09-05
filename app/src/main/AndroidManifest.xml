@@ -617,6 +617,7 @@
             android:launchMode="singleInstancePerTask"
             android:persistableMode="persistNever"
             android:theme="@style/AppTheme"
+            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout"
             android:permission="com.adb.kitty.USE_PRIVATE_API"
             android:exported="true">
             <!-- USB主机模式 -->

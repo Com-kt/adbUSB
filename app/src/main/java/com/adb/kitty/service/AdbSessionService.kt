@@ -15,6 +15,7 @@ import android.app.NotificationChannelGroup
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
+import android.app.ActivityOptions
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -311,6 +312,59 @@ class AdbSessionService : Service() {
     }
 
     private fun getOpenAppAction(): NotificationCompat.Action {
+        var openAction = cachedOpenAppAction
+        if (openAction == null) {
+            val openIntent = Intent(this, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            
+                putExtra("miui.intent.extra.open_in_freeform", true)
+                putExtra("intent_flag_miui_freeform", true)
+                putExtra("com.mbridge.msdk.intent.extra.open_in_freeform", true)
+            }
+
+            val displayMetrics = resources.displayMetrics
+            val screenWidth = displayMetrics.widthPixels
+            val screenHeight = displayMetrics.heightPixels
+
+            val windowWidth = (screenWidth * 0.85).toInt()
+            val windowHeight = (screenHeight * 0.65).toInt()
+            val left = (screenWidth - windowWidth) / 2
+            val top = (screenHeight - windowHeight) / 2
+
+            val options = ActivityOptions.makeBasic().apply {
+                launchBounds = Rect(left, top, left + windowWidth, top + windowHeight)
+
+                try {
+                    val method = ActivityOptions::class.java.getMethod(
+                        "setLaunchWindowingMode",
+                        Int::class.javaPrimitiveType
+                    )
+                    method.invoke(this, 5)
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
+
+            val openPendingIntent = PendingIntent.getActivity(
+                this,
+                1,
+                openIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+                options.toBundle()
+            )
+
+            openAction = NotificationCompat.Action.Builder(
+                android.R.drawable.ic_menu_view,
+                getString(R.string.action_service_aac),
+                openPendingIntent
+            ).build()
+
+            cachedOpenAppAction = openAction
+        }
+        return openAction
+    }
+/***
+    private fun getOpenAppAction(): NotificationCompat.Action {
         var action = cachedOpenAppAction
         if (action == null) {
             val openIntent = Intent(this, MainActivity::class.java).apply {
@@ -333,7 +387,7 @@ class AdbSessionService : Service() {
         }
         return action
     }
-
+***/
     /**
      * 动态 Shortcut 独立更新（仅在 onCreate 或更换头像时调用）
      */
