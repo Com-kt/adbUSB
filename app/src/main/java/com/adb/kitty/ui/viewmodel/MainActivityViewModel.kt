@@ -110,8 +110,18 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
         private const val LOW_MEMORY_KEEP_LINES = 5_000
     }
 
-    private val masterLogBuffer = StringBuilder()
+    // JVM 堆上仅保留极轻量的逻辑索引（10万条只占 ~800KB 内存，无任何 GC 压力）
     private val logLineRanges = MutableLongList()
+
+    // Native 堆外内存映射句柄
+    private var nativeBuffer: ByteBuffer? = null
+
+    private fun getOrInitNativeBuffer(): ByteBuffer? {
+        if (nativeBuffer == null) {
+            nativeBuffer = NativeLibs.getDirectBuffer()?.order(ByteOrder.nativeOrder())
+        }
+        return nativeBuffer
+    }
 
     val logCount: Int
         @Synchronized get() = logLineRanges.size
@@ -169,48 +179,127 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
                 val line = msg.substring(start, end)
                 if (line.isNotBlank()) {
                     val fullLine = "$timeStr $line\n"
-                    NativeLibs.appendNativeLog(fullLine)
+                    pushToNativeBuffer(fullLine)
                 }
             }
             start = end + 1
         }
     }
-/*
-    @Synchronized
-    private fun processAndPushLog(msg: String) {
-        val timeStr = getCachedTimeStamp()
 
-        var start = 0
-        val len = msg.length
-        while (start < len) {
-            var end = msg.indexOf('\n', start)
-            if (end == -1) end = len
-
-            if (end > start) {
-                val line = msg.substring(start, end)
-                if (line.isNotBlank()) {
-                    val fullLine = "$timeStr $line"
-                    pushToBuffer(fullLine)
-                    // 同步推送给 Native C++17 堆外缓冲区
-                    NativeLibs.appendNativeLog(fullLine)
-                }
-            }
-            start = end + 1
-        }
-    }
-*/
-    private fun pushToBuffer(fullLine: String) {
+    /**
+     * 核心优化：直接将日志压入 Native C++ 16MB 堆外缓冲区，并记录 Native 偏移区间
+     */
+    private fun pushToNativeBuffer(fullLine: String) {
         if (logLineRanges.size >= MAX_BUFFER_LINES) {
             trimEarlyLogs(TRIM_STEP_LINES)
         }
 
-        val startIdx = masterLogBuffer.length
-        masterLogBuffer.append(fullLine)
-        val endIdx = masterLogBuffer.length
-        masterLogBuffer.append("\n")
+        // 1. 获取写入前的 Native 字节偏移量
+        val startOffset = NativeLibs.getWriteOffset().toInt()
 
-        val pointer = LogRangePointer.create(startIdx, endIdx)
+        // 2. 写入 C++ 堆外内存
+        NativeLibs.appendNativeLog(fullLine)
+
+        // 3. 获取写入后的 Native 字节偏移量
+        val endOffset = NativeLibs.getWriteOffset().toInt()
+
+        // 4. 处理 C++ 16MB 环形缓冲区写满归零重置的情况 (endOffset <= startOffset)
+        if (endOffset <= startOffset) {
+            logLineRanges.clear()
+            val newPointer = LogRangePointer.create(0, endOffset)
+            logLineRanges.add(newPointer.packed)
+            return
+        }
+
+        // 5. 记录当前行在 Native 物理内存中的起始与结束地址
+        val pointer = LogRangePointer.create(startOffset, endOffset)
         logLineRanges.add(pointer.packed)
+    }
+
+    /**
+     * UI 视图按需读取：直接从 DirectByteBuffer 零拷贝读取指定行的 UTF-8 文本
+     */
+    @Synchronized
+    fun getLogLineAt(index: Int): String {
+        if (index !in 0 until logLineRanges.size) return ""
+        val buffer = getOrInitNativeBuffer() ?: return ""
+
+        val pointer = LogRangePointer(logLineRanges[index])
+        val start = pointer.start
+        val end = pointer.end
+
+        if (start < 0 || end > buffer.capacity() || start >= end) return ""
+
+        val length = end - start
+        val bytes = ByteArray(length)
+
+        // 使用 duplicate() 复制独立的 position 游标，确保多线程并发读取 safe
+        val slice = buffer.duplicate()
+        slice.position(start)
+        slice.get(bytes, 0, length)
+
+        // 转换为字符串返回给 UI 渲染 (过滤末尾换行符)
+        return String(bytes, Charsets.UTF_8).trimEnd('\n', '\r')
+    }
+
+    /**
+     * 极其高效的裁切：只需移除开头的 Long 索引，彻底告别巨量字符串拷贝移动！
+     */
+    private fun trimEarlyLogs(linesToTrim: Int) {
+        if (logLineRanges.size <= linesToTrim) return
+
+        val remainingCount = logLineRanges.size - linesToTrim
+        for (i in 0 until remainingCount) {
+            logLineRanges[i] = logLineRanges[i + linesToTrim]
+        }
+        logLineRanges.removeRange(remainingCount, logLineRanges.size)
+        logLineRanges.trim()
+    }
+
+    @Synchronized
+    fun onTrimMemoryRequested() {
+        while (logInputChannel.tryReceive().isSuccess) { /* drain */ }
+
+        if (logLineRanges.size > LOW_MEMORY_KEEP_LINES) {
+            val linesToTrim = logLineRanges.size - LOW_MEMORY_KEEP_LINES
+            trimEarlyLogs(linesToTrim)
+        }
+
+        // 清空 C++ 堆外物理页 (madvise) 并重置指针
+        NativeLibs.clearNativeBuffer()
+        logLineRanges.clear()
+        _uiUpdateVersion.value++
+    }
+
+    @Synchronized
+    fun clearLogs() {
+        while (logInputChannel.tryReceive().isSuccess) { /* drain */ }
+
+        logLineRanges.clear()
+        logLineRanges.trim()
+
+        NativeLibs.clearNativeBuffer()
+        _uiUpdateVersion.value++
+    }
+
+    /**
+     * 文件导出：直接利用 NIO FileChannel 将 Native 堆外内存一键落盘（物理层零拷贝）
+     */
+    suspend fun exportFullLogToFile(targetFile: File): Boolean = withContext(Dispatchers.IO) {
+        runCatching {
+            val buffer = getOrInitNativeBuffer() ?: return@withContext false
+            val writeOffset = NativeLibs.getWriteOffset().toInt()
+            if (writeOffset <= 0) return@withContext false
+
+            FileOutputStream(targetFile).channel.use { channel ->
+                val readSlice = buffer.duplicate().apply {
+                    position(0)
+                    limit(writeOffset.coerceAtMost(capacity()))
+                }
+                channel.write(readSlice)
+            }
+            true
+        }.getOrDefault(false)
     }
 
     private fun getCachedTimeStamp(): String {
@@ -222,99 +311,6 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
         return cachedTimeString
     }
 
-    @Synchronized
-    fun getLogLineAt(index: Int): String {
-        if (index !in 0 until logLineRanges.size) return ""
-        val pointer = LogRangePointer(logLineRanges[index])
-        return masterLogBuffer.substring(pointer.start, pointer.end)
-    }
-
-    private fun trimEarlyLogs(linesToTrim: Int) {
-        if (logLineRanges.size <= linesToTrim) return
-
-        val cutPointer = LogRangePointer(logLineRanges[linesToTrim - 1])
-        val cutOffset = cutPointer.end + 1
-
-        masterLogBuffer.delete(0, cutOffset)
-
-        val remainingCount = logLineRanges.size - linesToTrim
-        for (i in 0 until remainingCount) {
-            val oldPointer = LogRangePointer(logLineRanges[i + linesToTrim])
-            val newPointer = LogRangePointer.create(
-                oldPointer.start - cutOffset,
-                oldPointer.end - cutOffset
-            )
-            logLineRanges[i] = newPointer.packed
-        }
-
-        logLineRanges.removeRange(remainingCount, logLineRanges.size)
-        logLineRanges.trim()
-        masterLogBuffer.trimToSize()
-    }
-
-    @Synchronized
-    fun onTrimMemoryRequested() {
-        while (logInputChannel.tryReceive().isSuccess) { /* drain */ }
-
-        if (logLineRanges.size > LOW_MEMORY_KEEP_LINES) {
-            val linesToTrim = logLineRanges.size - LOW_MEMORY_KEEP_LINES
-            trimEarlyLogs(linesToTrim)
-        } else {
-            masterLogBuffer.trimToSize()
-            logLineRanges.trim()
-        }
-
-        NativeLibs.clearNativeBuffer()
-        _uiUpdateVersion.value++
-    }
-
-    @Synchronized
-    fun clearLogs() {
-        while (logInputChannel.tryReceive().isSuccess) { /* drain */ }
-
-        logLineRanges.clear()
-        logLineRanges.trim()
-
-        masterLogBuffer.setLength(0)
-        masterLogBuffer.trimToSize()
-
-        NativeLibs.clearNativeBuffer()
-        _uiUpdateVersion.value++
-    }
-
-    /**
-     * 使用 C++ 堆外内存直接导出日志（高效零拷贝）
-     */
-    suspend fun exportNativeLogToFile(targetFile: File): Boolean = withContext(Dispatchers.IO) {
-        runCatching {
-            val buffer = NativeLibs.getDirectBuffer() ?: return@withContext false
-            val writeOffset = NativeLibs.getWriteOffset().toInt()
-            if (writeOffset <= 0) return@withContext false
-
-            FileOutputStream(targetFile).channel.use { channel ->
-                // 复制出 slice 镜像，避免干扰主读写逻辑
-                val readOnlyBuffer = buffer.duplicate().apply {
-                    position(0)
-                    limit(writeOffset.coerceAtMost(capacity()))
-                }
-                channel.write(readOnlyBuffer)
-            }
-            true
-        }.getOrDefault(false)
-    }
-
-/*
-    suspend fun exportFullLogToFile(targetFile: File): Boolean = withContext(Dispatchers.IO) {
-        runCatching {
-            synchronized(this@MainActivityViewModel) {
-                targetFile.bufferedWriter().use { writer ->
-                    writer.append(masterLogBuffer)
-                }
-            }
-            true
-        }.getOrDefault(false)
-    }
-*/
     private val _adbService = MutableStateFlow<AdbSessionService?>(null)
 
     fun setAdbService(service: AdbSessionService?) {
