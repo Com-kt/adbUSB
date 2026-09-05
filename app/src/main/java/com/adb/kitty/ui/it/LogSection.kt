@@ -24,6 +24,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.view.doOnNextLayout
 import androidx.core.widget.NestedScrollView
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -99,7 +100,7 @@ private class LogContainerView(context: Context) : NestedScrollView(context) {
 
         if (dy < 0) {
             isAutoScrollEnabled = false
-        } else if (dy > 0 && isAtBottom()) {
+        } else if (isAtBottom()) {
             isAutoScrollEnabled = true
         }
     }
@@ -116,7 +117,7 @@ private class LogContainerView(context: Context) : NestedScrollView(context) {
         val child = getChildAt(0) ?: return true
         val maxScrollY = (child.height - height).coerceAtLeast(0)
         if (maxScrollY <= 0) return true
-        return (maxScrollY - scrollY) <= 100
+        return (maxScrollY - scrollY) <= 150
     }
 
     fun updateLogs(fullText: String, textColor: Int) {
@@ -126,20 +127,18 @@ private class LogContainerView(context: Context) : NestedScrollView(context) {
 
         if (lastLoadedText != fullText) {
             lastLoadedText = fullText
-
             isUpdatingText = true
-            textView.setText(fullText, TextView.BufferType.NORMAL)
 
-            post {
-                val child = getChildAt(0)
-                if (child != null) {
-                    val maxScrollY = (child.height - height).coerceAtLeast(0)
-                    if (isAutoScrollEnabled && !isUserTouching) {
-                        scrollTo(scrollX, maxScrollY)
-                    }
+            horizontalScrollView.doOnNextLayout {
+                if (isAutoScrollEnabled && !isUserTouching) {
+                    fullScroll(View.FOCUS_DOWN)
                 }
-                isUpdatingText = false
+                post {
+                    isUpdatingText = false
+                }
             }
+
+            textView.setText(fullText, TextView.BufferType.NORMAL)
         }
     }
 
