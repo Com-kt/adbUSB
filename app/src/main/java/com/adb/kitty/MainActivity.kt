@@ -345,6 +345,19 @@ class MainActivity : ComponentActivity() {
         }
     }
     
+    private val powerReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            when (intent?.action) {
+                Intent.ACTION_POWER_CONNECTED -> {
+                    appendLog("[电源] 🔌 充电器已插入")
+                }
+                Intent.ACTION_POWER_DISCONNECTED -> {
+                    appendLog("[电源] 🔋 充电器已拔出")
+                }
+            }
+        }
+    }
+    
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge(
@@ -508,6 +521,17 @@ class MainActivity : ComponentActivity() {
         }, ContextCompat.RECEIVER_EXPORTED)
 
         ContextCompat.registerReceiver(this, wifiReceiver, IntentFilter(WifiManager.WIFI_STATE_CHANGED_ACTION), ContextCompat.RECEIVER_EXPORTED)
+
+        val powerFilter = IntentFilter().apply {
+            addAction(Intent.ACTION_POWER_CONNECTED)
+            addAction(Intent.ACTION_POWER_DISCONNECTED)
+        }
+        ContextCompat.registerReceiver(
+            this,
+            powerReceiver,
+            powerFilter,
+            ContextCompat.RECEIVER_EXPORTED
+        )
 
         inspector = RefreshRateInspector(this, this) { logText -> appendLog(logText) }
     }
