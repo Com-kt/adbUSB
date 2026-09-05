@@ -174,6 +174,7 @@ class AdbSessionService : Service() {
     override fun onCreate() {
         super.onCreate()
         createNotificationChannel()
+        updateShortcutIfNeeded()
         
         // 1. 初始状态闪击启动前台服务
         val initialText = "00:00:00"
@@ -256,102 +257,132 @@ class AdbSessionService : Service() {
         manager.notify(NOTIFICATION_ID, buildNotification(contentText))
     }
 
+    private val SHORTCUT_ID = "adb_conversation_shortcut_id"
+    private val PERSON_KEY = "adb_person_key_001"
+
+    private var cachedReplyAction: NotificationCompat.Action? = null
+    private var cachedOpenAppAction: NotificationCompat.Action? = null
+
+    private var cachedConsoleUser: Person? = null
+    private val anonymousSender: Person by lazy {
+        Person.Builder().setName("").build()
+    }
+
+    private fun getConsoleUser(): Person {
+        var user = cachedConsoleUser
+        if (user == null) {
+            user = Person.Builder()
+                .setName(getString(R.string.action_service_aaa))
+                .setIcon(getCircularIcon())
+                .setKey(PERSON_KEY)
+                .build()
+            cachedConsoleUser = user
+        }
+        return user
+    }
+
+    private fun getReplyAction(): NotificationCompat.Action {
+        var action = cachedReplyAction
+        if (action == null) {
+            val remoteInput = RemoteInput.Builder(KEY_REPLY_INPUT)
+                .setLabel(getString(R.string.action_service_aad))
+                .build()
+
+            val replyIntent = Intent(this, AdbSessionService::class.java).apply {
+                action = ACTION_REPLY_COMMAND
+            }
+            val replyPendingIntent = PendingIntent.getService(
+                this,
+                0,
+                replyIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
+            )
+
+            action = NotificationCompat.Action.Builder(
+                android.R.drawable.ic_menu_send,
+                getString(R.string.action_service_aab),
+                replyPendingIntent
+            ).addRemoteInput(remoteInput).build()
+        
+            cachedReplyAction = action
+        }
+        return action
+    }
+
+    private fun getOpenAppAction(): NotificationCompat.Action {
+        var action = cachedOpenAppAction
+        if (action == null) {
+            val openIntent = Intent(this, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            }
+            val openPendingIntent = PendingIntent.getActivity(
+                this,
+                1,
+                openIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+
+            action = NotificationCompat.Action.Builder(
+                android.R.drawable.ic_menu_view,
+                getString(R.string.action_service_aac),
+                openPendingIntent
+            ).build()
+
+            cachedOpenAppAction = action
+        }
+        return action
+    }
+
+    /**
+     * 动态 Shortcut 独立更新（仅在 onCreate 或更换头像时调用）
+     */
+     private fun updateShortcutIfNeeded() {
+        val shortcut = ShortcutInfoCompat.Builder(this, SHORTCUT_ID)
+            .setShortLabel(getString(R.string.action_service_aaa))
+            .setIcon(getCircularIcon())
+            .setIntent(Intent(this, AdbSessionService::class.java).apply { action = "LAUNCH_FROM_NOTIF" })
+            .setPerson(getConsoleUser())
+            .setLongLived(true)
+            .setIsConversation()
+            .build()
+
+        ShortcutManagerCompat.pushDynamicShortcut(this, shortcut)
+    }
+
     /**
      * 🏗️ 生产通知对象的工厂方法
      */
     private fun buildNotification(contentText: String): Notification {
-        val shortcutId = "adb_conversation_shortcut_id"
-        val personKey = "adb_person_key_001"
-    
-        val remoteInput = RemoteInput.Builder(KEY_REPLY_INPUT)
-            .setLabel(getString(R.string.action_service_aad))
-            .build()
+        val consoleUser = getConsoleUser()
 
-        val replyIntent = Intent(this, AdbSessionService::class.java).apply {
-            action = ACTION_REPLY_COMMAND
-        }
-        val replyPendingIntent = PendingIntent.getService(
-            this,
-            0,
-            replyIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE // Android 12+ 必须为 MUTABLE
-        )
-
-        val replyAction = NotificationCompat.Action.Builder(
-            android.R.drawable.ic_menu_send,
-            getString(R.string.action_service_aab),
-            replyPendingIntent
-        )
-        .addRemoteInput(remoteInput)
-        .build()
-        
-        val openIntent = Intent(this, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-        }
-        
-        val openPendingIntent = PendingIntent.getActivity(
-            this,
-            1,
-            openIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-        
-        val openAppAction = NotificationCompat.Action.Builder(
-            android.R.drawable.ic_menu_view,
-            getString(R.string.action_service_aac),
-            openPendingIntent
-        ).build()
-        
-        val avatarIcon = getCircularIcon()
-        
-        val consoleUser = Person.Builder()
-            .setName(getString(R.string.action_service_aaa))
-            .setIcon(avatarIcon)
-            .setKey(personKey)
-            .build()
-            
-        val anonymousSender = Person.Builder()
-            .setName("")
-            .build()
-            
-        val shortcut = ShortcutInfoCompat.Builder(this, shortcutId)
-            .setShortLabel(getString(R.string.action_service_aaa))
-            .setIcon(avatarIcon)
-            .setIntent(Intent(this, AdbSessionService::class.java).apply { action = "LAUNCH_FROM_NOTIF" })
-            .setPerson(consoleUser)
-            .setLongLived(true)
-            .setIsConversation()
-            .build()
-        
-        ShortcutManagerCompat.pushDynamicShortcut(this, shortcut)
-            
         val messagingStyle = NotificationCompat.MessagingStyle(consoleUser)
             .setConversationTitle(getString(R.string.action_service_aae))
-            
+        
         val lastLog = synchronized(notificationLogs) {
             notificationLogs.lastOrNull()
         }
         val line1Text = lastLog ?: "📡 暂无执行指令"
-        
+    
         val connectedCount = kadbInstancePool.size
         val statusText = if (connectedCount > 0) "🟢 已连接: ${connectedCount}台设备" else "⏳ 等待设备接入"
         val line2Text = "$statusText | ⏱️ 守护时长: $contentText"
-        
-        messagingStyle.addMessage(line1Text, System.currentTimeMillis() - 1000, anonymousSender)
-        messagingStyle.addMessage(line2Text, System.currentTimeMillis(), anonymousSender)
+    
+        val now = System.currentTimeMillis()
+        messagingStyle.addMessage(line1Text, now - 1000, anonymousSender)
+        messagingStyle.addMessage(line2Text, now, anonymousSender)
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_small_kiss)
             .setStyle(messagingStyle)
-            .setShortcutId(shortcutId)
+            .setShortcutId(SHORTCUT_ID)
             .setBubbleMetadata(null)
             .setCategory(NotificationCompat.CATEGORY_MESSAGE)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setOngoing(true) 
             .setOnlyAlertOnce(true) 
-            .addAction(replyAction)
-            .addAction(openAppAction)
+            .addAction(getReplyAction())
+            .addAction(getOpenAppAction())
             .build()
     }
 
@@ -363,7 +394,7 @@ class AdbSessionService : Service() {
         val manager = getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager ?: return
 
         try {
-            val oldChannelId = "adb_kitty_channel"
+            val oldChannelId = "com.adb.kitty.core_service_channel_v2"
             val existingChannel = manager.getNotificationChannel(oldChannelId)
             if (existingChannel != null) {
                 manager.deleteNotificationChannel(oldChannelId)
@@ -379,7 +410,6 @@ class AdbSessionService : Service() {
                 NotificationManager.IMPORTANCE_DEFAULT
             ).apply {
                 description = getString(R.string.action_service_aah)
-                group = GROUP_ID
                 setShowBadge(false)
                 enableLights(false)
                 enableVibration(false)
@@ -394,6 +424,8 @@ class AdbSessionService : Service() {
 
     fun reloadAvatar() {
         cachedCircularIcon = null
+        cachedConsoleUser = null
+        updateShortcutIfNeeded()
         triggerTickerRefreshImmediate()
     }
 
