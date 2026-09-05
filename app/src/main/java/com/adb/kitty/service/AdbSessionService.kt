@@ -282,15 +282,16 @@ class AdbSessionService : Service() {
     }
 
     private fun getReplyAction(): NotificationCompat.Action {
-        var action = cachedReplyAction
-        if (action == null) {
+        var replyAction = cachedReplyAction
+        if (replyAction == null) {
             val remoteInput = RemoteInput.Builder(KEY_REPLY_INPUT)
                 .setLabel(getString(R.string.action_service_aad))
                 .build()
 
             val replyIntent = Intent(this, AdbSessionService::class.java).apply {
-                action = ACTION_REPLY_COMMAND
+                this.action = ACTION_REPLY_COMMAND
             }
+
             val replyPendingIntent = PendingIntent.getService(
                 this,
                 0,
@@ -298,15 +299,15 @@ class AdbSessionService : Service() {
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
             )
 
-            action = NotificationCompat.Action.Builder(
+            replyAction = NotificationCompat.Action.Builder(
                 android.R.drawable.ic_menu_send,
                 getString(R.string.action_service_aab),
                 replyPendingIntent
             ).addRemoteInput(remoteInput).build()
-        
-            cachedReplyAction = action
+
+            cachedReplyAction = replyAction
         }
-        return action
+        return replyAction
     }
 
     private fun getOpenAppAction(): NotificationCompat.Action {
