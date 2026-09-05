@@ -509,54 +509,6 @@ class MainActivity : ComponentActivity() {
             }
         }
         
-        val rootView = window.decorView.rootView
-        rootView.addOnLayoutChangeListener(object : View.OnLayoutChangeListener {
-            private var lastW = 0
-            private var lastH = 0
-
-            override fun onLayoutChange(
-                v: View?, left: Int, top: Int, right: Int, bottom: Int,
-                oldLeft: Int, oldTop: Int, oldRight: Int, oldBottom: Int
-            ) {
-                val width = right - left
-                val height = bottom - top
-
-                // 尺寸发生实际变化时触发
-                if (width != lastW || height != lastH) {
-                    lastW = width
-                    lastH = height
-
-                    val windowMetricsCalculator = WindowMetricsCalculator.getOrCreate()
-                    val maxScreenBounds = windowMetricsCalculator.computeMaximumWindowMetrics(this@MainActivity).bounds
-                    val screenW = maxScreenBounds.width()
-                    val screenH = maxScreenBounds.height()
-
-                    // 1. 定义合法限制区间：宽 15% ~ 90%，高 35% ~ 90%
-                    val minAllowedW = (screenW * 0.15).toInt()
-                    val maxAllowedW = (screenW * 0.90).toInt()
-                    val minAllowedH = (screenH * 0.35).toInt()
-                    val maxAllowedH = (screenH * 0.90).toInt()
-
-                    // 2. 仅当当前处于小窗/自由窗口形态（小于全屏95%）时才进行计算和记忆
-                    if (width < screenW * 0.95 || height < screenH * 0.95) {
-                        val clampedW = width.coerceIn(minAllowedW, maxAllowedW)
-                        val clampedH = height.coerceIn(minAllowedH, maxAllowedH)
-
-                        val currentRect = windowMetricsCalculator.computeCurrentWindowMetrics(this@MainActivity).bounds
-                        val finalBounds = Rect(
-                            currentRect.left,
-                            currentRect.top,
-                            currentRect.left + clampedW,
-                            currentRect.top + clampedH
-                        )
-
-                        // 3. 实时同步给 Service 记忆并清理缓存
-                        AdbSessionService.updateSavedBounds(finalBounds)
-                    }
-                }
-            }
-        })
-        
         usbManager = getSystemService(Context.USB_SERVICE) as UsbManager
         keyManager = AdbKeyManager(this)
         ensureFlashDirExists()

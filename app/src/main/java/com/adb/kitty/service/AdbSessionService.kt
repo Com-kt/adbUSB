@@ -71,17 +71,6 @@ class AdbSessionService : Service() {
     companion object {
         private const val ACTION_REPLY_COMMAND = "com.adb.kitty.ACTION_REPLY_COMMAND"
         private const val KEY_REPLY_INPUT = "key_reply_input"
-        
-        private var lastUserWindowBounds: Rect? = null
-        private var instance: AdbSessionService? = null
-        
-        private var cachedOpenAppAction: NotificationCompat.Action? = null
-        
-        fun updateSavedBounds(bounds: Rect) {
-            lastUserWindowBounds = bounds
-            // 清除 Action 缓存，以便下次点击通知栏时，使用用户调好的新尺寸构建 PendingIntent
-            cachedOpenAppAction = null
-        }
     }
     
     private var lastCommand: String? = null
@@ -186,7 +175,6 @@ class AdbSessionService : Service() {
 
     override fun onCreate() {
         super.onCreate()
-        instance = this
         createNotificationChannel()
         updateShortcutIfNeeded()
         
@@ -329,32 +317,36 @@ class AdbSessionService : Service() {
         if (openAction == null) {
             val openIntent = Intent(this, MainActivity::class.java).apply {
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            
+                // 国产厂商（小米/HyperOS、OPPO、vivo 等）自由窗口 Intent Extra 兼容
                 putExtra("miui.intent.extra.open_in_freeform", true)
                 putExtra("intent_flag_miui_freeform", true)
                 putExtra("com.mbridge.msdk.intent.extra.open_in_freeform", true)
             }
 
-            val windowMetrics = WindowMetricsCalculator.getOrCreate().computeMaximumWindowMetrics(this)
+            // 1. 使用 androidx.window 精准获取物理屏幕分辨率（自动避开刘海与切边）
+            val windowMetrics = WindowMetricsCalculator.getOrCreate().computeCurrentWindowMetrics(this)
             val screenWidth = windowMetrics.bounds.width()
             val screenHeight = windowMetrics.bounds.height()
 
-            // 优先使用用户实时拖拽并记忆的尺寸，否则默认 90% x 75%
-            val targetBounds = lastUserWindowBounds ?: run {
-                val defaultWidth = (screenWidth * 0.90).toInt()
-                val defaultHeight = (screenHeight * 0.75).toInt()
-                val left = (screenWidth - defaultWidth) / 2
-                val top = (screenHeight - defaultHeight) / 2
-                Rect(left, top, left + defaultWidth, top + defaultHeight)
-            }
+            // 2. 计算居中小窗的初始弹出尺寸 (宽度 55%，高度 75%)
+            val windowWidth = (screenWidth * 0.55).toInt()
+            val windowHeight = (screenHeight * 0.75).toInt()
+            val left = (screenWidth - windowWidth) / 2
+            val top = (screenHeight - windowHeight) / 2
 
+            // 3. 构建原生 Freeform 窗口参数
             val options = ActivityOptions.makeBasic().apply {
-                launchBounds = targetBounds
+                // 设置弹出初始坐标与宽高
+                launchBounds = Rect(left, top, left + windowWidth, top + windowHeight)
+
+                // 反射设置原生 WINDOWING_MODE_FREEFORM (常量值 5)
                 try {
                     val method = ActivityOptions::class.java.getMethod(
                         "setLaunchWindowingMode",
                         Int::class.javaPrimitiveType
                     )
-                    method.invoke(this, 5) // WINDOWING_MODE_FREEFORM
+                    method.invoke(this, 5)
                 } catch (e: Exception) {
                     e.printStackTrace()
                 }
@@ -944,6 +936,5 @@ class AdbSessionService : Service() {
         kadbInstancePool.forEach { (_, instance) -> runCatching { instance.close() } }
         kadbInstancePool.clear()
         super.onDestroy()
-        instance = null
     }
 }
