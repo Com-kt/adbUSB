@@ -8,6 +8,7 @@ kotlinxCoroutines = "1.11.0"
 annotation = "1.10.0"
 coreKtx = "1.19.0"
 collection = "1.6.0"
+window = "1.5.1"
 
 jdklibs = "2.1.5"
 
@@ -31,6 +32,7 @@ androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = 
 androidx-annotation = { group = "androidx.annotation", name = "annotation", version.ref = "annotation" }
 androidx-annotation-experimental = { group = "androidx.annotation", name = "annotation-experimental", version.ref = "annotationExperimental" }
 androidx-collection = { group = "androidx.collection", name = "collection", version.ref = "collection" }
+androidx-window = { group = "androidx.window", name = "window", version.ref = "window" }
 
 # Lifecycle 组件
 androidx-lifecycle-livedata-ktx = { group = "androidx.lifecycle", name = "lifecycle-livedata-ktx", version.ref = "lifecycle" }
