@@ -40,6 +40,7 @@ import androidx.core.content.pm.ShortcutInfoCompat
 import androidx.core.content.pm.ShortcutManagerCompat
 import androidx.core.graphics.drawable.IconCompat
 import androidx.core.graphics.createBitmap
+import androidx.window.layout.WindowMetricsCalculator
 import android.webkit.MimeTypeMap
 import android.annotation.SuppressLint
 import androidx.annotation.RequiresApi
@@ -317,23 +318,29 @@ class AdbSessionService : Service() {
             val openIntent = Intent(this, MainActivity::class.java).apply {
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
             
+                // 国产厂商（小米/HyperOS、OPPO、vivo 等）自由窗口 Intent Extra 兼容
                 putExtra("miui.intent.extra.open_in_freeform", true)
                 putExtra("intent_flag_miui_freeform", true)
                 putExtra("com.mbridge.msdk.intent.extra.open_in_freeform", true)
             }
 
-            val displayMetrics = resources.displayMetrics
-            val screenWidth = displayMetrics.widthPixels
-            val screenHeight = displayMetrics.heightPixels
+            // 1. 使用 androidx.window 精准获取物理屏幕分辨率（自动避开刘海与切边）
+            val windowMetrics = WindowMetricsCalculator.getOrCreate().computeCurrentWindowMetrics(this)
+            val screenWidth = windowMetrics.bounds.width()
+            val screenHeight = windowMetrics.bounds.height()
 
+            // 2. 计算居中小窗的初始弹出尺寸 (宽度 85%，高度 65%)
             val windowWidth = (screenWidth * 0.85).toInt()
             val windowHeight = (screenHeight * 0.65).toInt()
             val left = (screenWidth - windowWidth) / 2
             val top = (screenHeight - windowHeight) / 2
 
+            // 3. 构建原生 Freeform 窗口参数
             val options = ActivityOptions.makeBasic().apply {
+                // 设置弹出初始坐标与宽高
                 launchBounds = Rect(left, top, left + windowWidth, top + windowHeight)
 
+                // 反射设置原生 WINDOWING_MODE_FREEFORM (常量值 5)
                 try {
                     val method = ActivityOptions::class.java.getMethod(
                         "setLaunchWindowingMode",
