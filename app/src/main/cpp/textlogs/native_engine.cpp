@@ -7,9 +7,15 @@
 #include <memory>
 #include <cstring>
 #include <sys/mman.h>
-#include <malloc.h>
+#include <dlfcn.h>
 
-extern "C" int malloc_trim(size_t pad);
+inline void safe_malloc_trim() {
+    typedef int (*malloc_trim_fn)(size_t);
+    static auto trim_func = reinterpret_cast<malloc_trim_fn>(dlsym(RTLD_DEFAULT, "malloc_trim"));
+    if (trim_func) {
+        trim_func(0);
+    }
+}
 
 class NativeLogEngine {
 private:
@@ -26,7 +32,7 @@ public:
     ~NativeLogEngine() {
         off_heap_buffer.clear();
         off_heap_buffer.shrink_to_fit();
-        malloc_trim(0);
+        safe_malloc_trim();
     }
 
     void append_fast(std::string_view raw_log) {
@@ -111,7 +117,7 @@ JNIEXPORT void JNICALL
 Java_com_adb_kitty_data_NativeLibs_releaseNativeEngine(JNIEnv* env, jobject thiz) {
     if (g_log_engine) {
         g_log_engine.reset();
-        malloc_trim(0);
+        safe_malloc_trim();
     }
 }
 
