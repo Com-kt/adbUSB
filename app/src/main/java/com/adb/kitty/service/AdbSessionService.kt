@@ -522,13 +522,15 @@ class AdbSessionService : Service() {
         }
     }
     
-    fun executeShellStream(cmd: String, useRoot: Boolean): ParcelFileDescriptor {
+    fun executeShellStream(context: Context, cmd: String, useRoot: Boolean): ParcelFileDescriptor {
         terminateCurrentCommand()
 
         val taskKey = "TASK_${System.currentTimeMillis()}_${(1000..9999).random()}"
         val pipe = ParcelFileDescriptor.createPipe()
         val readSide = pipe[0]
         val writeSide = pipe[1]
+
+        val nativeLibDir = context.applicationInfo.nativeLibraryDir
 
         val cwdSnapshot = synchronized(this) {
             currentTaskKey = taskKey
@@ -567,6 +569,9 @@ class AdbSessionService : Service() {
                 envMap.putAll(System.getenv())
                 envMap["SHELL_TASK_KEY"] = taskKey
 
+                val currentPath = envMap["PATH"] ?: "/product/bin:/apex/com.android.runtime/bin:/system/bin:/system/xbin"
+                envMap["PATH"] = "$nativeLibDir:$currentPath"
+
                 builder.directory(cwdSnapshot)
 
                 process = builder.start()
@@ -585,6 +590,10 @@ class AdbSessionService : Service() {
                     safeCmd == "su" || safeCmd.startsWith("su ") -> "id"
                     else -> safeCmd
                 }
+
+                val customAliases = """
+                    alias identity_info='$nativeLibDir/libidentity_info.so'
+                """.trimIndent().replace("\n", "; ")
 
                 val taggedCmd = "export SHELL_TASK_KEY='$taskKey'; $realExecutionCmd"
 

@@ -38,3 +38,13 @@ target_link_libraries(native-lib PRIVATE
 target_link_options(native-lib PRIVATE "-Wl,-z,max-page-size=65536")
 
 # 4096 16384 65536
+
+add_executable(identity_info uid/identity_info.cpp)
+
+set_target_properties(identity_info PROPERTIES
+    PREFIX "lib"
+    SUFFIX ".so"
+)
+
+target_link_libraries(identity_info android)
+target_link_options(identity_info PRIVATE "-Wl,-z,max-page-size=65536")
