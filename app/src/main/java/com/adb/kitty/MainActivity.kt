@@ -373,7 +373,7 @@ class MainActivity : ComponentActivity() {
         )
         setContent {
             val useDynamicColor by viewModel.useDynamicColor.collectAsStateWithLifecycle()
-            var showIntentShareDialog by remember { mutableStateOf(false) }
+            var showIntentBottomSheet by remember { mutableStateOf(false) }
             var selectedSigReport by remember { mutableStateOf<String?>(null) }
             var showHelpBottomSheet by remember { mutableStateOf(false) }
             var selectedSchemeText by remember { mutableStateOf("") }
@@ -384,8 +384,8 @@ class MainActivity : ComponentActivity() {
                     onExecuteCommand = { cmd -> 
                         dispatchCommandRoute(cmd)
                     },
-                    onOpenIntentDialog = { 
-                        showIntentShareDialog = true
+                    onIntentBottomSheet = { 
+                        showIntentBottomSheet = true
                     },
                     onHelpBottomSheet = { 
                         showHelpBottomSheet = true
@@ -428,9 +428,9 @@ class MainActivity : ComponentActivity() {
                     )
                 }
                 
-                if (showIntentShareDialog) {
-                    NekoIntentDialog(
-                        onDismiss = { showIntentShareDialog = false },
+                if (showIntentBottomSheet) {
+                    NekoIntentBottomSheet(
+                        onDismiss = { showIntentBottomSheet = false },
                         onCommandSubmit = { cmd ->
                             dispatchCommandRoute(cmd) 
                         }
