@@ -2060,6 +2060,7 @@ class MainActivity : ComponentActivity() {
         unregisterReceiver(usbPermissionReceiver)
         unregisterReceiver(usbStateReceiver)
         unregisterReceiver(wifiReceiver)
+        unregisterReceiver(powerReceiver)
         inspector.unbindRootService()
         usbForwarder?.stop()
         runCatching { kadbInstance?.close() }
