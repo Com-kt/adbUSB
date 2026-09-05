@@ -125,6 +125,7 @@ fun NekoIntentBottomSheet(
                     IntentMode.TELEGRAM -> "Telegram 用户名或频道"
                     IntentMode.X -> "X 用户名 / 主页 ID"
                     IntentMode.PLAY -> "应用包名 (如: com.tencent.mm)"
+                    else -> "输入内容"
                 }
                 OutlinedTextField(
                     value = inputFirst,
