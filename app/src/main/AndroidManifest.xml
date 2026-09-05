@@ -616,6 +616,7 @@
             android:launchMode="singleInstancePerTask"
             android:persistableMode="persistNever"
             android:theme="@style/AppTheme"
+            android:permission="com.adb.kitty.USE_PRIVATE_API"
             android:exported="true">
             <!-- USB主机模式 -->
             <intent-filter>
@@ -657,9 +658,9 @@
         </provider>
         <receiver
             android:name=".receiver.BootReceiver"
-            android:enabled="true"
             android:exported="true"
-            android:directBootAware="true">
+            android:directBootAware="true"
+            android:permission="com.adb.kitty.USE_PRIVATE_API">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
                 <action android:name="android.intent.action.LOCKED_BOOT_COMPLETED" />
