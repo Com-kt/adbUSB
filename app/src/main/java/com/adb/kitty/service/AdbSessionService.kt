@@ -329,8 +329,8 @@ class AdbSessionService : Service() {
             val screenWidth = windowMetrics.bounds.width()
             val screenHeight = windowMetrics.bounds.height()
 
-            // 2. 计算居中小窗的初始弹出尺寸 (宽度 80%，高度 60%)
-            val windowWidth = (screenWidth * 0.80).toInt()
+            // 2. 计算居中小窗的初始弹出尺寸 (宽度 85%，高度 60%)
+            val windowWidth = (screenWidth * 0.85).toInt()
             val windowHeight = (screenHeight * 0.60).toInt()
             val left = (screenWidth - windowWidth) / 2
             val top = (screenHeight - windowHeight) / 2
