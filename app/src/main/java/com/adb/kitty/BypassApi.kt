@@ -42,14 +42,29 @@ class BypassApi : Application() {
     override fun onTrimMemory(level: Int) {
         super.onTrimMemory(level)
         _trimMemoryEvents.tryEmit(level)
+
+        // 当系统内存紧张时，直接触发 madvise(MADV_DONTNEED) 归还堆外物理内存页
+        if (level >= ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW ||
+            level >= ComponentCallbacks2.TRIM_MEMORY_BACKGROUND
+        ) {
+            NativeLibs.clearNativeBuffer()
+        }
     }
 
     @Suppress("DEPRECATION")
     override fun onLowMemory() {
         super.onLowMemory()
         _trimMemoryEvents.tryEmit(ComponentCallbacks2.TRIM_MEMORY_COMPLETE)
+        // 极低内存时清空 Native 缓冲区
+        NativeLibs.clearNativeBuffer()
     }
-    
+
+    override fun onTerminate() {
+        super.onTerminate()
+        // 销毁 Native 引擎并释放堆外内存
+        destroyLogEngine()
+    }
+
     fun destroyLogEngine() {
         NativeLibs.releaseNativeEngine()
     }

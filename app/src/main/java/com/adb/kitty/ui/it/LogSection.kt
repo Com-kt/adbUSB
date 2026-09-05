@@ -12,9 +12,11 @@ import android.content.ComponentCallbacks2
 import android.content.Context
 import android.graphics.Rect
 import android.graphics.Typeface
+import android.util.AttributeSet
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
+import android.view.accessibility.AccessibilityEvent
 import android.widget.HorizontalScrollView
 import android.widget.TextView
 import androidx.annotation.Keep
@@ -34,17 +36,77 @@ import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.sample
 import kotlinx.coroutines.withContext
+import java.nio.ByteBuffer
 import kotlin.time.Duration.Companion.milliseconds
+
+/**
+ * 继承原生 android.widget.TextView 并拦截无障碍事件
+ * 阻止高频 setText 时向系统发送大容量 Binder 消息
+ */
+class LogTextView @JvmOverloads constructor(
+    context: Context,
+    attrs: AttributeSet? = null,
+    defStyleAttr: Int = 0
+) : TextView(context, attrs, defStyleAttr) {
+
+    override fun sendAccessibilityEventUnchecked(event: AccessibilityEvent?) {
+        if (event?.eventType == AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED ||
+            event?.eventType == AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED
+        ) {
+            return
+        }
+        super.sendAccessibilityEventUnchecked(event)
+    }
+
+    override fun sendAccessibilityEvent(eventType: Int) {
+        if (eventType == AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED ||
+            eventType == AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED
+        ) {
+            return
+        }
+        super.sendAccessibilityEvent(eventType)
+    }
+}
+
+/**
+ * 包装 DirectByteBuffer 的 CharSequence 视图
+ * 直接读取 Native 堆外内存，零 JVM 堆内存分配 (Zero-GC)
+ */
+class DirectBufferCharSequence(
+    private val byteBuffer: ByteBuffer,
+    private val lengthInBytes: Int
+) : CharSequence {
+
+    override val length: Int get() = lengthInBytes
+
+    override fun get(index: Int): Char {
+        return (byteBuffer.get(index).toInt() and 0xFF).toChar()
+    }
+
+    override fun subSequence(startIndex: Int, endIndex: Int): CharSequence {
+        val subBuffer = byteBuffer.duplicate()
+        subBuffer.position(startIndex)
+        subBuffer.limit(endIndex)
+        return DirectBufferCharSequence(subBuffer.slice(), endIndex - startIndex)
+    }
+
+    override fun toString(): String {
+        val bytes = ByteArray(lengthInBytes)
+        val dup = byteBuffer.duplicate()
+        dup.get(bytes, 0, lengthInBytes)
+        return String(bytes, Charsets.UTF_8)
+    }
+}
 
 @Keep
 private class LogContainerView(context: Context) : NestedScrollView(context) {
     val horizontalScrollView = HorizontalScrollView(context)
-    val textView = TextView(context)
+    val textView = LogTextView(context)
 
     var isAutoScrollEnabled = true
     private var isUserTouching = false
     private var isUpdatingText = false
-    private var lastLoadedText: String? = null
+    private var lastLoadedLength: Int = -1
 
     init {
         layoutParams = ViewGroup.LayoutParams(
@@ -120,13 +182,14 @@ private class LogContainerView(context: Context) : NestedScrollView(context) {
         return (maxScrollY - scrollY) <= 150
     }
 
-    fun updateLogs(fullText: String, textColor: Int) {
+    fun updateLogs(logCharSequence: CharSequence, textColor: Int) {
         if (textView.currentTextColor != textColor) {
             textView.setTextColor(textColor)
         }
 
-        if (lastLoadedText != fullText) {
-            lastLoadedText = fullText
+        val currentLength = logCharSequence.length
+        if (lastLoadedLength != currentLength) {
+            lastLoadedLength = currentLength
             isUpdatingText = true
 
             horizontalScrollView.doOnNextLayout {
@@ -138,7 +201,7 @@ private class LogContainerView(context: Context) : NestedScrollView(context) {
                 }
             }
 
-            textView.setText(fullText, TextView.BufferType.NORMAL)
+            textView.setText(logCharSequence, TextView.BufferType.NORMAL)
         }
     }
 
@@ -149,7 +212,7 @@ private class LogContainerView(context: Context) : NestedScrollView(context) {
     }
 
     fun releaseMemory() {
-        lastLoadedText = null
+        lastLoadedLength = -1
         textView.text = ""
         isAutoScrollEnabled = true
         isUserTouching = false
@@ -161,8 +224,6 @@ private class LogContainerView(context: Context) : NestedScrollView(context) {
 @Keep
 @Composable
 fun LogSection(
-    getLogCount: () -> Int,
-    getLogLineAt: (index: Int) -> String,
     uiUpdateVersionFlow: StateFlow<Long>,
     modifier: Modifier = Modifier
 ) {
@@ -196,22 +257,25 @@ fun LogSection(
             uiUpdateVersionFlow
                 .sample(100.milliseconds)
                 .collect {
-                    val totalCount = getLogCount()
+                    val directBuffer = NativeLibs.getDirectBuffer()
+                    val writeOffset = NativeLibs.getWriteOffset().toInt()
 
-                    val fullText = withContext(Dispatchers.Default) {
-                        if (totalCount == 0) return@withContext ""
-                        val sb = StringBuilder()
-                        for (i in 0 until totalCount) {
-                            sb.append(getLogLineAt(i))
-                            if (i < totalCount - 1) {
-                                sb.append('\n')
-                            }
+                    if (directBuffer == null || writeOffset <= 0) {
+                        withContext(Dispatchers.Main) {
+                            view.updateLogs("", logTextColor)
                         }
-                        sb.toString()
+                        return@collect
+                    }
+
+                    val nativeCharSequence = withContext(Dispatchers.Default) {
+                        val duplicateBuffer = directBuffer.duplicate()
+                        duplicateBuffer.position(0)
+                        duplicateBuffer.limit(writeOffset)
+                        DirectBufferCharSequence(duplicateBuffer, writeOffset)
                     }
 
                     withContext(Dispatchers.Main) {
-                        view.updateLogs(fullText, logTextColor)
+                        view.updateLogs(nativeCharSequence, logTextColor)
                     }
                 }
         }

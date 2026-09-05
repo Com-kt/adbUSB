@@ -482,8 +482,6 @@ fun CenterAlignedTopAppBarExample(
             )
             
             LogSection(
-                getLogCount = { viewModel.logCount },
-                getLogLineAt = { index -> viewModel.getLogLineAt(index) },
                 uiUpdateVersionFlow = viewModel.uiUpdateVersion,
                 modifier = Modifier
                     .weight(1f)

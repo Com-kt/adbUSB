@@ -62,6 +62,13 @@ object NativeLibs {
     external fun appendNativeLog(log: String)
 
     /**
+     * 极速追加字节数组到 Native 堆外缓冲区
+     * 通过 GetPrimitiveArrayCritical 绕过 JNI 的 UTF-16 转 UTF-8 临时 String 分配，做到绝对 Zero-GC
+     * @param bytes 日志内容的 UTF-8 字节数组
+     */
+    external fun appendNativeLogBytes(bytes: ByteArray)
+
+    /**
      * 获取当前 Native 堆外缓冲区的写偏移指针
      */
     external fun getWriteOffset(): Long
