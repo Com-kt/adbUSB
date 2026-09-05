@@ -387,7 +387,7 @@ fun CenterAlignedTopAppBarExample(
                                         stringResource(R.string.action_menu_cpu_view)
                                     )
                                 },
-                                leadingIcon = { Icon(Icons.Outlined.Speed, null) },
+                                leadingIcon = { Icon(Icons.Outlined.Memory, null) },
                                 onClick = {
                                     showMenu = false
                                     
