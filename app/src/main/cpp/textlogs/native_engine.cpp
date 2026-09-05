@@ -9,6 +9,8 @@
 #include <sys/mman.h>
 #include <malloc.h>
 
+extern "C" int malloc_trim(size_t pad);
+
 class NativeLogEngine {
 private:
     std::mutex engine_mutex;
