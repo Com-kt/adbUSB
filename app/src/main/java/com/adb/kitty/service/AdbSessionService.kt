@@ -569,8 +569,8 @@ class AdbSessionService : Service() {
                 envMap.putAll(System.getenv())
                 envMap["SHELL_TASK_KEY"] = taskKey
 
-                val currentPath = envMap["PATH"] ?: "/product/bin:/apex/com.android.runtime/bin:/system/bin:/system/xbin"
-                envMap["PATH"] = "$nativeLibDir:$currentPath"
+                // 让应用 lib 目录下的可执行文件作为 Shell 的环境
+                envMap["PATH"] = "$nativeLibDir:${envMap["PATH"]}"
 
                 builder.directory(cwdSnapshot)
 
@@ -590,10 +590,6 @@ class AdbSessionService : Service() {
                     safeCmd == "su" || safeCmd.startsWith("su ") -> "id"
                     else -> safeCmd
                 }
-
-                val customAliases = """
-                    alias identity_info='$nativeLibDir/libidentity_info.so'
-                """.trimIndent().replace("\n", "; ")
 
                 val taggedCmd = "export SHELL_TASK_KEY='$taskKey'; $realExecutionCmd"
 

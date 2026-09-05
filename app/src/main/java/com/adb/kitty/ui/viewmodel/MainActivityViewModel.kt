@@ -413,7 +413,7 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
         AppCommand("intent 跳转, 该指令由app提供", "neko-intent "),
         AppCommand("查看应用签名信息, 该指令由app提供", "neko-sig"),
         AppCommand("查看应用签名信息, 该指令由app提供", "apk-sig"),
-        AppCommand("查看uid具体信息, 该指令由app提供", "identity_info")
+        AppCommand("查看uid具体信息, 该指令由app提供", "libidentity_info.so")
     )
     
     private val _adbCommands = listOf(
