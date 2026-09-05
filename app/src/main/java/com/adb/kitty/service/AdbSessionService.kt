@@ -322,41 +322,39 @@ class AdbSessionService : Service() {
         return replyAction
     }
 
+    private var cachedOpenAppAction: NotificationCompat.Action? = null
+
     private fun getOpenAppAction(): NotificationCompat.Action {
         var openAction = cachedOpenAppAction
         if (openAction == null) {
             val openIntent = Intent(this, MainActivity::class.java).apply {
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-            
                 putExtra("miui.intent.extra.open_in_freeform", true)
                 putExtra("intent_flag_miui_freeform", true)
                 putExtra("com.mbridge.msdk.intent.extra.open_in_freeform", true)
             }
 
-            // 1. 获取物理屏幕最大分辨率
             val windowMetrics = WindowMetricsCalculator.getOrCreate().computeMaximumWindowMetrics(this)
             val screenWidth = windowMetrics.bounds.width()
             val screenHeight = windowMetrics.bounds.height()
 
-            // 2. 如果用户之前拖拽过小窗，使用记忆尺寸；否则计算初始 90% x 70% 居中尺寸
+            // 优先使用用户实时拖拽并记忆的尺寸，否则默认 90% x 75%
             val targetBounds = lastUserWindowBounds ?: run {
                 val defaultWidth = (screenWidth * 0.90).toInt()
-                val defaultHeight = (screenHeight * 0.70).toInt()
+                val defaultHeight = (screenHeight * 0.75).toInt()
                 val left = (screenWidth - defaultWidth) / 2
                 val top = (screenHeight - defaultHeight) / 2
                 Rect(left, top, left + defaultWidth, top + defaultHeight)
             }
 
-            // 3. 构建 Freeform 启动参数
             val options = ActivityOptions.makeBasic().apply {
                 launchBounds = targetBounds
-
                 try {
                     val method = ActivityOptions::class.java.getMethod(
                         "setLaunchWindowingMode",
                         Int::class.javaPrimitiveType
                     )
-                    method.invoke(this, 5)
+                    method.invoke(this, 5) // WINDOWING_MODE_FREEFORM
                 } catch (e: Exception) {
                     e.printStackTrace()
                 }
