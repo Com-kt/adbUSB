@@ -372,31 +372,25 @@ fun CenterAlignedTopAppBarExample(
                             DropdownMenuItem(
                                 text = {
                                     Text(
-                                        stringResource(R.string.action_menu_rate)
+                                        stringResource(R.string.action_menu_process_manager)
                                     )
                                 },
-                                leadingIcon = { Icon(Icons.Outlined.PlayArrow, null) },
+                                leadingIcon = { Icon(Icons.Outlined.Memory, null) },
                                 onClick = {
                                     showMenu = false
-                                    activity.inspector.bindRootService { isConnected ->
-                                        if (isConnected) {
-                                            activity.inspector.start()
-                                        } else {
-                                            activity.appendLog("[错误] Root 特权服务绑定失败！请确认设备已获得 Magisk/Apatch/KernelSU 完整授权！")
-                                        }
-                                    }
+                                    
                                 }
                             )
                             DropdownMenuItem(
                                 text = {
                                     Text(
-                                        stringResource(R.string.action_menu_rate_stop)
+                                        stringResource(R.string.action_menu_cpu_view)
                                     )
                                 },
-                                leadingIcon = { Icon(Icons.Outlined.Stop, null) },
+                                leadingIcon = { Icon(Icons.Outlined.Speed, null) },
                                 onClick = {
                                     showMenu = false
-                                    activity.inspector.stop()
+                                    
                                 }
                             )
                             HorizontalDivider()

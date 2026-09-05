@@ -54,7 +54,6 @@ android-jdk-libs = { group = "com.android.tools", name = "desugar_jdk_libs", ver
 
 libsu-core = { module = "com.github.topjohnwu.libsu:core", version.ref = "libsuVersion" }
 libsu-service = { module = "com.github.topjohnwu.libsu:service", version.ref = "libsuVersion" }
-libsu-io = { module = "com.github.topjohnwu.libsu:io", version.ref = "libsuVersion" }
 
 com-flyfishxu-kadb = { group = "com.flyfishxu", name = "kadb", version.ref = "kadb" }
 
@@ -108,8 +107,7 @@ coroutines-runtime = [
 ]
 libsu = [
     "libsu-core",
-    "libsu-service",
-    "libsu-io"
+    "libsu-service"
 ]
 
 [plugins]

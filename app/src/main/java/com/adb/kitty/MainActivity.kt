@@ -117,7 +117,6 @@ class MainActivity : ComponentActivity() {
     private val viewModel: MainActivityViewModel by viewModels()
     private lateinit var usbManager: UsbManager
     private lateinit var keyManager: AdbKeyManager
-    internal lateinit var inspector: RefreshRateInspector
     private val ACTION_USB_PERMISSION = "com.adb.kitty.USB_PERMISSION"
 
     private var usbConn: UsbDeviceConnection? = null
@@ -534,8 +533,6 @@ class MainActivity : ComponentActivity() {
             powerFilter,
             ContextCompat.RECEIVER_EXPORTED
         )
-
-        inspector = RefreshRateInspector(this, this) { logText -> appendLog(logText) }
     }
 
     fun stopAdbService() {
@@ -617,14 +614,6 @@ class MainActivity : ComponentActivity() {
             cmd == "usb-host" -> {
                 appendLog("[系统] 扩展指令 >> $cmd")
                 findHostDevice()
-            }
-            cmd == "root-rate" -> {
-                appendLog("[系统] 扩展指令 >> $cmd")
-                appendLog("[系统] 正在尝试启动 Root 特权帧率服务, 该指令由 app 提供")
-                inspector.bindRootService { isConnected ->
-                    if (isConnected) inspector.start() 
-                    else appendLog("[错误] Root 特权服务绑定失败！请确认设备已获得 Magisk/Apatch/KernelSU 完整授权！")
-                }
             }
             cmd == "query-apm" -> {
                 appendLog("[系统] 扩展指令 >> $cmd")
@@ -2063,7 +2052,6 @@ class MainActivity : ComponentActivity() {
         unregisterReceiver(usbStateReceiver)
         unregisterReceiver(wifiReceiver)
         unregisterReceiver(powerReceiver)
-        inspector.unbindRootService()
         usbForwarder?.stop()
         runCatching { kadbInstance?.close() }
     }
