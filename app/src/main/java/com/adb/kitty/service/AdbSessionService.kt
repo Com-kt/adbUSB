@@ -75,10 +75,12 @@ class AdbSessionService : Service() {
         private var lastUserWindowBounds: Rect? = null
         private var instance: AdbSessionService? = null
         
+        private var cachedOpenAppAction: NotificationCompat.Action? = null
+        
         fun updateSavedBounds(bounds: Rect) {
             lastUserWindowBounds = bounds
             // 清除 Action 缓存，以便下次点击通知栏时，使用用户调好的新尺寸构建 PendingIntent
-            instance?.cachedOpenAppAction = null
+            cachedOpenAppAction = null
         }
     }
     
@@ -321,8 +323,6 @@ class AdbSessionService : Service() {
         }
         return replyAction
     }
-
-    private var cachedOpenAppAction: NotificationCompat.Action? = null
 
     private fun getOpenAppAction(): NotificationCompat.Action {
         var openAction = cachedOpenAppAction
