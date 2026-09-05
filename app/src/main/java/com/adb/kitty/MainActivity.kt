@@ -800,7 +800,7 @@ class MainActivity : ComponentActivity() {
 
                 try {
                     pfd = withContext(Dispatchers.IO) {
-                        service.executeShellStream(realLocalCmd, requestRoot)
+                        service.executeShellStream(this, realLocalCmd, requestRoot)
                     }
 
                     val logChannel = Channel<List<String>>(Channel.UNLIMITED)
