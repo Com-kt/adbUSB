@@ -15,6 +15,7 @@ import android.view.*
 import android.widget.*
 import android.webkit.*
 import android.content.*
+import android.content.res.Configuration
 import android.hardware.usb.*
 
 import android.net.*
@@ -27,6 +28,7 @@ import androidx.core.content.*
 import androidx.core.net.*
 import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationManagerCompat
+import androidx.window.layout.WindowMetricsCalculator
 /*******************************
 *        kotlinx 协程         *
 *    suspend 都给我挂起     *
@@ -534,6 +536,44 @@ class MainActivity : ComponentActivity() {
         )
 
         inspector = RefreshRateInspector(this, this) { logText -> appendLog(logText) }
+    }
+
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+
+        // 仅在处于小窗/多窗口模式下执行尺寸限幅与保存
+        if (isInMultiWindowMode) {
+            val windowMetricsCalculator = WindowMetricsCalculator.getOrCreate()
+        
+            // 当前屏幕的最大分辨率 (全屏尺寸)
+            val maxScreenBounds = windowMetricsCalculator.computeMaximumWindowMetrics(this).bounds
+            val screenW = maxScreenBounds.width()
+            val screenH = maxScreenBounds.height()
+
+            // 当前小窗调整后的实际 Bounds
+            val currentBounds = windowMetricsCalculator.computeCurrentWindowMetrics(this).bounds
+
+            // 计算要求的合法极限区间
+            val minAllowedW = (screenW * 0.35).toInt()
+            val maxAllowedW = (screenW * 0.90).toInt()
+            val minAllowedH = (screenH * 0.15).toInt()
+            val maxAllowedH = (screenH * 0.70).toInt()
+
+            // 对用户拖拽后的实际宽高做限制 (Clamp)
+            val clampedW = currentBounds.width().coerceIn(minAllowedW, maxAllowedW)
+            val clampedH = currentBounds.height().coerceIn(minAllowedH, maxAllowedH)
+
+            // 重新拼装符合合法比例区间的 Rect
+            val finalBounds = Rect(
+                currentBounds.left,
+                currentBounds.top,
+                currentBounds.left + clampedW,
+                currentBounds.top + clampedH
+            )
+
+            // 实时保存，防止下次通过通知栏唤醒时重置
+            AdbSessionService.updateSavedBounds(finalBounds)
+        }
     }
 
     fun stopAdbService() {
