@@ -104,6 +104,12 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
         }
     }
     
+    /**
+     * 判断当前 Native 堆外日志缓冲区是否为空
+     */
+    val isLogEmpty: Boolean
+        get() = NativeLibs.getWriteOffset() <= 0L
+
     private val logInputChannel = Channel<String>(Channel.UNLIMITED)
 
     private val _uiUpdateVersion = MutableStateFlow(0L)

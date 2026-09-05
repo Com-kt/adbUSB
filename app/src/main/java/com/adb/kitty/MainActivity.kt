@@ -1289,7 +1289,7 @@ class MainActivity : ComponentActivity() {
     }
     
     private fun exportLogToFlashFolder() {
-        if (viewModel.logCount == 0) {
+        if (viewModel.isLogEmpty) {
             appendLog("[提示] 当前控制台日志空空如也")
             return
         }
