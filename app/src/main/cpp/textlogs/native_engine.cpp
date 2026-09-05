@@ -6,6 +6,8 @@
 #include <atomic>
 #include <memory>
 #include <cstring>
+#include <sys/mman.h>
+#include <malloc.h>
 
 class NativeLogEngine {
 private:
@@ -19,15 +21,20 @@ public:
         off_heap_buffer.resize(cap, 0);
     }
 
-    // 使用 C++17 string_view 避免零碎拷贝
+    ~NativeLogEngine() {
+        off_heap_buffer.clear();
+        off_heap_buffer.shrink_to_fit();
+        malloc_trim(0);
+    }
+
     void append_fast(std::string_view raw_log) {
         size_t len = raw_log.size();
-        if (len == 0) return;
+        if (len == 0 || len > capacity) return;
 
-        std::scoped_lock lock(engine_mutex); // C++17 RAII 自动推导锁
+        std::scoped_lock lock(engine_mutex);
 
         size_t current_pos = write_head.load(std::memory_order_relaxed);
-        if (current_pos + len >= capacity) {
+        if (current_pos + len > capacity) {
             current_pos = 0;
             write_head.store(0, std::memory_order_relaxed);
         }
@@ -51,7 +58,10 @@ public:
     void clear() {
         std::scoped_lock lock(engine_mutex);
         write_head.store(0, std::memory_order_release);
-        std::memset(off_heap_buffer.data(), 0, capacity);
+
+        if (!off_heap_buffer.empty()) {
+            madvise(off_heap_buffer.data(), capacity, MADV_DONTNEED);
+        }
     }
 };
 
@@ -92,6 +102,14 @@ JNIEXPORT void JNICALL
 Java_com_adb_kitty_data_NativeLibs_clearNativeBuffer(JNIEnv* env, jobject thiz) {
     if (g_log_engine) {
         g_log_engine->clear();
+    }
+}
+
+JNIEXPORT void JNICALL
+Java_com_adb_kitty_data_NativeLibs_releaseNativeEngine(JNIEnv* env, jobject thiz) {
+    if (g_log_engine) {
+        g_log_engine.reset();
+        malloc_trim(0);
     }
 }
 

@@ -168,6 +168,27 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
             if (end > start) {
                 val line = msg.substring(start, end)
                 if (line.isNotBlank()) {
+                    val fullLine = "$timeStr $line\n"
+                    NativeLibs.appendNativeLog(fullLine)
+                }
+            }
+            start = end + 1
+        }
+    }
+/*
+    @Synchronized
+    private fun processAndPushLog(msg: String) {
+        val timeStr = getCachedTimeStamp()
+
+        var start = 0
+        val len = msg.length
+        while (start < len) {
+            var end = msg.indexOf('\n', start)
+            if (end == -1) end = len
+
+            if (end > start) {
+                val line = msg.substring(start, end)
+                if (line.isNotBlank()) {
                     val fullLine = "$timeStr $line"
                     pushToBuffer(fullLine)
                     // 同步推送给 Native C++17 堆外缓冲区
@@ -177,7 +198,7 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
             start = end + 1
         }
     }
-
+*/
     private fun pushToBuffer(fullLine: String) {
         if (logLineRanges.size >= MAX_BUFFER_LINES) {
             trimEarlyLogs(TRIM_STEP_LINES)
@@ -262,8 +283,27 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
     }
 
     /**
-     * 仅在用户点击【导出/打印】时调用，一键顺序写入磁盘文件
+     * 使用 C++ 堆外内存直接导出日志（高效零拷贝）
      */
+    suspend fun exportNativeLogToFile(targetFile: File): Boolean = withContext(Dispatchers.IO) {
+        runCatching {
+            val buffer = NativeLibs.getDirectBuffer() ?: return@withContext false
+            val writeOffset = NativeLibs.getWriteOffset().toInt()
+            if (writeOffset <= 0) return@withContext false
+
+            FileOutputStream(targetFile).channel.use { channel ->
+                // 复制出 slice 镜像，避免干扰主读写逻辑
+                val readOnlyBuffer = buffer.duplicate().apply {
+                    position(0)
+                    limit(writeOffset.coerceAtMost(capacity()))
+                }
+                channel.write(readOnlyBuffer)
+            }
+            true
+        }.getOrDefault(false)
+    }
+
+/*
     suspend fun exportFullLogToFile(targetFile: File): Boolean = withContext(Dispatchers.IO) {
         runCatching {
             synchronized(this@MainActivityViewModel) {
@@ -274,7 +314,7 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
             true
         }.getOrDefault(false)
     }
-    
+*/
     private val _adbService = MutableStateFlow<AdbSessionService?>(null)
 
     fun setAdbService(service: AdbSessionService?) {

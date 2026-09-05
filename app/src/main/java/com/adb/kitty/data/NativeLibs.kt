@@ -67,9 +67,14 @@ object NativeLibs {
     external fun getWriteOffset(): Long
 
     /**
-     * 清空 Native 堆外内存
+     * 清空 Native 堆外内存（利用 madvise 实时归还物理内存，保持虚拟地址映射）
      */
     external fun clearNativeBuffer()
+
+    /**
+     * 彻底销毁 Native 引擎并强行归还堆内存到 Linux 内核（调用 malloc_trim）
+     */
+    external fun releaseNativeEngine()
     
     @JvmStatic
     external fun getRawIdentityInfo(): IntArray?
