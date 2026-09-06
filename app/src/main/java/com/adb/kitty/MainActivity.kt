@@ -102,6 +102,7 @@ import com.adb.kitty.ui.theme.*
 import com.adb.kitty.ui.viewmodel.*
 import com.adb.kitty.ui.it.*
 import com.adb.kitty.ui.it.help.*
+import com.adb.kitty.ui.it.cpu.*
 import com.adb.kitty.data.*
 import com.adb.kitty.data.help.*
 import com.adb.kitty.service.*
@@ -115,6 +116,7 @@ class MainActivity : ComponentActivity() {
         private const val KEY_DEVICE_LIST = "connected_devices"
     }
     private val viewModel: MainActivityViewModel by viewModels()
+    private val pviewModel: PerformanceViewModel by viewModels()
     private lateinit var usbManager: UsbManager
     private lateinit var keyManager: AdbKeyManager
     private val ACTION_USB_PERMISSION = "com.adb.kitty.USB_PERMISSION"
@@ -377,6 +379,10 @@ class MainActivity : ComponentActivity() {
             var selectedSigReport by remember { mutableStateOf<String?>(null) }
             var showHelpBottomSheet by remember { mutableStateOf(false) }
             var selectedSchemeText by remember { mutableStateOf("") }
+            
+            val puiState by pviewModel.uiState.collectAsStateWithLifecycle()
+            var showCpuBottomSheet by remember { mutableStateOf(false) }
+            
             NekoTheme(dynamicColor = useDynamicColor) {
                 CenterAlignedTopAppBarExample(
                     viewModel = viewModel,
@@ -389,6 +395,9 @@ class MainActivity : ComponentActivity() {
                     },
                     onHelpBottomSheet = { 
                         showHelpBottomSheet = true
+                    },
+                    onCpuBottomSheet = { 
+                        showCpuBottomSheet = true
                     }
                 )
             
@@ -441,6 +450,13 @@ class MainActivity : ComponentActivity() {
                     CommandHelpBottomSheet(
                         isVisible = showHelpBottomSheet,
                         onDismissRequest = { showHelpBottomSheet = false }
+                    )
+                }
+                
+                if (showCpuBottomSheet) {
+                    CompletePerformanceMonitorBottomSheet(
+                        uiState = puiState,
+                        onDismissRequest = { showCpuBottomSheet = false }
                     )
                 }
                 
