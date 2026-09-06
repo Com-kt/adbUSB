@@ -400,14 +400,14 @@ fun SingleCoreCard(core: CpuCoreMetric, modifier: Modifier = Modifier) {
             ) {
                 Text("Core ${core.coreIndex}", fontWeight = FontWeight.Bold, fontSize = 12.sp)
                 Text(
-                    text = String.format(Locale.US, "%.2f GHz", core.curFreqGhz),
+                    text = String.format(Locale.US, "%.3f GHz", core.curFreqGhz),
                     fontWeight = FontWeight.Bold,
                     fontSize = 12.sp,
                     color = color
                 )
             }
             Text(
-                text = String.format(Locale.US, "HW: %.2f-%.2fG", core.minFreqGhz, core.maxFreqGhz),
+                text = String.format(Locale.US, "HW: %.3f-%.3fG", core.minFreqGhz, core.maxFreqGhz),
                 fontSize = 9.sp,
                 color = Color.Gray
             )

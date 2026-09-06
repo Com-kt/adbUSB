@@ -208,7 +208,7 @@ private fun HistoryGraphView(history: HistoryRecording) {
                 }
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text("平均帧率", fontSize = 9.sp, color = Color.Gray)
-                    Text(String.format(Locale.US, "%.1f FPS", avgFps), fontWeight = FontWeight.Bold, fontSize = 12.sp, color = Color(0xFF4CAF50))
+                    Text(String.format(Locale.US, "%.2f FPS", avgFps), fontWeight = FontWeight.Bold, fontSize = 12.sp, color = Color(0xFF4CAF50))
                 }
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text("电量/最高温度", fontSize = 9.sp, color = Color.Gray)
@@ -271,7 +271,7 @@ private fun HistoryGraphView(history: HistoryRecording) {
             val coreLimits = samples.mapNotNull { it.cpuHwLimitsGhz.getOrNull(coreIndex) }.firstOrNull()
             
             val hwLimitStr = if (coreLimits != null && coreLimits.second > 0f) {
-                String.format(Locale.US, "HW: %.2f - %.2f GHz", coreLimits.first, coreLimits.second)
+                String.format(Locale.US, "HW: %.3f - %.3f GHz", coreLimits.first, coreLimits.second)
             } else null
 
             val coreColor = CoreColors.getOrElse(coreIndex) { Color.Gray }
