@@ -119,7 +119,7 @@ fun CompletePerformanceMonitorBottomSheet(
                                 modifier = Modifier.height(32.dp),
                                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp)
                             ) {
-                                Text("💾 保存 CSV", fontSize = 11.sp)
+                                Text("💾 导出 CSV", fontSize = 11.sp)
                             }
                         }
                     }

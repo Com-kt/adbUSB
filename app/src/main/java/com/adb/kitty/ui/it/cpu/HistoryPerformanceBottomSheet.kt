@@ -1,6 +1,7 @@
 package com.adb.kitty.ui.it.cpu
 
-import androidx.compose.foundation.background
+package com.example.app
+
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -13,7 +14,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -29,16 +29,25 @@ fun HistoryPerformanceBottomSheet(
     onBackToList: () -> Unit,
     onDismissRequest: () -> Unit
 ) {
+    val sheetState = rememberBottomSheetState(
+        initialValue = SheetValue.Hidden
+    )
+
     ModalBottomSheet(
         onDismissRequest = onDismissRequest,
+        sheetState = sheetState,
+        // 2. 占满最大高度
+        modifier = Modifier.fillMaxHeight(),
+        // 3. 清空默认内边距限制，允许延伸至屏幕最顶端
+        windowInsets = WindowInsets(0, 0, 0, 0),
         containerColor = MaterialTheme.colorScheme.surface,
         dragHandle = { BottomSheetDefaults.DragHandle() }
     ) {
         Column(
             modifier = Modifier
-                .fillMaxWidth()
+                .fillMaxSize()
                 .padding(horizontal = 16.dp)
-                .padding(bottom = 24.dp)
+                .padding(bottom = 16.dp)
         ) {
             // 顶部导航标题
             Row(
@@ -72,7 +81,7 @@ fun HistoryPerformanceBottomSheet(
                 }
             }
 
-            // 根据是否选中文件展示 列表视图 或 图形回放视图
+            // 展示内容区域
             if (uiState.selectedHistory != null) {
                 HistoryGraphView(history = uiState.selectedHistory)
             } else {
@@ -96,8 +105,7 @@ private fun HistoryFileList(
     if (files.isEmpty()) {
         Box(
             modifier = Modifier
-                .fillMaxWidth()
-                .height(200.dp),
+                .fillMaxSize(),
             contentAlignment = Alignment.Center
         ) {
             Text("暂无录制历史，请先在实时监控面板中点击录制", fontSize = 12.sp, color = Color.Gray)
@@ -105,7 +113,7 @@ private fun HistoryFileList(
     } else {
         LazyColumn(
             verticalArrangement = Arrangement.spacedBy(8.dp),
-            modifier = Modifier.heightIn(max = 420.dp)
+            modifier = Modifier.fillMaxSize()
         ) {
             items(files) { file ->
                 Card(
@@ -174,7 +182,6 @@ private fun HistoryGraphView(history: HistoryRecording) {
         return
     }
 
-    // 统计均值与极值
     val avgFps = samples.map { it.fps }.average().toFloat()
     val maxTemp = samples.maxOfOrNull { it.batteryTemp } ?: 0f
     val maxGpuLoad = samples.maxOfOrNull { it.gpuLoadPercent } ?: 0f
@@ -182,8 +189,7 @@ private fun HistoryGraphView(history: HistoryRecording) {
 
     Column(
         modifier = Modifier
-            .fillMaxWidth()
-            .heightIn(max = 500.dp)
+            .fillMaxSize()
             .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
@@ -219,7 +225,7 @@ private fun HistoryGraphView(history: HistoryRecording) {
             }
         }
 
-        // 1. FPS 历史趋势图
+        // FPS 历史趋势图
         HistoryChartCard(
             title = "帧率波动 (FPS)",
             data = samples.map { it.fps },
@@ -228,7 +234,7 @@ private fun HistoryGraphView(history: HistoryRecording) {
             unit = "FPS"
         )
 
-        // 2. 电池温度趋势图
+        // 电池温度趋势图
         HistoryChartCard(
             title = "电池温度 (°C)",
             data = samples.map { it.batteryTemp },
@@ -237,7 +243,7 @@ private fun HistoryGraphView(history: HistoryRecording) {
             unit = "°C"
         )
 
-        // 3. GPU 负载趋势图
+        // GPU 负载趋势图
         HistoryChartCard(
             title = "GPU 负载率 (%)",
             data = samples.map { it.gpuLoadPercent },
@@ -246,7 +252,7 @@ private fun HistoryGraphView(history: HistoryRecording) {
             unit = "%"
         )
 
-        // 4. CPU 各核心频率折线图
+        // CPU 各核心频率折线图
         Text("CPU 核心频率轨迹 (GHz)", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
         for (coreIndex in 0 until maxCpuCount) {
             val coreFreqs = samples.map { it.cpuFreqsGhz.getOrNull(coreIndex) ?: 0f }
@@ -259,41 +265,6 @@ private fun HistoryGraphView(history: HistoryRecording) {
                 maxVal = maxFreq,
                 lineColor = coreColor,
                 unit = "GHz"
-            )
-        }
-    }
-}
-
-@Composable
-private fun HistoryChartCard(
-    title: String,
-    data: List<Float>,
-    maxVal: Float,
-    lineColor: Color,
-    unit: String
-) {
-    val curVal = data.lastOrNull() ?: 0f
-    Card(
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
-        shape = RoundedCornerShape(10.dp),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Column(modifier = Modifier.padding(10.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(title, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                Text(String.format(Locale.US, "%.2f %s", curVal, unit), fontSize = 11.sp, fontWeight = FontWeight.Bold, color = lineColor)
-            }
-            Spacer(modifier = Modifier.height(6.dp))
-            MetricLineChart(
-                data = data,
-                maxVal = maxVal,
-                lineColor = lineColor,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(42.dp)
             )
         }
     }
