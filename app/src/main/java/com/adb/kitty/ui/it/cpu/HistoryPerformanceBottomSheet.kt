@@ -264,3 +264,43 @@ private fun HistoryGraphView(history: HistoryRecording) {
         }
     }
 }
+
+@Composable
+private fun HistoryChartCard(
+    title: String,
+    data: List<Float>,
+    maxVal: Float,
+    lineColor: Color,
+    unit: String
+) {
+    val curVal = data.lastOrNull() ?: 0f
+    Card(
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
+        shape = RoundedCornerShape(10.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.padding(10.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(title, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                Text(
+                    text = String.format(Locale.US, "%.2f %s", curVal, unit),
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = lineColor
+                )
+            }
+            Spacer(modifier = Modifier.height(6.dp))
+            MetricLineChart(
+                data = data,
+                maxVal = maxVal,
+                lineColor = lineColor,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(42.dp)
+            )
+        }
+    }
+}
