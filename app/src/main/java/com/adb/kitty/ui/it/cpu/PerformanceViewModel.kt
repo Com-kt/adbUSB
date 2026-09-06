@@ -77,7 +77,7 @@ data class PerformanceUiState(
     // 录制控制状态
     val isRecording: Boolean = false,
     val recordedDurationSeconds: Int = 0,
-    val exportCsvContent: String? = null
+    val exportCsvContent: String? = null,
     
     val historyFiles: List<File> = emptyList(),
     val selectedHistory: HistoryRecording? = null
