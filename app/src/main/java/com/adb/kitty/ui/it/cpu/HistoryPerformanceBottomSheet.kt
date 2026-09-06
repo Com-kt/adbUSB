@@ -209,7 +209,7 @@ private fun HistoryGraphView(history: HistoryRecording) {
                     Text(String.format(Locale.US, "%.1f FPS", avgFps), fontWeight = FontWeight.Bold, fontSize = 12.sp, color = Color(0xFF4CAF50))
                 }
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("最高电池温", fontSize = 9.sp, color = Color.Gray)
+                    Text("最高电池温度", fontSize = 9.sp, color = Color.Gray)
                     Text(String.format(Locale.US, "%.1f °C", maxTemp), fontWeight = FontWeight.Bold, fontSize = 12.sp, color = Color(0xFFFF5722))
                 }
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
