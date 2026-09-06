@@ -3,6 +3,8 @@ package com.adb.kitty.ui.it.cpu
 import com.adb.kitty.*
 import com.adb.kitty.R
 
+import androidx.compose.runtime.Immutable
+
 import java.io.BufferedReader
 import java.io.InputStreamReader
 import java.util.ArrayDeque
