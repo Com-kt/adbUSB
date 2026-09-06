@@ -144,12 +144,34 @@ class MainActivity : ComponentActivity() {
             flashFolder.mkdirs()
         }
     }
-    
+
     // 日志文件输出专用路径
     private val logsFolder by lazy { File(externalCacheDir, "logs") }
     private fun ensureLogsDirExists() {
         if (!logsFolder.exists()) {
             logsFolder.mkdirs()
+        }
+    }
+    
+    private var pendingCsvContent: String? = null
+
+    // 注册系统 SAF 存储选择器，用于导出 CSV
+    private val createCsvLauncher = registerForActivityResult(
+        ActivityResultContracts.CreateDocument("text/csv")
+    ) { uri ->
+        uri?.let { destUri ->
+            pendingCsvContent?.let { csvData ->
+                try {
+                    contentResolver.openOutputStream(destUri)?.use { output ->
+                        output.write(csvData.toByteArray())
+                    }
+                    Toast.makeText(this, "文件导出成功！", Toast.LENGTH_SHORT).show()
+                    pviewModel.clearExportData()
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                    Toast.makeText(this, "导出失败: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
+                }
+            }
         }
     }
     
@@ -379,10 +401,12 @@ class MainActivity : ComponentActivity() {
             var selectedSigReport by remember { mutableStateOf<String?>(null) }
             var showHelpBottomSheet by remember { mutableStateOf(false) }
             var selectedSchemeText by remember { mutableStateOf("") }
-            
-            val puiState by pviewModel.uiState.collectAsState()
+
+            val puiState by pviewModel.uiState.collectAsStateWithLifecycle()
             var showCpuBottomSheet by remember { mutableStateOf(false) }
-            
+
+            var showCpuHistoryBottomSheet by remember { mutableStateOf(false) }
+
             NekoTheme(dynamicColor = useDynamicColor) {
                 CenterAlignedTopAppBarExample(
                     viewModel = viewModel,
@@ -398,9 +422,12 @@ class MainActivity : ComponentActivity() {
                     },
                     onCpuBottomSheet = { 
                         showCpuBottomSheet = true
+                    },
+                    onCpuHistoryBottomSheet = { 
+                        showCpuHistoryBottomSheet = true
                     }
                 )
-            
+
                 if (showDeviceListBottomSheet.value) {
                     DeviceSelectionBottomSheet(
                         wifiName = getCurrentWifiSsid(),
@@ -415,14 +442,14 @@ class MainActivity : ComponentActivity() {
                         onDismiss = { showDeviceListBottomSheet.value = false }
                     )
                 }
-            
+
                 qrCodeDialogContent?.let { textToEncode ->
                     QrCodePopupDialog(
                         contentString = textToEncode,
                         onDismiss = { qrCodeDialogContent = null }
                     )
                 }
-            
+
                 qrDecodeResult?.let { decodedText ->
                     QrDecodeResultDialog(
                         rawResult = decodedText,
@@ -436,7 +463,7 @@ class MainActivity : ComponentActivity() {
                         }
                     )
                 }
-                
+
                 if (showIntentBottomSheet) {
                     NekoIntentBottomSheet(
                         onDismiss = { showIntentBottomSheet = false },
@@ -445,31 +472,65 @@ class MainActivity : ComponentActivity() {
                         }
                     )
                 }
-                
+
                 if (showHelpBottomSheet) {
                     CommandHelpBottomSheet(
                         isVisible = showHelpBottomSheet,
                         onDismissRequest = { showHelpBottomSheet = false }
                     )
                 }
-                
+
                 LaunchedEffect(showCpuBottomSheet) {
                     if (showCpuBottomSheet) {
-                        pviewModel.bindRootService(this@MainActivity)
+                        pviewModel.initAndBind(this@MainActivity)
                     }
                 }
 
                 if (showCpuBottomSheet) {
+                    val context = LocalContext.current
                     CompletePerformanceMonitorBottomSheet(
                         uiState = puiState,
+                        onStartRecording = { pviewModel.startRecording() },
+                        onStopRecording = { 
+                            // 停止录制并自动在 getExternalFilesDir/cpu/ 目录下生成 CSV 文件
+                            val savedFile = pviewModel.stopRecordingAndSave(context)
+                            if (savedFile != null) {
+                                appendLog("[系统] 性能日志已自动保存至: cpu/${savedFile.name}")
+                            }
+                        },
+                        onExportCsv = { csvContent ->
+                            pendingCsvContent = csvContent
+                            val fileName = "perf_log_${System.currentTimeMillis()}.csv"
+                            createCsvLauncher.launch(fileName)
+                        },
                         onDismissRequest = { showCpuBottomSheet = false }
                     )
                 }
-                
+
+                LaunchedEffect(showCpuHistoryBottomSheet) {
+                    if (showCpuHistoryBottomSheet) {
+                        pviewModel.refreshSavedFiles(this@MainActivity)
+                    }
+                }
+
+                if (showCpuHistoryBottomSheet) {
+                    val context = LocalContext.current
+                    HistoryPerformanceBottomSheet(
+                        uiState = puiState,
+                        onSelectFile = { file -> pviewModel.loadHistoryFromFile(file) },
+                        onDeleteFile = { file -> pviewModel.deleteHistoryFile(context, file) },
+                        onBackToList = { pviewModel.clearSelectedHistory() },
+                        onDismissRequest = { 
+                            pviewModel.clearSelectedHistory()
+                            showCpuHistoryBottomSheet = false 
+                        }
+                    )
+                }
+
                 if (showAppSigBottomSheet) {
                     val context = LocalContext.current
                     val appList = remember { getInstalledApps(context) }
-                    
+
                     AppListBottomSheet(
                         appList = appList,
                         isVisible = showAppSigBottomSheet,
@@ -477,7 +538,7 @@ class MainActivity : ComponentActivity() {
                         onAppSelected = { selectedApp ->
                             showAppSigBottomSheet = false
                             appendLog("[系统] 正在解析 ${selectedApp.appName} [${selectedApp.packageName}] 的 APK 签名...")
-                            
+
                             lifecycleScope.launch(Dispatchers.IO) {
                                 val report = NativeLibs.ApkSignature(selectedApp.apkPath)
                                 val schemeText = NativeLibs.getSupportedSchemesText(selectedApp.apkPath)
@@ -491,7 +552,7 @@ class MainActivity : ComponentActivity() {
                         onStorageApkSelected = { uri ->
                             showAppSigBottomSheet = false
                             appendLog("[系统] 正在读取本地 APK 并解析签名...")
-                            
+
                             lifecycleScope.launch(Dispatchers.IO) {
                                 val cacheFile = File(context.cacheDir, "target_file.apk")
                                 val isCopySuccess = runCatching {
@@ -499,12 +560,12 @@ class MainActivity : ComponentActivity() {
                                         cacheFile.outputStream().use { output -> input.copyTo(output) }
                                     }
                                 }.isSuccess
-                                
+
                                 if (isCopySuccess) {
                                     val apkPath = cacheFile.absolutePath
                                     val report = NativeLibs.ApkSignature(apkPath)
                                     val schemeText = NativeLibs.getSupportedSchemesText(apkPath)
-                                    
+
                                     withContext(Dispatchers.Main) {
                                         selectedSchemeText = schemeText
                                         selectedSigReport = report
@@ -519,7 +580,7 @@ class MainActivity : ComponentActivity() {
                         }
                     )
                 }
-                
+
                 selectedSigReport?.let { report ->
                     SignatureResultBottomSheet(
                         reportText = report,

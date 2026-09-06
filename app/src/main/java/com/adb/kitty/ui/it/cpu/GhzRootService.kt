@@ -58,7 +58,6 @@ class GhzRootService : RootService() {
             }
 
             override fun getSystemMetrics(): FloatArray {
-                // 1. 电池温度多节点搜索
                 val batPaths = arrayOf(
                     "/sys/class/power_supply/battery/temp",
                     "/sys/class/power_supply/bms/temp"
@@ -77,46 +76,7 @@ class GhzRootService : RootService() {
                     else -> batRaw
                 }
 
-                val fpsPaths = arrayOf(
-                    "/sys/class/drm/sde-crtc-0/measured_fps",
-                    "/sys/class/mi_display/disp-DSI-0/fps",
-                    "/sys/class/graphics/fb0/measured_fps",
-                    "/sys/class/drm/card0-DSI-1/fps"
-                )
-                var fps = 0f
-                for (path in fpsPaths) {
-                    val file = File(path)
-                    if (file.exists()) {
-                        val value = file.readTextOrZero()
-                        if (value > 0f) {
-                            fps = value
-                            break
-                        }
-                    }
-                }
-
-                val hzPaths = arrayOf(
-                    "/sys/class/drm/sde-crtc-0/fps",
-                    "/sys/class/mi_display/disp-DSI-0/disp_param",
-                    "/sys/class/drm/card0-DSI-1/mode"
-                )
-                var hz = 0f
-                for (path in hzPaths) {
-                    val file = File(path)
-                    if (file.exists()) {
-                        val text = try { file.readText().trim() } catch (e: Exception) { "" }
-                        val parsedHz = text.substringAfter("@", "")
-                            .substringBefore("Hz")
-                            .substringBefore(" ")
-                            .toFloatOrNull() ?: text.toFloatOrNull()
-                        if (parsedHz != null && parsedHz > 0f) {
-                            hz = parsedHz
-                            break
-                        }
-                    }
-                }
-
-                return floatArrayOf(temp, fps, hz)
+                return floatArrayOf(temp)
             }
 
             private fun File.readTextOrZero(): Float {

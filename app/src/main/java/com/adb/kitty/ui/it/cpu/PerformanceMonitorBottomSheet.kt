@@ -1,5 +1,6 @@
 package com.adb.kitty.ui.it.cpu
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -13,13 +14,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.viewmodel.compose.viewModel
 import java.util.Locale
 
 val CoreColors = listOf(
@@ -31,15 +29,13 @@ val CoreColors = listOf(
 @Composable
 fun CompletePerformanceMonitorBottomSheet(
     uiState: PerformanceUiState,
+    onStartRecording: () -> Unit,
+    onStopRecording: () -> Unit,
+    onExportCsv: (csvContent: String) -> Unit,
     onDismissRequest: () -> Unit
 ) {
-    val sheetState = rememberBottomSheetState(
-        initialValue = SheetValue.Hidden
-    )
-
     ModalBottomSheet(
         onDismissRequest = onDismissRequest,
-        sheetState = sheetState,
         containerColor = MaterialTheme.colorScheme.surface,
         dragHandle = { BottomSheetDefaults.DragHandle() }
     ) {
@@ -51,6 +47,7 @@ fun CompletePerformanceMonitorBottomSheet(
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
+            // 顶栏：标题 + 录制按钮 + ROOT 状态标识
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -58,30 +55,87 @@ fun CompletePerformanceMonitorBottomSheet(
             ) {
                 Text(
                     text = "⚡ 硬件性能与热状态监控",
-                    style = MaterialTheme.typography.titleLarge,
+                    style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold
                 )
-                Text(
-                    text = if (uiState.isRootConnected) "ROOT ACTIVE" else "CONNECTING",
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = if (uiState.isRootConnected) Color.Red else Color.Gray,
-                    modifier = Modifier
-                        .background(
-                            (if (uiState.isRootConnected) Color.Red else Color.Gray).copy(alpha = 0.12f),
-                            RoundedCornerShape(4.dp)
+
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // 仅在手动点击时触发录制/停止
+                    Button(
+                        onClick = {
+                            if (uiState.isRecording) onStopRecording() else onStartRecording()
+                        },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (uiState.isRecording) Color.Red else MaterialTheme.colorScheme.primary
+                        ),
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp),
+                        modifier = Modifier.height(30.dp)
+                    ) {
+                        Text(
+                            text = if (uiState.isRecording) "⏹ 停止 (${uiState.recordedDurationSeconds}s)" else "🔴 开始录制",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold
                         )
-                        .padding(horizontal = 6.dp, vertical = 2.dp)
-                )
+                    }
+
+                    Text(
+                        text = if (uiState.isRootConnected) "ROOT ACTIVE" else "WAIT",
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = if (uiState.isRootConnected) Color(0xFFFF5252) else Color.Gray,
+                        modifier = Modifier
+                            .background(
+                                (if (uiState.isRootConnected) Color(0xFFFF5252) else Color.Gray).copy(alpha = 0.12f),
+                                RoundedCornerShape(4.dp)
+                            )
+                            .padding(horizontal = 6.dp, vertical = 4.dp)
+                    )
+                }
             }
 
-            // 1. 全局系统指标
+            // 录制停止后弹出的保存 CSV 提示卡片
+            AnimatedVisibility(visible = uiState.exportCsvContent != null) {
+                uiState.exportCsvContent?.let { csv ->
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(12.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column {
+                                Text("✅ 数据录制已完成", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                Text("采样已停止，准备保存为电子表格", fontSize = 11.sp, color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f))
+                            }
+                            Button(
+                                onClick = { onExportCsv(csv) },
+                                modifier = Modifier.height(32.dp),
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp)
+                            ) {
+                                Text("💾 保存 CSV", fontSize = 11.sp)
+                            }
+                        }
+                    }
+                }
+            }
+
+            // 1. 全局系统指标卡片 (FPS / 刷新率 / 电池温度)
             SystemSummaryCard(state = uiState)
 
-            // 2. GPU 指标
+            // 2. 屏幕显示参数卡片 (屏幕 API 读取当前分辨率与支持模式)
+            DisplayInfoCard(uiState = uiState)
+
+            // 3. GPU 指标卡片
             GpuMetricCard(gpu = uiState.gpuMetric)
 
-            // 3. CPU 核心集群
+            // 4. CPU 核心集群网格
             Text(
                 text = "CPU 核心集群 (${uiState.cpuCores.size} Cores / IPC Pure HW)",
                 style = MaterialTheme.typography.labelLarge,
@@ -89,7 +143,6 @@ fun CompletePerformanceMonitorBottomSheet(
                 modifier = Modifier.padding(top = 4.dp)
             )
 
-            // 4. 双列网格并排展示核心
             uiState.cpuCores.chunked(2).forEach { rowCores ->
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -110,69 +163,132 @@ fun CompletePerformanceMonitorBottomSheet(
 @Composable
 fun SystemSummaryCard(state: PerformanceUiState) {
     Card(
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
+        shape = RoundedCornerShape(12.dp),
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(modifier = Modifier.padding(12.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Column {
-                    Text(text = "帧率波动", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("帧率波动", fontSize = 10.sp, color = Color.Gray)
                     Text(
                         text = String.format(Locale.US, "%.2f FPS", state.renderFps),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.ExtraBold,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold,
                         color = Color(0xFF4CAF50)
                     )
                 }
-
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(text = "屏幕刷新率", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("屏幕刷新率", fontSize = 10.sp, color = Color.Gray)
                     Text(
                         text = String.format(Locale.US, "%.2f Hz", state.refreshRateHz),
-                        style = MaterialTheme.typography.titleMedium,
+                        fontSize = 15.sp,
                         fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                 }
-
                 Column(horizontalAlignment = Alignment.End) {
-                    Text(text = "电池温度", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    val tempColor = if (state.batteryTemp >= 40f) Color.Red else Color(0xFFFF9800)
+                    Text("电池温度", fontSize = 10.sp, color = Color.Gray)
                     Text(
                         text = String.format(Locale.US, "%.1f °C", state.batteryTemp),
-                        style = MaterialTheme.typography.titleMedium,
+                        fontSize = 15.sp,
                         fontWeight = FontWeight.Bold,
-                        color = tempColor
+                        color = if (state.batteryTemp > 45f) Color.Red else Color(0xFFFF5722)
                     )
                 }
             }
 
             Spacer(modifier = Modifier.height(8.dp))
-
             MetricLineChart(
                 data = state.fpsHistory,
-                minVal = 0f,
-                maxVal = (state.refreshRateHz.takeIf { it > 0f } ?: 120f),
+                maxVal = state.refreshRateHz.coerceAtLeast(60f),
                 lineColor = Color(0xFF4CAF50),
-                drawGridLines = true,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(55.dp)
+                    .height(36.dp)
             )
         }
     }
 }
 
 @Composable
-fun GpuMetricCard(gpu: GpuMetric) {
-    val gpuColor = Color(0xFF9C27B0)
-
+fun DisplayInfoCard(uiState: PerformanceUiState) {
     Card(
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
+        shape = RoundedCornerShape(12.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier.padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "📺 屏幕参数 (DisplayManager)",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = "当前: ${uiState.currentResolution}",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+
+            HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
+
+            Text(
+                text = "支持的分辨率与帧率模式：",
+                fontSize = 11.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            OptInFlowRow(modes = uiState.supportedDisplayModes)
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun OptInFlowRow(modes: List<String>) {
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        modes.forEach { mode ->
+            Surface(
+                color = MaterialTheme.colorScheme.surface,
+                shape = RoundedCornerShape(6.dp),
+                border = androidx.compose.foundation.BorderStroke(
+                    0.5.dp,
+                    MaterialTheme.colorScheme.onSurface.copy(alpha = 0.15f)
+                )
+            ) {
+                Text(
+                    text = mode,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Medium,
+                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun GpuMetricCard(gpu: GpuMetric) {
+    Card(
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
+        shape = RoundedCornerShape(12.dp),
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(modifier = Modifier.padding(12.dp)) {
@@ -181,45 +297,38 @@ fun GpuMetricCard(gpu: GpuMetric) {
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(text = "GPU 核心", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = String.format(Locale.US, "%d%% Load", gpu.utilizationPercent.toInt()),
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = gpuColor,
-                            modifier = Modifier
-                                .background(gpuColor.copy(alpha = 0.15f), RoundedCornerShape(4.dp))
-                                .padding(horizontal = 4.dp, vertical = 2.dp)
-                        )
-                    }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("GPU 核心", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                    Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = String.format(Locale.US, "Limit: %.3f - %.3f GHz", gpu.minFreqGhz, gpu.maxFreqGhz),
+                        text = "${gpu.utilizationPercent.toInt()}% Load",
                         fontSize = 10.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = Color(0xFF9C27B0),
+                        modifier = Modifier
+                            .background(Color(0xFF9C27B0).copy(alpha = 0.15f), RoundedCornerShape(4.dp))
+                            .padding(horizontal = 4.dp, vertical = 2.dp)
                     )
                 }
-
                 Text(
                     text = String.format(Locale.US, "%.3f GHz", gpu.curFreqGhz),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = gpuColor
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 14.sp,
+                    color = Color(0xFF9C27B0)
                 )
             }
-
-            Spacer(modifier = Modifier.height(6.dp))
-
+            Text(
+                text = String.format(Locale.US, "Limit: %.3f - %.3f GHz", gpu.minFreqGhz, gpu.maxFreqGhz),
+                fontSize = 10.sp,
+                color = Color.Gray
+            )
+            Spacer(modifier = Modifier.height(8.dp))
             MetricLineChart(
                 data = gpu.history,
-                minVal = 0f,
-                maxVal = if (gpu.maxFreqGhz > 0f) gpu.maxFreqGhz else 1.5f,
-                lineColor = gpuColor,
+                maxVal = gpu.maxFreqGhz.coerceAtLeast(0.1f),
+                lineColor = Color(0xFF9C27B0),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(50.dp)
+                    .height(36.dp)
             )
         }
     }
@@ -227,45 +336,39 @@ fun GpuMetricCard(gpu: GpuMetric) {
 
 @Composable
 fun SingleCoreCard(core: CpuCoreMetric, modifier: Modifier = Modifier) {
-    val lineColor = CoreColors[core.coreIndex % CoreColors.size]
-
+    val color = CoreColors.getOrElse(core.coreIndex) { Color.Gray }
     Card(
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
+        shape = RoundedCornerShape(12.dp),
         modifier = modifier
     ) {
-        Column(modifier = Modifier.padding(8.dp)) {
+        Column(modifier = Modifier.padding(10.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column {
-                    Text(text = "Core ${core.coreIndex}", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
-                    Text(
-                        text = String.format(Locale.US, "HW: %.2f-%.2fG", core.minFreqGhz, core.maxFreqGhz),
-                        fontSize = 9.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-
+                Text("Core ${core.coreIndex}", fontWeight = FontWeight.Bold, fontSize = 12.sp)
                 Text(
                     text = String.format(Locale.US, "%.2f GHz", core.curFreqGhz),
+                    fontWeight = FontWeight.Bold,
                     fontSize = 12.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = lineColor
+                    color = color
                 )
             }
-
-            Spacer(modifier = Modifier.height(4.dp))
-
+            Text(
+                text = String.format(Locale.US, "HW: %.2f-%.2fG", core.minFreqGhz, core.maxFreqGhz),
+                fontSize = 9.sp,
+                color = Color.Gray
+            )
+            Spacer(modifier = Modifier.height(6.dp))
             MetricLineChart(
                 data = core.history,
-                minVal = 0f,
-                maxVal = if (core.maxFreqGhz > 0f) core.maxFreqGhz else 3.2f,
-                lineColor = lineColor,
+                maxVal = core.maxFreqGhz.coerceAtLeast(0.1f),
+                lineColor = color,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(40.dp)
+                    .height(30.dp)
             )
         }
     }
@@ -274,66 +377,47 @@ fun SingleCoreCard(core: CpuCoreMetric, modifier: Modifier = Modifier) {
 @Composable
 fun MetricLineChart(
     data: List<Float>,
-    minVal: Float,
     maxVal: Float,
     lineColor: Color,
-    modifier: Modifier = Modifier,
-    drawGridLines: Boolean = false
+    modifier: Modifier = Modifier
 ) {
     Canvas(modifier = modifier) {
         if (data.size < 2) return@Canvas
+        val width = size.width
+        val height = size.height
+        val stepX = width / (data.size - 1)
 
-        val w = size.width
-        val h = size.height
-        val range = (maxVal - minVal).coerceAtLeast(0.1f)
-        val dx = w / (data.size - 1).coerceAtLeast(1)
-
-        if (drawGridLines) {
-            val dashEffect = PathEffect.dashPathEffect(floatArrayOf(8f, 8f), 0f)
-            for (i in 1..2) {
-                val y = h * (i / 3f)
-                drawLine(
-                    color = Color.White.copy(alpha = 0.08f),
-                    start = androidx.compose.ui.geometry.Offset(0f, y),
-                    end = androidx.compose.ui.geometry.Offset(w, y),
-                    strokeWidth = 1.dp.toPx(),
-                    pathEffect = dashEffect
-                )
-            }
-        }
-
-        val linePath = Path()
+        val path = Path()
         val fillPath = Path()
 
-        data.forEachIndexed { index, value ->
-            val normalized = ((value - minVal) / range).coerceIn(0f, 1f)
-            val x = index * dx
-            val y = h - (normalized * h)
+        data.forEachIndexed { i, value ->
+            val x = i * stepX
+            val normalized = (value / maxVal).coerceIn(0f, 1f)
+            val y = height - (normalized * height)
 
-            if (index == 0) {
-                linePath.moveTo(x, y)
-                fillPath.moveTo(x, h)
+            if (i == 0) {
+                path.moveTo(x, y)
+                fillPath.moveTo(x, height)
                 fillPath.lineTo(x, y)
             } else {
-                linePath.lineTo(x, y)
+                path.lineTo(x, y)
                 fillPath.lineTo(x, y)
             }
         }
 
-        fillPath.lineTo(w, h)
+        fillPath.lineTo((data.size - 1) * stepX, height)
         fillPath.close()
 
         drawPath(
             path = fillPath,
             brush = Brush.verticalGradient(
-                colors = listOf(lineColor.copy(alpha = 0.3f), Color.Transparent)
+                colors = listOf(lineColor.copy(alpha = 0.35f), Color.Transparent)
             )
         )
-
         drawPath(
-            path = linePath,
+            path = path,
             color = lineColor,
-            style = Stroke(width = 1.8.dp.toPx())
+            style = Stroke(width = 2.dp.toPx())
         )
     }
 }
