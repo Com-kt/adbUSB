@@ -34,10 +34,7 @@ fun HistoryPerformanceBottomSheet(
     ModalBottomSheet(
         onDismissRequest = onDismissRequest,
         sheetState = sheetState,
-        // 2. 占满最大高度
         modifier = Modifier.fillMaxHeight(),
-        // 3. 清空默认内边距限制，允许延伸至屏幕最顶端
-        windowInsets = WindowInsets(0, 0, 0, 0),
         containerColor = MaterialTheme.colorScheme.surface,
         dragHandle = { BottomSheetDefaults.DragHandle() }
     ) {
