@@ -104,7 +104,6 @@ class PerformanceViewModel : ViewModel() {
     }
 
     override fun onCleared() {
-        super.onCleared()
         try {
             RootService.unbind(serviceConnection)
         } catch (e: Exception) { }

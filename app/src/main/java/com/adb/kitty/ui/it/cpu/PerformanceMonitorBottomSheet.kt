@@ -33,7 +33,9 @@ fun CompletePerformanceMonitorBottomSheet(
     uiState: PerformanceUiState,
     onDismissRequest: () -> Unit
 ) {
-    val sheetState = rememberModalBottomSheetState()
+    val sheetState = rememberBottomSheetState(
+        initialValue = SheetValue.Hidden
+    )
 
     ModalBottomSheet(
         onDismissRequest = onDismissRequest,

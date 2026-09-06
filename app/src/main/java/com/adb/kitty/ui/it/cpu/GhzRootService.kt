@@ -22,7 +22,7 @@ class GhzRootService : RootService() {
                     val curFile = File(cpuDir, "cpufreq/cpuinfo_cur_freq")
                         .takeIf { it.exists() } ?: File(cpuDir, "cpufreq/scaling_cur_freq")
 
-                    val khz = curFile?.readTextOrZero() ?: 0f
+                    val khz = curFile.readTextOrZero()
                     freqs.add(khz / 1_000_000f)
                     index++
                 }
