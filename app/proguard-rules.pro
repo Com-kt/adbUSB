@@ -29,9 +29,6 @@
 -keep class com.google.** { *; }
 -dontwarn com.google.**
 
--keep class com.topjohnwu.** { *; }
--dontwarn com.topjohnwu.**
-
 -keep class cafe.cryptography.** { *; }
 -dontwarn cafe.cryptography.**
 
@@ -40,9 +37,6 @@
 
 -keep class com.flyfish233.crypto.spake2.** { *; }
 -dontwarn com.flyfish233.crypto.spake2.**
-
--keep class bin.mt.** { *; } 
--dontwarn bin.mt.**
 
 -dontrepackage
 

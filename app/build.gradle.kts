@@ -139,8 +139,6 @@ android {
             optimization.keepRules {
                 // ignoreFrom 只允许忽略来自远程库的依赖
                 ignoreFrom("org.jetbrains.kotlinx:kotlinx-coroutines-android")
-                ignoreFrom("org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm")
-                ignoreFrom("com.github.topjohnwu.libsu:core")
                 ignoreFrom("org.lsposed.hiddenapibypass:hiddenapibypass")
             }
             signingConfig = signingConfigs.getByName("adb")
@@ -180,7 +178,6 @@ dependencies {
     implementation(libs.lsposed.hiddenapibypass)
     implementation(libs.nayuki.qrcode)
     implementation(libs.zxing.core)
-    implementation(libs.bundles.libsu)
     implementation(libs.com.flyfishxu.kadb)
     implementation(libs.androidx.annotation.experimental)
     implementation(platform(libs.androidx.compose.bom))
@@ -198,7 +195,6 @@ abstract class GenerateKotlinMetadataTask : DefaultTask() {
     @get:Input abstract val composeBomVersion: Property<String>
     @get:Input abstract val kadbVersion: Property<String>
     @get:Input abstract val hiddenapibypassVersion: Property<String>
-    @get:Input abstract val libsuVersion: Property<String>
     @get:Input abstract val lifecycleVersion: Property<String>
     @get:Input abstract val nayukiQRVersion: Property<String>
     @get:Input abstract val zxingCodeVersion: Property<String>
@@ -247,7 +243,6 @@ abstract class GenerateKotlinMetadataTask : DefaultTask() {
             "kotlinJvmTarget": "${kotlinJvmTarget.get()}",
             "kadbVersion": "${kadbVersion.get()}",
             "org.lsposed.hiddenapibypass:hiddenapibypassVersion": "${hiddenapibypassVersion.get()}",
-            "com.github.topjohnwu.libsu:libsuVersion": "${libsuVersion.get()}",
             "nayukiQRVersion": "${nayukiQRVersion.get()}",
             "zxingCodeVersion": "${zxingCodeVersion.get()}"
           },
@@ -281,7 +276,6 @@ val injectKotlinMetadataToRoot = tasks.register<GenerateKotlinMetadataTask>("inj
     composeBomVersion.set(providers.provider { libs.versions.compose.bom.get() })
     kadbVersion.set(providers.provider { libs.versions.kadb.get() })
     hiddenapibypassVersion.set(providers.provider { libs.versions.hiddenapibypassVersion.get() })
-    libsuVersion.set(providers.provider { libs.versions.libsuVersion.get() })
     lifecycleVersion.set(providers.provider { libs.versions.lifecycle.get() })
     nayukiQRVersion.set(providers.provider { libs.versions.nayukiQR.get() })
     zxingCodeVersion.set(providers.provider { libs.versions.zxing.get() })

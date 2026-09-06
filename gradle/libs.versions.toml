@@ -14,7 +14,6 @@ jdklibs = "2.1.5"
 
 hiddenapibypassVersion = "6.1"
 nayukiQR = "1.8.0"
-libsuVersion = "6.0.0"
 lifecycle = "2.11.0"
 
 material3 = "1.5.0-alpha27"
@@ -42,7 +41,6 @@ androidx-lifecycle-service = { group = "androidx.lifecycle", name = "lifecycle-s
 
 # kotlinx 协程
 kotlinx-coroutines-core = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-core", version.ref = "kotlinxCoroutines" }
-kotlinx-coroutines-core-jvm = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-core-jvm", version.ref = "kotlinxCoroutines" }
 kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "kotlinxCoroutines" }
 
 lsposed-hiddenapibypass = { module = "org.lsposed.hiddenapibypass:hiddenapibypass", version.ref = "hiddenapibypassVersion" }
@@ -51,9 +49,6 @@ nayuki-qrcode = { group = "io.nayuki", name = "qrcodegen", version.ref = "nayuki
 zxing-core = { group = "com.google.zxing", name = "core", version.ref = "zxing" }
 
 android-jdk-libs = { group = "com.android.tools", name = "desugar_jdk_libs", version.ref = "jdklibs" }
-
-libsu-core = { module = "com.github.topjohnwu.libsu:core", version.ref = "libsuVersion" }
-libsu-service = { module = "com.github.topjohnwu.libsu:service", version.ref = "libsuVersion" }
 
 com-flyfishxu-kadb = { group = "com.flyfishxu", name = "kadb", version.ref = "kadb" }
 
@@ -101,13 +96,8 @@ compose-debug = [
     "androidx-compose-ui-test-manifest"
 ]
 coroutines-runtime = [
-    "kotlinx-coroutines-core-jvm",
     "kotlinx-coroutines-core",
     "kotlinx-coroutines-android"
-]
-libsu = [
-    "libsu-core",
-    "libsu-service"
 ]
 
 [plugins]
