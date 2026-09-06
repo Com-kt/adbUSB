@@ -52,12 +52,15 @@ data class HistoryRecording(
 
 data class PerformanceSample(
     val timestampMs: Long,
-    val fps: Float,
-    val refreshRate: Float,
-    val batteryTemp: Float,
-    val gpuFreqGhz: Float,
-    val gpuLoadPercent: Float,
-    val cpuFreqsGhz: List<Float>
+    val fps: Float = 0f,
+    val refreshRate: Float = 0f,
+    val batteryTemp: Float = 0f,
+    val gpuFreqGhz: Float = 0f,
+    val gpuLoadPercent: Float = 0f,
+    val gpuMinFreqGhz: Float = 0f,
+    val gpuMaxFreqGhz: Float = 0f,
+    val cpuFreqsGhz: List<Float> = emptyList(),
+    val cpuHwLimitsGhz: List<Pair<Float, Float>> = emptyList()
 )
 
 @Immutable
@@ -254,6 +257,8 @@ class PerformanceViewModel : ViewModel() {
                         val nowMs = System.currentTimeMillis()
                         durationSec = ((nowMs - recordingStartTimeMs) / 1000).toInt()
 
+                        val cpuHwLimits = cpuMetrics.map { Pair(it.minFreqGhz, it.maxFreqGhz) }
+
                         synchronized(recordingBuffer) {
                             recordingBuffer.add(
                                 PerformanceSample(
@@ -263,7 +268,10 @@ class PerformanceViewModel : ViewModel() {
                                     batteryTemp = temp,
                                     gpuFreqGhz = gpuData[0],
                                     gpuLoadPercent = gpuData[3],
-                                    cpuFreqsGhz = cpuFreqs.toList()
+                                    gpuMinFreqGhz = gpuData[1],
+                                    gpuMaxFreqGhz = gpuData[2],
+                                    cpuFreqsGhz = cpuFreqs.toList(),
+                                    cpuHwLimitsGhz = cpuHwLimits
                                 )
                             )
                         }
@@ -297,23 +305,26 @@ class PerformanceViewModel : ViewModel() {
         val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
         val sb = StringBuilder()
 
-        sb.append("Time,Timestamp(ms),FPS,RefreshRate(Hz),BatteryTemp(°C),GPU_Freq(GHz),GPU_Load(%)")
+        sb.append("Time,Timestamp(ms),FPS,RefreshRate(Hz),BatteryTemp(°C),GPU_Freq(GHz),GPU_Load(%),GPU_Min(GHz),GPU_Max(GHz)")
+    
         val maxCpuCount = samples.maxOfOrNull { it.cpuFreqsGhz.size } ?: 0
         for (i in 0 until maxCpuCount) {
-            sb.append(",CPU$i(GHz)")
+            sb.append(",CPU${i}_Cur(GHz),CPU${i}_Min(GHz),CPU${i}_Max(GHz)")
         }
         sb.append("\n")
 
         for (sample in samples) {
             val timeStr = dateFormat.format(Date(sample.timestampMs))
-            sb.append(String.format(Locale.US, "%s,%d,%.2f,%.2f,%.1f,%.3f,%.1f",
+            sb.append(String.format(Locale.US, "%s,%d,%.2f,%.2f,%.1f,%.3f,%.1f,%.3f,%.3f",
                 timeStr, sample.timestampMs, sample.fps, sample.refreshRate,
-                sample.batteryTemp, sample.gpuFreqGhz, sample.gpuLoadPercent
+                sample.batteryTemp, sample.gpuFreqGhz, sample.gpuLoadPercent,
+                sample.gpuMinFreqGhz, sample.gpuMaxFreqGhz
             ))
 
             for (i in 0 until maxCpuCount) {
-                val freq = sample.cpuFreqsGhz.getOrNull(i) ?: 0f
-                sb.append(String.format(Locale.US, ",%.3f", freq))
+                val cur = sample.cpuFreqsGhz.getOrNull(i) ?: 0f
+                val limits = sample.cpuHwLimitsGhz.getOrNull(i) ?: Pair(0f, 0f)
+                sb.append(String.format(Locale.US, ",%.3f,%.3f,%.3f", cur, limits.first, limits.second))
             }
             sb.append("\n")
         }
@@ -416,30 +427,43 @@ class PerformanceViewModel : ViewModel() {
         _uiState.update { it.copy(selectedHistory = null) }
     }
 
-    // 反解析 CSV 内容
     private fun parseCsvFile(file: File): List<PerformanceSample> {
         val samples = mutableListOf<PerformanceSample>()
         if (!file.exists()) return samples
 
         try {
             val lines = file.readLines()
-            if (lines.size <= 1) return samples // 只有表头或为空
+            if (lines.size <= 1) return samples
 
             for (i in 1 until lines.size) {
                 val line = lines[i].trim()
                 if (line.isEmpty()) continue
                 val tokens = line.split(",")
-                if (tokens.size >= 7) {
+
+                if (tokens.size >= 9) {
                     val timestampMs = tokens[1].toLongOrNull() ?: 0L
                     val fps = tokens[2].toFloatOrNull() ?: 0f
                     val refreshRate = tokens[3].toFloatOrNull() ?: 60f
                     val batteryTemp = tokens[4].toFloatOrNull() ?: 0f
                     val gpuFreqGhz = tokens[5].toFloatOrNull() ?: 0f
                     val gpuLoadPercent = tokens[6].toFloatOrNull() ?: 0f
+                    val gpuMinFreqGhz = tokens[7].toFloatOrNull() ?: 0f
+                    val gpuMaxFreqGhz = tokens[8].toFloatOrNull() ?: 0f
+
+                    val cpuFreqs = mutableListOf<Float>()
+                    val cpuHwLimits = mutableListOf<Pair<Float, Float>>()
+
+                    // 每 3 个字段代表一个 CPU 核心：[Cur, Min, Max]
+                    var idx = 9
+                    while (idx + 2 < tokens.size) {
+                        val cur = tokens[idx].toFloatOrNull() ?: 0f
+                        val min = tokens[idx + 1].toFloatOrNull() ?: 0f
+                        val max = tokens[idx + 2].toFloatOrNull() ?: 0f
                     
-                    val cpuFreqs = if (tokens.size > 7) {
-                        tokens.subList(7, tokens.size).mapNotNull { it.toFloatOrNull() }
-                    } else emptyList()
+                        cpuFreqs.add(cur)
+                        cpuHwLimits.add(Pair(min, max))
+                        idx += 3
+                    }
 
                     samples.add(
                         PerformanceSample(
@@ -449,7 +473,10 @@ class PerformanceViewModel : ViewModel() {
                             batteryTemp = batteryTemp,
                             gpuFreqGhz = gpuFreqGhz,
                             gpuLoadPercent = gpuLoadPercent,
-                            cpuFreqsGhz = cpuFreqs
+                            gpuMinFreqGhz = gpuMinFreqGhz,
+                            gpuMaxFreqGhz = gpuMaxFreqGhz,
+                            cpuFreqsGhz = cpuFreqs,
+                            cpuHwLimitsGhz = cpuHwLimits
                         )
                     )
                 }

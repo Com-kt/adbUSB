@@ -168,7 +168,6 @@ private fun HistoryFileList(
     }
 }
 
-// 2. 离线录制数据的图形化渲染视图
 @Composable
 private fun HistoryGraphView(history: HistoryRecording) {
     val samples = history.samples
@@ -210,7 +209,7 @@ private fun HistoryGraphView(history: HistoryRecording) {
                     Text(String.format(Locale.US, "%.1f FPS", avgFps), fontWeight = FontWeight.Bold, fontSize = 12.sp, color = Color(0xFF4CAF50))
                 }
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("最高电池温度", fontSize = 9.sp, color = Color.Gray)
+                    Text("最高电池温", fontSize = 9.sp, color = Color.Gray)
                     Text(String.format(Locale.US, "%.1f °C", maxTemp), fontWeight = FontWeight.Bold, fontSize = 12.sp, color = Color(0xFFFF5722))
                 }
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -238,24 +237,36 @@ private fun HistoryGraphView(history: HistoryRecording) {
             unit = "°C"
         )
 
-        // GPU 负载趋势图
+        // GPU 负载趋势图（包含 Limit 范围）
+        val gpuMin = samples.mapNotNull { if (it.gpuMinFreqGhz > 0) it.gpuMinFreqGhz else null }.firstOrNull() ?: 0f
+        val gpuMax = samples.mapNotNull { if (it.gpuMaxFreqGhz > 0) it.gpuMaxFreqGhz else null }.firstOrNull() ?: 0f
+        val gpuLimitStr = if (gpuMax > 0f) String.format(Locale.US, "Limit: %.3f - %.3f GHz", gpuMin, gpuMax) else null
+
         HistoryChartCard(
             title = "GPU 负载率 (%)",
+            limitText = gpuLimitStr,
             data = samples.map { it.gpuLoadPercent },
             maxVal = 100f,
             lineColor = Color(0xFF9C27B0),
             unit = "%"
         )
 
-        // CPU 各核心频率折线图
+        // CPU 各核心频率轨迹（包含 HW 限制）
         Text("CPU 核心频率轨迹 (GHz)", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
         for (coreIndex in 0 until maxCpuCount) {
             val coreFreqs = samples.map { it.cpuFreqsGhz.getOrNull(coreIndex) ?: 0f }
+            val coreLimits = samples.mapNotNull { it.cpuHwLimitsGhz.getOrNull(coreIndex) }.firstOrNull()
+            
+            val hwLimitStr = if (coreLimits != null && coreLimits.second > 0f) {
+                String.format(Locale.US, "HW: %.2f - %.2f GHz", coreLimits.first, coreLimits.second)
+            } else null
+
             val coreColor = CoreColors.getOrElse(coreIndex) { Color.Gray }
             val maxFreq = coreFreqs.maxOrNull()?.coerceAtLeast(1f) ?: 3f
 
             HistoryChartCard(
                 title = "CPU Core $coreIndex",
+                limitText = hwLimitStr,
                 data = coreFreqs,
                 maxVal = maxFreq,
                 lineColor = coreColor,
@@ -268,6 +279,7 @@ private fun HistoryGraphView(history: HistoryRecording) {
 @Composable
 private fun HistoryChartCard(
     title: String,
+    limitText: String? = null,
     data: List<Float>,
     maxVal: Float,
     lineColor: Color,
@@ -282,9 +294,19 @@ private fun HistoryChartCard(
         Column(modifier = Modifier.padding(10.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(title, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                Column {
+                    Text(title, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    if (!limitText.isNullOrEmpty()) {
+                        Text(
+                            text = limitText,
+                            fontSize = 9.5.sp,
+                            color = Color.Gray
+                        )
+                    }
+                }
                 Text(
                     text = String.format(Locale.US, "%.2f %s", curVal, unit),
                     fontSize = 11.sp,
