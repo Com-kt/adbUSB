@@ -140,6 +140,7 @@ android {
                 // ignoreFrom 只允许忽略来自远程库的依赖
                 ignoreFrom("org.jetbrains.kotlinx:kotlinx-coroutines-android")
                 ignoreFrom("org.lsposed.hiddenapibypass:hiddenapibypass")
+                ignoreFrom("com.github.topjohnwu.libsu:core")
             }
             signingConfig = signingConfigs.getByName("adb")
         }
@@ -184,6 +185,7 @@ dependencies {
     implementation(libs.bundles.compose)
     implementation(libs.bundles.compose.lifecycle)
     debugImplementation(libs.bundles.compose.debug)
+    implementation(libs.bundles.libsu)
 }
 
 abstract class GenerateKotlinMetadataTask : DefaultTask() {
@@ -199,6 +201,7 @@ abstract class GenerateKotlinMetadataTask : DefaultTask() {
     @get:Input abstract val nayukiQRVersion: Property<String>
     @get:Input abstract val zxingCodeVersion: Property<String>
     @get:Input abstract val androidxMaterial3Version: Property<String>
+    @get:Input abstract val libsuVersion: Property<String>
     
     @get:Input abstract val sourceCompatibility: Property<String>
     @get:Input abstract val targetCompatibility: Property<String>
@@ -243,6 +246,7 @@ abstract class GenerateKotlinMetadataTask : DefaultTask() {
             "kotlinJvmTarget": "${kotlinJvmTarget.get()}",
             "kadbVersion": "${kadbVersion.get()}",
             "org.lsposed.hiddenapibypass:hiddenapibypassVersion": "${hiddenapibypassVersion.get()}",
+            "com.github.topjohnwu.libsu:libsuVersion": "${libsuVersion.get()}",
             "nayukiQRVersion": "${nayukiQRVersion.get()}",
             "zxingCodeVersion": "${zxingCodeVersion.get()}"
           },
@@ -280,6 +284,7 @@ val injectKotlinMetadataToRoot = tasks.register<GenerateKotlinMetadataTask>("inj
     nayukiQRVersion.set(providers.provider { libs.versions.nayukiQR.get() })
     zxingCodeVersion.set(providers.provider { libs.versions.zxing.get() })
     androidxMaterial3Version.set(providers.provider { libs.versions.material3.get() })
+    libsuVersion.set(providers.provider { libs.versions.libsuVersion.get() })
 
     sourceCompatibility.set(providers.provider { android.compileOptions.sourceCompatibility.toString() })
     targetCompatibility.set(providers.provider { android.compileOptions.targetCompatibility.toString() })

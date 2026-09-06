@@ -1,6 +1,9 @@
 -keep class com.adb.kitty.** { *; }
 -dontwarn com.adb.kitty.**
 
+-keep class com.topjohnwu.** { *; }
+-dontwarn com.topjohnwu.**
+
 -keep class com.android.tools.build.** { *; }
 -dontwarn com.android.tools.build.**
 

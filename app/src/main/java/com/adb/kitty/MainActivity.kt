@@ -380,7 +380,7 @@ class MainActivity : ComponentActivity() {
             var showHelpBottomSheet by remember { mutableStateOf(false) }
             var selectedSchemeText by remember { mutableStateOf("") }
             
-            val puiState by pviewModel.uiState.collectAsStateWithLifecycle()
+            val puiState by pviewModel.uiState.collectAsState()
             var showCpuBottomSheet by remember { mutableStateOf(false) }
             
             NekoTheme(dynamicColor = useDynamicColor) {
@@ -453,6 +453,12 @@ class MainActivity : ComponentActivity() {
                     )
                 }
                 
+                LaunchedEffect(showCpuBottomSheet) {
+                    if (showCpuBottomSheet) {
+                        pviewModel.bindRootService(this@MainActivity)
+                    }
+                }
+
                 if (showCpuBottomSheet) {
                     CompletePerformanceMonitorBottomSheet(
                         uiState = puiState,

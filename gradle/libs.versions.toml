@@ -11,6 +11,7 @@ collection = "1.6.0"
 window = "1.5.1"
 
 jdklibs = "2.1.5"
+libsuVersion = "6.0.0"
 
 hiddenapibypassVersion = "6.1"
 nayukiQR = "1.8.0"
@@ -44,6 +45,9 @@ kotlinx-coroutines-core = { group = "org.jetbrains.kotlinx", name = "kotlinx-cor
 kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "kotlinxCoroutines" }
 
 lsposed-hiddenapibypass = { module = "org.lsposed.hiddenapibypass:hiddenapibypass", version.ref = "hiddenapibypassVersion" }
+
+libsu-core = { module = "com.github.topjohnwu.libsu:core", version.ref = "libsuVersion" }
+libsu-service = { module = "com.github.topjohnwu.libsu:service", version.ref = "libsuVersion" }
 
 nayuki-qrcode = { group = "io.nayuki", name = "qrcodegen", version.ref = "nayukiQR" }
 zxing-core = { group = "com.google.zxing", name = "core", version.ref = "zxing" }
@@ -98,6 +102,10 @@ compose-debug = [
 coroutines-runtime = [
     "kotlinx-coroutines-core",
     "kotlinx-coroutines-android"
+]
+libsu = [
+    "libsu-core",
+    "libsu-service"
 ]
 
 [plugins]
