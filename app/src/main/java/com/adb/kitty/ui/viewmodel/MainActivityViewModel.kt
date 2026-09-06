@@ -384,6 +384,7 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
         AdbCommand("logcat [选项] [过滤器规范]", "logcat "),
         AdbCommand("抓取崩溃缓冲区的日志", "logcat -b crash -d"),
         AdbCommand("清空历史输出的日志", "logcat -c"),
+        AdbCommand("快照式转储日志", "logcat -d"),
         AdbCommand("settings [--user 用户]  <动作>  <命名空间>  <参数>  [参数]", "settings "),
         AdbCommand("settings [--user <用户id>] get [global|secure|system] <参数>", "settings "),
         AdbCommand("settings [--user <用户id>] put [global|secure|system] <参数> <参数>", "settings "),
