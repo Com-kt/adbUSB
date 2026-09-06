@@ -283,7 +283,8 @@ private fun HistoryGraphView(history: HistoryRecording) {
                 data = coreFreqs,
                 maxVal = maxFreq,
                 lineColor = coreColor,
-                unit = "GHz"
+                unit = "GHz",
+                valueFormat = "%.3f"
             )
         }
     }
@@ -296,7 +297,8 @@ private fun HistoryChartCard(
     data: List<Float>,
     maxVal: Float,
     lineColor: Color,
-    unit: String
+    unit: String,
+    valueFormat: String = "%.2f"
 ) {
     val curVal = data.lastOrNull() ?: 0f
     Card(
@@ -321,7 +323,7 @@ private fun HistoryChartCard(
                     }
                 }
                 Text(
-                    text = String.format(Locale.US, "%.2f %s", curVal, unit),
+                    text = String.format(Locale.US, "$valueFormat %s", curVal, unit),
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
                     color = lineColor
