@@ -178,6 +178,8 @@ private fun HistoryGraphView(history: HistoryRecording) {
 
     val avgFps = samples.map { it.fps }.average().toFloat()
     val maxTemp = samples.maxOfOrNull { it.batteryTemp } ?: 0f
+    val avgCurrent = samples.map { it.batteryCurrentMa }.average().toFloat()
+    val lastBatteryLevel = samples.lastOrNull()?.batteryLevel ?: 0
     val maxGpuLoad = samples.maxOfOrNull { it.gpuLoadPercent } ?: 0f
     val maxCpuCount = samples.maxOfOrNull { it.cpuFreqsGhz.size } ?: 0
 
@@ -187,7 +189,7 @@ private fun HistoryGraphView(history: HistoryRecording) {
             .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        // 概要数据统计卡片
+        // 1. 概要数据统计卡片（加入电量与平均电流）
         Card(
             colors = CardDefaults.cardColors(
                 containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
@@ -209,17 +211,17 @@ private fun HistoryGraphView(history: HistoryRecording) {
                     Text(String.format(Locale.US, "%.1f FPS", avgFps), fontWeight = FontWeight.Bold, fontSize = 12.sp, color = Color(0xFF4CAF50))
                 }
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("最高电池温度", fontSize = 9.sp, color = Color.Gray)
-                    Text(String.format(Locale.US, "%.1f °C", maxTemp), fontWeight = FontWeight.Bold, fontSize = 12.sp, color = Color(0xFFFF5722))
+                    Text("电量/最高温度", fontSize = 9.sp, color = Color.Gray)
+                    Text("$lastBatteryLevel% / ${String.format(Locale.US, "%.1f", maxTemp)}°C", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = Color(0xFFFF5722))
                 }
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("峰值 GPU 负载", fontSize = 9.sp, color = Color.Gray)
-                    Text(String.format(Locale.US, "%.0f%%", maxGpuLoad), fontWeight = FontWeight.Bold, fontSize = 12.sp, color = Color(0xFF9C27B0))
+                    Text("平均放电电流", fontSize = 9.sp, color = Color.Gray)
+                    Text(String.format(Locale.US, "%.0f mA", avgCurrent), fontWeight = FontWeight.Bold, fontSize = 12.sp, color = Color(0xFFFF9800))
                 }
             }
         }
 
-        // FPS 历史趋势图
+        // 2. FPS 历史趋势图
         HistoryChartCard(
             title = "帧率波动 (FPS)",
             data = samples.map { it.fps },
@@ -228,7 +230,7 @@ private fun HistoryGraphView(history: HistoryRecording) {
             unit = "FPS"
         )
 
-        // 电池温度趋势图
+        // 3. 电池温度趋势图
         HistoryChartCard(
             title = "电池温度 (°C)",
             data = samples.map { it.batteryTemp },
@@ -237,7 +239,18 @@ private fun HistoryGraphView(history: HistoryRecording) {
             unit = "°C"
         )
 
-        // GPU 负载趋势图（包含 Limit 范围）
+        // 4. 新增：电池放电电流趋势图 (mA)
+        val maxCurrent = (samples.maxOfOrNull { it.batteryCurrentMa } ?: 1000f).coerceAtLeast(500f)
+        HistoryChartCard(
+            title = "放电电流 (mA)",
+            limitText = "电池剩余电量: $lastBatteryLevel%",
+            data = samples.map { it.batteryCurrentMa },
+            maxVal = maxCurrent,
+            lineColor = Color(0xFFFF9800),
+            unit = "mA"
+        )
+
+        // 5. GPU 负载趋势图（包含 Limit 范围）
         val gpuMin = samples.mapNotNull { if (it.gpuMinFreqGhz > 0) it.gpuMinFreqGhz else null }.firstOrNull() ?: 0f
         val gpuMax = samples.mapNotNull { if (it.gpuMaxFreqGhz > 0) it.gpuMaxFreqGhz else null }.firstOrNull() ?: 0f
         val gpuLimitStr = if (gpuMax > 0f) String.format(Locale.US, "Limit: %.3f - %.3f GHz", gpuMin, gpuMax) else null
@@ -251,7 +264,7 @@ private fun HistoryGraphView(history: HistoryRecording) {
             unit = "%"
         )
 
-        // CPU 各核心频率轨迹（包含 HW 限制）
+        // 6. CPU 各核心频率轨迹（包含 HW 限制）
         Text("CPU 核心频率轨迹 (GHz)", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
         for (coreIndex in 0 until maxCpuCount) {
             val coreFreqs = samples.map { it.cpuFreqsGhz.getOrNull(coreIndex) ?: 0f }

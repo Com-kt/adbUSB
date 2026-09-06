@@ -129,6 +129,13 @@ fun CompletePerformanceMonitorBottomSheet(
             // 1. 全局系统指标卡片 (FPS / 刷新率 / 电池温度)
             SystemSummaryCard(state = uiState)
 
+            BatteryStatusCard(
+                batteryLevel = uiState.batteryLevel,
+                batteryTemp = uiState.batteryTemp,
+                batteryCurrentMa = uiState.batteryCurrentMa,
+                historyData = uiState.batteryCurrentHistory
+            )
+
             // 2. 屏幕显示参数卡片 (屏幕 API 读取当前分辨率与支持模式)
             DisplayInfoCard(uiState = uiState)
 
@@ -156,6 +163,49 @@ fun CompletePerformanceMonitorBottomSheet(
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+fun BatteryStatusCard(
+    batteryLevel: Int,
+    batteryTemp: Float,
+    batteryCurrentMa: Float,
+    historyData: List<Float>
+) {
+    Card(
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
+        shape = RoundedCornerShape(12.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text("电池功耗状态", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    Text("剩余电量: $batteryLevel% | 温度: ${String.format(Locale.US, "%.1f", batteryTemp)}°C", fontSize = 10.sp, color = Color.Gray)
+                }
+                Text(
+                    text = String.format(Locale.US, "%.0f mA", batteryCurrentMa),
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFFFF9800)
+                )
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            // 实时放电电流折线图
+            MetricLineChart(
+                data = historyData,
+                maxVal = (historyData.maxOrNull() ?: 1000f).coerceAtLeast(500f),
+                lineColor = Color(0xFFFF9800),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(42.dp)
+            )
         }
     }
 }

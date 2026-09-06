@@ -55,6 +55,8 @@ data class PerformanceSample(
     val fps: Float = 0f,
     val refreshRate: Float = 0f,
     val batteryTemp: Float = 0f,
+    val batteryLevel: Int = 0,          // 电池电量百分比 (%)
+    val batteryCurrentMa: Float = 0f,   // 实时放电电流 (mA)
     val gpuFreqGhz: Float = 0f,
     val gpuLoadPercent: Float = 0f,
     val gpuMinFreqGhz: Float = 0f,
@@ -69,15 +71,16 @@ data class PerformanceUiState(
     val renderFps: Float = 0f,
     val refreshRateHz: Float = 0f,
     val batteryTemp: Float = 0f,
+    val batteryLevel: Int = 0,          // 电池电量 %
+    val batteryCurrentMa: Float = 0f,   // 实时放电电流 mA
+    val batteryCurrentHistory: List<Float> = emptyList(), // 功耗/电流变化轨迹
     val fpsHistory: List<Float> = emptyList(),
     val gpuMetric: GpuMetric = GpuMetric(),
     val cpuCores: List<CpuCoreMetric> = emptyList(),
     
-    // 屏幕显示参数
     val currentResolution: String = "",
     val supportedDisplayModes: List<String> = emptyList(),
 
-    // 录制控制状态
     val isRecording: Boolean = false,
     val recordedDurationSeconds: Int = 0,
     val exportCsvContent: String? = null,
@@ -106,6 +109,9 @@ class PerformanceViewModel : ViewModel() {
     private var frameCount = 0
     private var lastFpsCalculateTime = System.currentTimeMillis()
     private var currentCalculatedFps = 60f
+    
+    private var batteryManager: android.os.BatteryManager? = null
+    private val batteryCurrentHistory = ArrayDeque<Float>()
 
     private val frameCallback = object : Choreographer.FrameCallback {
         override fun doFrame(frameTimeNanos: Long) {
@@ -135,6 +141,10 @@ class PerformanceViewModel : ViewModel() {
     }
 
     fun initAndBind(context: Context) {
+        if (batteryManager == null) {
+            batteryManager = context.getSystemService(Context.BATTERY_SERVICE) as? android.os.BatteryManager
+        }
+
         if (displayManager == null) {
             displayManager = context.getSystemService(Context.DISPLAY_SERVICE) as? DisplayManager
             Choreographer.getInstance().postFrameCallback(frameCallback)
@@ -146,6 +156,16 @@ class PerformanceViewModel : ViewModel() {
             val intent = Intent(context, GhzRootService::class.java)
             RootService.bind(intent, serviceConnection)
         }
+    }
+
+    private fun getBatteryStats(): Pair<Int, Float> {
+        val bm = batteryManager ?: return Pair(0, 0f)
+        val level = bm.getIntProperty(android.os.BatteryManager.BATTERY_PROPERTY_CAPACITY)
+        // BATTERY_PROPERTY_CURRENT_NOW 返回单位为微安 (uA)
+        // 负数通常表示放电，正数表示充电，这里取绝对值并转为毫安 (mA)
+        val currentUa = bm.getIntProperty(android.os.BatteryManager.BATTERY_PROPERTY_CURRENT_NOW)
+        val currentMa = kotlin.math.abs(currentUa) / 1000f
+        return Pair(level, currentMa)
     }
 
     private fun updateDisplayCapabilities() {
@@ -243,6 +263,9 @@ class PerformanceViewModel : ViewModel() {
                     // 3. System
                     val sysData = binder.systemMetrics
                     val temp = sysData[0]
+                    val (batLevel, batCurrentMa) = getBatteryStats()
+
+                    pushHistory(batteryCurrentHistory, batCurrentMa)
 
                     // 4. Display & FPS
                     val activeHz = getActiveRefreshRate()
@@ -266,6 +289,8 @@ class PerformanceViewModel : ViewModel() {
                                     fps = realFps,
                                     refreshRate = activeHz,
                                     batteryTemp = temp,
+                                    batteryLevel = batLevel,
+                                    batteryCurrentMa = batCurrentMa,
                                     gpuFreqGhz = gpuData[0],
                                     gpuLoadPercent = gpuData[3],
                                     gpuMinFreqGhz = gpuData[1],
@@ -281,6 +306,9 @@ class PerformanceViewModel : ViewModel() {
                         state.copy(
                             isRootConnected = true,
                             batteryTemp = temp,
+                            batteryLevel = batLevel,
+                            batteryCurrentMa = batCurrentMa,
+                            batteryCurrentHistory = batteryCurrentHistory.toList(),
                             renderFps = realFps,
                             refreshRateHz = activeHz,
                             fpsHistory = fpsHistory.toList(),
@@ -305,7 +333,7 @@ class PerformanceViewModel : ViewModel() {
         val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
         val sb = StringBuilder()
 
-        sb.append("Time,Timestamp(ms),FPS,RefreshRate(Hz),BatteryTemp(°C),GPU_Freq(GHz),GPU_Load(%),GPU_Min(GHz),GPU_Max(GHz)")
+        sb.append("Time,Timestamp(ms),FPS,RefreshRate(Hz),BatteryTemp(°C),BatteryLevel(%),BatteryCurrent(mA),GPU_Freq(GHz),GPU_Load(%),GPU_Min(GHz),GPU_Max(GHz)")
     
         val maxCpuCount = samples.maxOfOrNull { it.cpuFreqsGhz.size } ?: 0
         for (i in 0 until maxCpuCount) {
@@ -315,9 +343,10 @@ class PerformanceViewModel : ViewModel() {
 
         for (sample in samples) {
             val timeStr = dateFormat.format(Date(sample.timestampMs))
-            sb.append(String.format(Locale.US, "%s,%d,%.2f,%.2f,%.1f,%.3f,%.1f,%.3f,%.3f",
+            sb.append(String.format(Locale.US, "%s,%d,%.2f,%.2f,%.1f,%d,%.1f,%.3f,%.1f,%.3f,%.3f",
                 timeStr, sample.timestampMs, sample.fps, sample.refreshRate,
-                sample.batteryTemp, sample.gpuFreqGhz, sample.gpuLoadPercent,
+                sample.batteryTemp, sample.batteryLevel, sample.batteryCurrentMa,
+                sample.gpuFreqGhz, sample.gpuLoadPercent,
                 sample.gpuMinFreqGhz, sample.gpuMaxFreqGhz
             ))
 
@@ -440,21 +469,22 @@ class PerformanceViewModel : ViewModel() {
                 if (line.isEmpty()) continue
                 val tokens = line.split(",")
 
-                if (tokens.size >= 9) {
+                if (tokens.size >= 11) {
                     val timestampMs = tokens[1].toLongOrNull() ?: 0L
                     val fps = tokens[2].toFloatOrNull() ?: 0f
                     val refreshRate = tokens[3].toFloatOrNull() ?: 60f
                     val batteryTemp = tokens[4].toFloatOrNull() ?: 0f
-                    val gpuFreqGhz = tokens[5].toFloatOrNull() ?: 0f
-                    val gpuLoadPercent = tokens[6].toFloatOrNull() ?: 0f
-                    val gpuMinFreqGhz = tokens[7].toFloatOrNull() ?: 0f
-                    val gpuMaxFreqGhz = tokens[8].toFloatOrNull() ?: 0f
+                    val batteryLevel = tokens[5].toIntOrNull() ?: 0
+                    val batteryCurrentMa = tokens[6].toFloatOrNull() ?: 0f
+                    val gpuFreqGhz = tokens[7].toFloatOrNull() ?: 0f
+                    val gpuLoadPercent = tokens[8].toFloatOrNull() ?: 0f
+                    val gpuMinFreqGhz = tokens[9].toFloatOrNull() ?: 0f
+                    val gpuMaxFreqGhz = tokens[10].toFloatOrNull() ?: 0f
 
                     val cpuFreqs = mutableListOf<Float>()
                     val cpuHwLimits = mutableListOf<Pair<Float, Float>>()
 
-                    // 每 3 个字段代表一个 CPU 核心：[Cur, Min, Max]
-                    var idx = 9
+                    var idx = 11
                     while (idx + 2 < tokens.size) {
                         val cur = tokens[idx].toFloatOrNull() ?: 0f
                         val min = tokens[idx + 1].toFloatOrNull() ?: 0f
@@ -471,6 +501,8 @@ class PerformanceViewModel : ViewModel() {
                             fps = fps,
                             refreshRate = refreshRate,
                             batteryTemp = batteryTemp,
+                            batteryLevel = batteryLevel,
+                            batteryCurrentMa = batteryCurrentMa,
                             gpuFreqGhz = gpuFreqGhz,
                             gpuLoadPercent = gpuLoadPercent,
                             gpuMinFreqGhz = gpuMinFreqGhz,
