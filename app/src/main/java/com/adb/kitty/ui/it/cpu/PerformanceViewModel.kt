@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.ServiceConnection
 import android.os.IBinder
+import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.topjohnwu.superuser.ipc.RootService
@@ -16,6 +17,35 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.util.ArrayDeque
+
+@Immutable
+data class CpuCoreMetric(
+    val coreIndex: Int = 0,
+    val curFreqGhz: Float = 0f,
+    val minFreqGhz: Float = 0f,
+    val maxFreqGhz: Float = 0f,
+    val history: List<Float> = emptyList()
+)
+
+@Immutable
+data class GpuMetric(
+    val curFreqGhz: Float = 0f,
+    val minFreqGhz: Float = 0f,
+    val maxFreqGhz: Float = 0f,
+    val utilizationPercent: Float = 0f,
+    val history: List<Float> = emptyList()
+)
+
+@Immutable
+data class PerformanceUiState(
+    val isRootConnected: Boolean = false,
+    val renderFps: Float = 0f,
+    val refreshRateHz: Float = 0f,
+    val batteryTemp: Float = 0f,
+    val fpsHistory: List<Float> = emptyList(),
+    val gpuMetric: GpuMetric = GpuMetric(),
+    val cpuCores: List<CpuCoreMetric> = emptyList()
+)
 
 class PerformanceViewModel : ViewModel() {
 
@@ -31,11 +61,13 @@ class PerformanceViewModel : ViewModel() {
     private val serviceConnection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
             rootBinder = ICpuBinder.Stub.asInterface(service)
+            _uiState.update { it.copy(isRootConnected = true) }
             startPollingHardware()
         }
 
         override fun onServiceDisconnected(name: ComponentName?) {
             rootBinder = null
+            _uiState.update { it.copy(isRootConnected = false) }
         }
     }
 
@@ -51,6 +83,7 @@ class PerformanceViewModel : ViewModel() {
                 try {
                     val binder = rootBinder ?: break
 
+                    // 1. 读取所有 CPU 物理核心主频
                     val cpuFreqs = binder.cpuCurrentFreqs
                     val cpuMetrics = cpuFreqs.mapIndexed { index, curGhz ->
                         val limits = binder.getCpuCoreLimits(index)
@@ -66,6 +99,7 @@ class PerformanceViewModel : ViewModel() {
                         )
                     }
 
+                    // 2. 读取 GPU 核心指标
                     val gpuData = binder.gpuMetrics
                     pushHistory(gpuHistory, gpuData[0])
                     val gpuMetric = GpuMetric(
@@ -76,14 +110,20 @@ class PerformanceViewModel : ViewModel() {
                         history = gpuHistory.toList()
                     )
 
+                    // 3. 读取系统热状态与帧率
                     val sysData = binder.systemMetrics
-                    pushHistory(fpsHistory, sysData[1])
+
+                    val currentHz = if (sysData[2] > 0f) sysData[2] else 60f
+                    val currentFps = if (sysData[1] > 0f) sysData[1] else currentHz
+
+                    pushHistory(fpsHistory, currentFps)
 
                     _uiState.update {
-                        PerformanceUiState(
+                        it.copy(
+                            isRootConnected = true,
                             batteryTemp = sysData[0],
-                            renderFps = sysData[1],
-                            refreshRateHz = sysData[2],
+                            renderFps = currentFps,
+                            refreshRateHz = currentHz,
                             fpsHistory = fpsHistory.toList(),
                             gpuMetric = gpuMetric,
                             cpuCores = cpuMetrics

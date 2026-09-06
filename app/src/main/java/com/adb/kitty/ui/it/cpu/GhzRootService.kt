@@ -20,10 +20,9 @@ class GhzRootService : RootService() {
                     if (!cpuDir.exists()) break
 
                     val curFile = File(cpuDir, "cpufreq/cpuinfo_cur_freq")
-                        .takeIf { it.exists() } ?: File(cpuDir, "cpufreq/scaling_cur_freq")
-
                     val khz = curFile.readTextOrZero()
-                    freqs.add(khz / 1_000_000f)
+
+                    freqs.add(khz / 1_000_000f) // kHz -> GHz
                     index++
                 }
                 return freqs.toFloatArray()
@@ -51,7 +50,7 @@ class GhzRootService : RootService() {
                 val load = File("/sys/class/kgsl/kgsl-3d0/gpu_busy_percentage").readTextOrZero()
 
                 return floatArrayOf(
-                    curHz / 1_000_000_000f,
+                    curHz / 1_000_000_000f, // Hz -> GHz
                     minHz / 1_000_000_000f,
                     maxHz / 1_000_000_000f,
                     load
@@ -59,19 +58,63 @@ class GhzRootService : RootService() {
             }
 
             override fun getSystemMetrics(): FloatArray {
-                val batRaw = File("/sys/class/power_supply/battery/temp").readTextOrZero()
+                // 1. 电池温度多节点搜索
+                val batPaths = arrayOf(
+                    "/sys/class/power_supply/battery/temp",
+                    "/sys/class/power_supply/bms/temp"
+                )
+                var batRaw = 0f
+                for (path in batPaths) {
+                    val file = File(path)
+                    if (file.exists()) {
+                        batRaw = file.readTextOrZero()
+                        if (batRaw > 0f) break
+                    }
+                }
                 val temp = when {
                     batRaw > 1000f -> batRaw / 1000f
                     batRaw > 100f -> batRaw / 10f
                     else -> batRaw
                 }
 
-                val fps = File("/sys/class/drm/card0-DSI-1/fps").readTextOrZero()
+                val fpsPaths = arrayOf(
+                    "/sys/class/drm/sde-crtc-0/measured_fps",
+                    "/sys/class/mi_display/disp-DSI-0/fps",
+                    "/sys/class/graphics/fb0/measured_fps",
+                    "/sys/class/drm/card0-DSI-1/fps"
+                )
+                var fps = 0f
+                for (path in fpsPaths) {
+                    val file = File(path)
+                    if (file.exists()) {
+                        val value = file.readTextOrZero()
+                        if (value > 0f) {
+                            fps = value
+                            break
+                        }
+                    }
+                }
 
-                val modeStr = try {
-                    File("/sys/class/drm/card0-DSI-1/mode").readText().trim()
-                } catch (e: Exception) { "" }
-                val hz = modeStr.substringAfter("@", "60").replace("Hz", "").toFloatOrNull() ?: 60f
+                val hzPaths = arrayOf(
+                    "/sys/class/drm/sde-crtc-0/fps",
+                    "/sys/class/mi_display/disp-DSI-0/disp_param",
+                    "/sys/class/drm/card0-DSI-1/mode"
+                )
+                var hz = 0f
+                for (path in hzPaths) {
+                    val file = File(path)
+                    if (file.exists()) {
+                        val text = try { file.readText().trim() } catch (e: Exception) { "" }
+                        val parsedHz = text.substringAfter("@", "")
+                            .substringBefore("Hz")
+                            .substringBefore(" ")
+                            .toFloatOrNull() ?: text.toFloatOrNull()
+                        if (parsedHz != null && parsedHz > 0f) {
+                            hz = parsedHz
+                            break
+                        }
+                    }
+                }
 
                 return floatArrayOf(temp, fps, hz)
             }
