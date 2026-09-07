@@ -230,6 +230,30 @@ private fun HistoryGraphView(history: HistoryRecording) {
             unit = "FPS"
         )
 
+        // RAM 趋势图
+        val ramTotal = samples.lastOrNull()?.ramTotalGb ?: 1f
+        HistoryChartCard(
+            title = "RAM 可用内存 (GB)",
+            limitText = String.format(Locale.US, "RAM 总量: %.3f GB", ramTotal),
+            data = samples.map { it.ramAvailGb },
+            maxVal = ramTotal,
+            lineColor = Color(0xFF2196F3),
+            unit = "GB",
+            valueFormat = "%.3f"
+        )
+
+        // ZRAM 趋势图
+        val zramTotal = samples.lastOrNull()?.zramTotalGb ?: 1f
+        HistoryChartCard(
+            title = "ZRAM 可用内存 (GB)",
+            limitText = String.format(Locale.US, "ZRAM 总量: %.3f GB", zramTotal),
+            data = samples.map { it.zramAvailGb },
+            maxVal = zramTotal,
+            lineColor = Color(0xFF00BCD4),
+            unit = "GB",
+            valueFormat = "%.3f"
+        )
+
         // 3. 电池温度趋势图
         HistoryChartCard(
             title = "电池温度 (°C)",

@@ -129,6 +129,15 @@ fun CompletePerformanceMonitorBottomSheet(
             // 1. 全局系统指标卡片 (FPS / 刷新率 / 电池温度)
             SystemSummaryCard(state = uiState)
 
+            MemoryStatusCard(
+                ramTotalGb = uiState.ramTotalGb,
+                ramAvailGb = uiState.ramAvailGb,
+                ramHistory = uiState.ramAvailHistory,
+                zramTotalGb = uiState.zramTotalGb,
+                zramAvailGb = uiState.zramAvailGb,
+                zramHistory = uiState.zramAvailHistory
+            )
+
             BatteryStatusCard(
                 batteryLevel = uiState.batteryLevel,
                 batteryTemp = uiState.batteryTemp,
@@ -163,6 +172,92 @@ fun CompletePerformanceMonitorBottomSheet(
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+fun MemoryStatusCard(
+    ramTotalGb: Float,
+    ramAvailGb: Float,
+    ramHistory: List<Float>,
+    zramTotalGb: Float,
+    zramAvailGb: Float,
+    zramHistory: List<Float>
+) {
+    val ramUsedGb = (ramTotalGb - ramAvailGb).coerceAtLeast(0f)
+    val zramUsedGb = (zramTotalGb - zramAvailGb).coerceAtLeast(0f)
+    val ramUsedPercent = if (ramTotalGb > 0) (ramUsedGb / ramTotalGb) * 100f else 0f
+    val zramUsedPercent = if (zramTotalGb > 0) (zramUsedGb / zramTotalGb) * 100f else 0f
+
+    Card(
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
+        shape = RoundedCornerShape(12.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier.padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            // RAM 物理内存
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text("RAM 物理内存", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    Text(
+                        text = String.format(Locale.US, "已用: %.3f GB / 总量: %.3f GB (可用: %.3f GB)", ramUsedGb, ramTotalGb, ramAvailGb),
+                        fontSize = 10.sp,
+                        color = Color.Gray
+                    )
+                }
+                Text(
+                    text = String.format(Locale.US, "%.1f%%", ramUsedPercent),
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF2196F3)
+                )
+            }
+            MetricLineChart(
+                data = ramHistory,
+                maxVal = ramTotalGb.coerceAtLeast(1f),
+                lineColor = Color(0xFF2196F3),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(36.dp)
+            )
+
+            // ZRAM 虚拟内存
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text("ZRAM 虚拟内存", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    Text(
+                        text = String.format(Locale.US, "已用: %.3f GB / 总量: %.3f GB (可用: %.3f GB)", zramUsedGb, zramTotalGb, zramAvailGb),
+                        fontSize = 10.sp,
+                        color = Color.Gray
+                    )
+                }
+                Text(
+                    text = String.format(Locale.US, "%.1f%%", zramUsedPercent),
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF00BCD4)
+                )
+            }
+            MetricLineChart(
+                data = zramHistory,
+                maxVal = zramTotalGb.coerceAtLeast(1f),
+                lineColor = Color(0xFF00BCD4),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(36.dp)
+            )
         }
     }
 }

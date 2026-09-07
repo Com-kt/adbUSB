@@ -55,8 +55,12 @@ data class PerformanceSample(
     val fps: Float = 0f,
     val refreshRate: Float = 0f,
     val batteryTemp: Float = 0f,
-    val batteryLevel: Int = 0,          // 电池电量百分比 (%)
-    val batteryCurrentMa: Float = 0f,   // 实时放电电流 (mA)
+    val batteryLevel: Int = 0,
+    val batteryCurrentMa: Float = 0f,
+    val ramTotalGb: Float = 0f,     // RAM 总量 (GB)
+    val ramAvailGb: Float = 0f,     // RAM 可用量 (GB)
+    val zramTotalGb: Float = 0f,    // ZRAM 总量 (GB)
+    val zramAvailGb: Float = 0f,    // ZRAM 可用量 (GB)
     val gpuFreqGhz: Float = 0f,
     val gpuLoadPercent: Float = 0f,
     val gpuMinFreqGhz: Float = 0f,
@@ -71,9 +75,18 @@ data class PerformanceUiState(
     val renderFps: Float = 0f,
     val refreshRateHz: Float = 0f,
     val batteryTemp: Float = 0f,
-    val batteryLevel: Int = 0,          // 电池电量 %
-    val batteryCurrentMa: Float = 0f,   // 实时放电电流 mA
-    val batteryCurrentHistory: List<Float> = emptyList(), // 功耗/电流变化轨迹
+    val batteryLevel: Int = 0,
+    val batteryCurrentMa: Float = 0f,
+    val batteryCurrentHistory: List<Float> = emptyList(),
+    
+    // RAM & ZRAM 状态
+    val ramTotalGb: Float = 0f,
+    val ramAvailGb: Float = 0f,
+    val ramAvailHistory: List<Float> = emptyList(),
+    val zramTotalGb: Float = 0f,
+    val zramAvailGb: Float = 0f,
+    val zramAvailHistory: List<Float> = emptyList(),
+
     val fpsHistory: List<Float> = emptyList(),
     val gpuMetric: GpuMetric = GpuMetric(),
     val cpuCores: List<CpuCoreMetric> = emptyList(),
@@ -112,6 +125,9 @@ class PerformanceViewModel : ViewModel() {
     
     private var batteryManager: android.os.BatteryManager? = null
     private val batteryCurrentHistory = ArrayDeque<Float>()
+    
+    private val ramAvailHistory = ArrayDeque<Float>()
+    private val zramAvailHistory = ArrayDeque<Float>()
 
     private val frameCallback = object : Choreographer.FrameCallback {
         override fun doFrame(frameTimeNanos: Long) {
@@ -166,6 +182,55 @@ class PerformanceViewModel : ViewModel() {
         val currentUa = bm.getIntProperty(android.os.BatteryManager.BATTERY_PROPERTY_CURRENT_NOW)
         val currentMa = kotlin.math.abs(currentUa) / 1000f
         return Pair(level, currentMa)
+    }
+
+    private data class MemoryStats(
+        val ramTotalGb: Float,
+        val ramAvailGb: Float,
+        val ramUsedGb: Float,
+        val zramTotalGb: Float,
+        val zramAvailGb: Float,
+        val zramUsedGb: Float
+    )
+
+    private fun getMemoryStats(): MemoryStats {
+        var memTotalKb = 0L
+        var memAvailKb = 0L
+        var swapTotalKb = 0L
+        var swapFreeKb = 0L
+
+        try {
+            File("/proc/meminfo").forEachLine { line ->
+                val parts = line.split("\\s+".toRegex())
+                if (parts.size >= 2) {
+                    when (parts[0]) {
+                        "MemTotal:" -> memTotalKb = parts[1].toLongOrNull() ?: 0L
+                        "MemAvailable:" -> memAvailKb = parts[1].toLongOrNull() ?: 0L
+                        "SwapTotal:" -> swapTotalKb = parts[1].toLongOrNull() ?: 0L
+                        "SwapFree:" -> swapFreeKb = parts[1].toLongOrNull() ?: 0L
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+
+        val ramTotal = memTotalKb / (1024f * 1024f)
+        val ramAvail = memAvailKb / (1024f * 1024f)
+        val ramUsed = (ramTotal - ramAvail).coerceAtLeast(0f)
+
+        val zramTotal = swapTotalKb / (1024f * 1024f)
+        val zramAvail = swapFreeKb / (1024f * 1024f)
+        val zramUsed = (zramTotal - zramAvail).coerceAtLeast(0f)
+
+        return MemoryStats(
+            ramTotalGb = ramTotal,
+            ramAvailGb = ramAvail,
+            ramUsedGb = ramUsed,
+            zramTotalGb = zramTotal,
+            zramAvailGb = zramAvail,
+            zramUsedGb = zramUsed
+        )
     }
 
     private fun updateDisplayCapabilities() {
@@ -264,6 +329,7 @@ class PerformanceViewModel : ViewModel() {
                     val sysData = binder.systemMetrics
                     val temp = sysData[0]
                     val (batLevel, batCurrentMa) = getBatteryStats()
+                    val memStats = getMemoryStats()
 
                     pushHistory(batteryCurrentHistory, batCurrentMa)
 
@@ -272,6 +338,8 @@ class PerformanceViewModel : ViewModel() {
                     val realFps = currentCalculatedFps.coerceAtMost(activeHz)
 
                     pushHistory(fpsHistory, realFps)
+                    pushHistory(ramAvailHistory, memStats.ramAvailGb)
+                    pushHistory(zramAvailHistory, memStats.zramAvailGb)
 
                     val isRecordingActive = _uiState.value.isRecording
                     var durationSec = 0
@@ -291,6 +359,10 @@ class PerformanceViewModel : ViewModel() {
                                     batteryTemp = temp,
                                     batteryLevel = batLevel,
                                     batteryCurrentMa = batCurrentMa,
+                                    ramTotalGb = memStats.ramTotalGb,
+                                    ramAvailGb = memStats.ramAvailGb,
+                                    zramTotalGb = memStats.zramTotalGb,
+                                    zramAvailGb = memStats.zramAvailGb,
                                     gpuFreqGhz = gpuData[0],
                                     gpuLoadPercent = gpuData[3],
                                     gpuMinFreqGhz = gpuData[1],
@@ -314,6 +386,12 @@ class PerformanceViewModel : ViewModel() {
                             fpsHistory = fpsHistory.toList(),
                             gpuMetric = gpuMetric,
                             cpuCores = cpuMetrics,
+                            ramTotalGb = memStats.ramTotalGb,
+                            ramAvailGb = memStats.ramAvailGb,
+                            ramAvailHistory = ramAvailHistory.toList(),
+                            zramTotalGb = memStats.zramTotalGb,
+                            zramAvailGb = memStats.zramAvailGb,
+                            zramAvailHistory = zramAvailHistory.toList(),
                             recordedDurationSeconds = if (isRecordingActive) durationSec else 0
                         )
                     }
@@ -333,7 +411,7 @@ class PerformanceViewModel : ViewModel() {
         val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
         val sb = StringBuilder()
 
-        sb.append("Time,Timestamp(ms),FPS,RefreshRate(Hz),BatteryTemp(°C),BatteryLevel(%),BatteryCurrent(mA),GPU_Freq(GHz),GPU_Load(%),GPU_Min(GHz),GPU_Max(GHz)")
+        sb.append("Time,Timestamp(ms),FPS,RefreshRate(Hz),BatteryTemp(°C),BatteryLevel(%),BatteryCurrent(mA),RAM_Avail(GB),RAM_Total(GB),ZRAM_Avail(GB),ZRAM_Total(GB),GPU_Freq(GHz),GPU_Load(%),GPU_Min(GHz),GPU_Max(GHz)")
     
         val maxCpuCount = samples.maxOfOrNull { it.cpuFreqsGhz.size } ?: 0
         for (i in 0 until maxCpuCount) {
@@ -343,9 +421,10 @@ class PerformanceViewModel : ViewModel() {
 
         for (sample in samples) {
             val timeStr = dateFormat.format(Date(sample.timestampMs))
-            sb.append(String.format(Locale.US, "%s,%d,%.2f,%.2f,%.1f,%d,%.1f,%.3f,%.1f,%.3f,%.3f",
+            sb.append(String.format(Locale.US, "%s,%d,%.2f,%.2f,%.1f,%d,%.1f,%.2f,%.2f,%.2f,%.2f,%.3f,%.1f,%.3f,%.3f",
                 timeStr, sample.timestampMs, sample.fps, sample.refreshRate,
                 sample.batteryTemp, sample.batteryLevel, sample.batteryCurrentMa,
+                sample.ramAvailGb, sample.ramTotalGb, sample.zramAvailGb, sample.zramTotalGb,
                 sample.gpuFreqGhz, sample.gpuLoadPercent,
                 sample.gpuMinFreqGhz, sample.gpuMaxFreqGhz
             ))
@@ -469,22 +548,26 @@ class PerformanceViewModel : ViewModel() {
                 if (line.isEmpty()) continue
                 val tokens = line.split(",")
 
-                if (tokens.size >= 11) {
+                if (tokens.size >= 15) {
                     val timestampMs = tokens[1].toLongOrNull() ?: 0L
                     val fps = tokens[2].toFloatOrNull() ?: 0f
                     val refreshRate = tokens[3].toFloatOrNull() ?: 60f
                     val batteryTemp = tokens[4].toFloatOrNull() ?: 0f
                     val batteryLevel = tokens[5].toIntOrNull() ?: 0
                     val batteryCurrentMa = tokens[6].toFloatOrNull() ?: 0f
-                    val gpuFreqGhz = tokens[7].toFloatOrNull() ?: 0f
-                    val gpuLoadPercent = tokens[8].toFloatOrNull() ?: 0f
-                    val gpuMinFreqGhz = tokens[9].toFloatOrNull() ?: 0f
-                    val gpuMaxFreqGhz = tokens[10].toFloatOrNull() ?: 0f
+                    val ramAvailGb = tokens[7].toFloatOrNull() ?: 0f
+                    val ramTotalGb = tokens[8].toFloatOrNull() ?: 0f
+                    val zramAvailGb = tokens[9].toFloatOrNull() ?: 0f
+                    val zramTotalGb = tokens[10].toFloatOrNull() ?: 0f
+                    val gpuFreqGhz = tokens[11].toFloatOrNull() ?: 0f
+                    val gpuLoadPercent = tokens[12].toFloatOrNull() ?: 0f
+                    val gpuMinFreqGhz = tokens[13].toFloatOrNull() ?: 0f
+                    val gpuMaxFreqGhz = tokens[14].toFloatOrNull() ?: 0f
 
                     val cpuFreqs = mutableListOf<Float>()
                     val cpuHwLimits = mutableListOf<Pair<Float, Float>>()
 
-                    var idx = 11
+                    var idx = 15
                     while (idx + 2 < tokens.size) {
                         val cur = tokens[idx].toFloatOrNull() ?: 0f
                         val min = tokens[idx + 1].toFloatOrNull() ?: 0f
@@ -503,6 +586,10 @@ class PerformanceViewModel : ViewModel() {
                             batteryTemp = batteryTemp,
                             batteryLevel = batteryLevel,
                             batteryCurrentMa = batteryCurrentMa,
+                            ramAvailGb = ramAvailGb,
+                            ramTotalGb = ramTotalGb,
+                            zramAvailGb = zramAvailGb,
+                            zramTotalGb = zramTotalGb,
                             gpuFreqGhz = gpuFreqGhz,
                             gpuLoadPercent = gpuLoadPercent,
                             gpuMinFreqGhz = gpuMinFreqGhz,
